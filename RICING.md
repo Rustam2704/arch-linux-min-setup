@@ -35,6 +35,7 @@ It deliberately does **not** use `xfce4-session`: no session save/restore fighti
 | `Mod+s` / `Mod+w` / `Mod+g` | stacking / tabbed / toggle split |
 | `Mod+Shift+space` | float this window |
 | `Mod+r` | resize mode (hjkl or arrows, Esc to exit) |
+| `Mod+minus` / `Mod+Shift+minus` | "minimize" to the scratchpad / bring it back |
 | `Mod+1…0` | workspace; `Mod+Shift+1…0` moves the window there |
 | `Mod+Shift+c` / `Mod+Shift+r` | reload / restart i3 |
 | `Mod+Shift+e` | power menu: shut down / reboot / suspend / log out (same as the ⏻ panel button) |

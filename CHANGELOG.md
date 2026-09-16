@@ -243,3 +243,12 @@ Full detail, keybindings and rollback: **`RICING.md`**.
 - **rofi stacking, root cause found** (14:00): recorded real swipes. The touchegg client (parent of every rofi) **kills the process it spawned at gesture boundaries**, so each new swipe killed the open rofi before `rofi-toggle` ran — it always saw nothing open and opened another. Fixed by launching rofi detached with `setsid -f`. Confirmed by the user with real swipes. The debounce/lock from the earlier fix stays: the recording showed single swipes still firing 3–4 triggers within ~50ms.
 - **Shutdown button** (13:15): the panel's Actions button needs `xfce4-session`, which the i3 session doesn't run, so it fell back to plain `shutdown` — which **schedules** a power-off one minute later instead of acting. That's why it "didn't work" and the machine then turned off on its own at 13:10. Cancelled the pending one from 13:14 (`shutdown -c`).
   Replaced it with `~/.local/bin/power-menu` (rofi: Shut down / Reboot / Suspend / Log out → `systemctl poweroff|reboot|suspend`, `i3-msg exit`, all immediate). Panel: Actions plugin removed, launcher with the power icon in its place. `Mod+Shift+e` opens the same menu (it had the same bug via `xfce4-session-logout`). rofi is now 100% opaque in picom — the 94% let text behind it show through.
+
+## Slow app startup / Zoom (14:45)
+Diagnosed from logs, not guessed:
+- **Telegram "1 minute"**: its own log shows the window ready 12s after launch (14:38:25 → 14:38:37); the rest was the first login (`SESSION_PASSWORD_NEEDED` at 14:40:07, 2FA) and initial chat sync. The 12s cold start overlapped Zoom starting 5 Chromium webview processes on this 2-core CPU.
+- **Wi-Fi came up 24s after login** because `Sharikava` was a new network picked by hand in the applet (`op="connection-add-activate"`, uid 1000). Saved with autoconnect, so not a recurring delay.
+- Ruled out: no autostart entries, portals start in ~1s with DISPLAY present, no thermal throttling (0 events, 74°C), 4.5 GB RAM free.
+- **Zoom** is the heavy one: ~2 GB RAM across 6 processes, ~20% CPU when idle.
+- **Zoom "not minimizable / living its own life"** was my i3 rule floating *every* Zoom window over the tiled ones. Now the main and meeting windows tile; only notifications, dialogs and small popups (Settings, Participants, Chat) float.
+- i3 has no minimize. Added the i3 equivalent: **`Mod+minus` hides the focused window to the scratchpad, `Mod+Shift+minus` brings it back.**
