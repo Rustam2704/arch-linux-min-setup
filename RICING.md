@@ -44,7 +44,7 @@ It deliberately does **not** use `xfce4-session`: no session save/restore fighti
 ## Look
 - **Background `#000000`**, accent **`#0d8ecb`** (your sky-blue, darker and more saturated) everywhere: i3 borders, GTK selection, rofi, kitty cursor.
 - **2px borders, 8px gaps, no titlebars.** A single window on a workspace gets no gaps and no border (`smart_gaps`, `hide_edge_borders smart`).
-- **Interface at 1.5×** (`Xft.dpi 144`) — your screen is 2560×1600 on 13", so 96dpi was the reason buttons were hard to hit. Panel is 32px at that scale, icons 20px.
+- **Interface at 1.5×** (`Xft.dpi 144`) — your screen is 2560×1600 on 13", so 96dpi was the reason buttons were hard to hit. Top panel is **44px** with 26px icons and a single-line clock (`Wed 16 Sep   12:38`) — panel height is in raw pixels, so it doesn't follow the DPI setting on its own.
 - Fonts: **Inter** for UI, **JetBrains Mono Nerd Font** for code. Iosevka Nerd is installed too — swap it in kitty with one line if you prefer the narrower one.
 
 ## picom — deliberately conservative for HD 5000
@@ -72,7 +72,19 @@ Also killed a stuck root-owned `xfce4-panel -r` that the theme installer left be
 - To get the session picker back: comment out `autologin-user` in `/etc/lightdm/lightdm.conf`.
 - i3 config syntax check: `i3 -C -c ~/.config/i3/config`
 
-## Not done yet, on purpose
-- **Touch gestures** (`touchegg`) — worth adding now that i3 has workspaces to swipe between.
-- **polybar** — you have a working panel; I'd only replace it if the panel annoys you.
-- **kitty vs xfce4-terminal** — kitty is installed and configured (including `Shift+Enter` for newlines in Claude Code), but xfce4-terminal is still there.
+## Gestures (touchegg)
+| Gesture | Action |
+|---|---|
+| 3 fingers ← / → | next / previous workspace |
+| 3 fingers ↑ | window switcher (rofi) |
+| 3 fingers ↓ | app launcher (rofi) |
+| 4 fingers ↑ | fullscreen toggle |
+
+Daemon: `touchegg.service` (system). Client: started by the session script. Config: `~/.config/touchegg/touchegg.conf`.
+
+## Terminal
+**kitty only** — xfce4-terminal is uninstalled. kitty is the Xfce preferred terminal (`~/.config/xfce4/helpers.rc`), so the dock launcher and `Ctrl+Alt+T` open it too.
+In kitty, **Shift+Enter inserts a newline** in Claude Code instead of sending.
+
+## Not doing, for now
+- **polybar** — your call: keep the Xfce panel.

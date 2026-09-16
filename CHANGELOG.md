@@ -228,3 +228,11 @@ Installed `i3-wm i3lock rofi picom kitty brightnessctl ttf-iosevka-nerd xdotool 
 Session at `/usr/local/bin/xfce-i3-session` + `/usr/share/xsessions/xfce-i3.desktop`; LightDM autologin now points at it.
 Theme rebuilt with accent **`#0d8ecb`**, background **`#000000`**, UI scaled to **1.5×** (`Xft.dpi 144`), panel 32px.
 Full detail, keybindings and rollback: **`RICING.md`**.
+
+## Round 3b — after first login into Xfce + i3 (12:35–12:50)
+- **picom warnings** (the on-screen notice at login): removed the deprecated `glx-no-stencil` option and the deprecated `:32a` type/format specifier in `shadow-exclude`. picom now starts with zero warnings.
+- **Key-grab conflicts** in `~/.xsession-errors`: Xfce's shortcut daemon and i3 were both grabbing the same keys. Removed from Xfce (i3 owns them now): `Print`, `XF86Audio{Raise,Lower}Volume`, `XF86AudioMute`, `XF86AudioMicMute`, `<Super>e`, `<Super>r`, and the dead `<Primary>Escape → xfdesktop --menu` (xfdesktop no longer runs). The PulseAudio panel plugin no longer grabs media keys.
+- **Top panel was still tiny** — its size is raw pixels and ignores DPI. Now 44px, icons 26px, clock single-line `%a %d %b   %H:%M` in Inter Semi-Bold 11.
+- Session script: `sleep 1` after `xfsettingsd` so the panel reads the 1.5× DPI and theme instead of racing it.
+- **xfce4-terminal removed** (`pacman -Rns`, config dir deleted). kitty set as Xfce's preferred terminal.
+- **touchegg** installed (extra), `touchegg.service` enabled, i3 gestures configured, client started from the session script. See `RICING.md`.
