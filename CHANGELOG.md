@@ -238,3 +238,5 @@ Full detail, keybindings and rollback: **`RICING.md`**.
 - **touchegg** installed (extra), `touchegg.service` enabled, i3 gestures configured, client started from the session script. See `RICING.md`.
 - **Gestures fixed** (13:05): 4↓ now exits fullscreen (4↑ = `fullscreen enable`, 4↓ = `fullscreen disable`, instead of a lone toggle).
   rofi stacking fixed with `~/.local/bin/rofi-toggle`: a second rofi used to wait invisibly for the keyboard grab and pop up after the first closed. Now it replaces the open one, and repeating the same gesture closes it. Verified: window → drun leaves exactly one rofi (drun); drun again → none.
+- **rofi stacking, second fix** (13:50): a real swipe fires its command several times in a *staggered* burst, so triggers raced past the open-check and queued rofi instances behind each other. `rofi-toggle` now serializes triggers with `flock`, ignores anything within 600ms of the last accepted trigger (one swipe = one action), and kills queued instances too. Every trigger is logged to `/run/user/1000/rofi-toggle.log`.
+  Simulated: 4 fires over 450ms → 1 rofi; same swipe again → 0; switch mode with a 3-fire burst → 1 rofi of the new mode.
