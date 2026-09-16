@@ -42,6 +42,31 @@ It deliberately does **not** use `xfce4-session`: no session save/restore fighti
 | `Print` | Flameshot |
 | F-row | F1–F12 by default; hold Fn for volume, brightness and keyboard backlight |
 
+
+## Using i3 — the essentials
+**Mod = Super (the ⌘ key).** Windows don't overlap by default: each new window takes a share of the screen.
+
+**Where the next window goes**
+- `Mod+b` → next window opens **beside** the focused one; `Mod+v` → **below** it.
+- `Mod+w` → **tabbed** (one window visible, tabs on top); `Mod+s` → **stacked**; `Mod+g` → back to side-by-side.
+
+**Floating vs tiled**
+- `Mod+Shift+space` — **float / un-float** the focused window. This is the one to use when a window ends up floating.
+- `Mod+space` — switch focus between the floating windows and the tiled ones.
+- `Mod + left-drag` moves a floating window; `Mod + right-drag` resizes it.
+- Dialogs and small popups float by themselves; that's normal.
+
+**Minimize** (i3 has no real minimize, this is its equivalent)
+- `Mod+minus` — hide the window. `Mod+Shift+minus` — bring it back, **tiled** in the layout (repeat to bring back the next hidden one).
+- Caveat: if nothing is hidden, `Mod+Shift+minus` un-floats the focused window instead.
+
+**Moving around**
+- `Mod+arrows` (or `h j k l`) focus; `Mod+Shift+arrows` move the window.
+- `Mod+f` fullscreen. `Mod+r` resize mode → arrows → `Esc`.
+- `Mod+1…0` workspace; `Mod+Shift+1…0` sends the window there. Or swipe 3 fingers ← →.
+
+**Everything else:** `Mod+Return` terminal · `Mod+d` apps · `Mod+Tab` windows · `Mod+q` close · `Mod+Shift+e` power · `Mod+Shift+c` reload config.
+
 ## Look
 - **Background `#000000`**, accent **`#0d8ecb`** (your sky-blue, darker and more saturated) everywhere: i3 borders, GTK selection, rofi, kitty cursor.
 - **2px borders, 8px gaps, no titlebars.** A single window on a workspace gets no gaps and no border (`smart_gaps`, `hide_edge_borders smart`).

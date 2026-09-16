@@ -252,3 +252,11 @@ Diagnosed from logs, not guessed:
 - **Zoom** is the heavy one: ~2 GB RAM across 6 processes, ~20% CPU when idle.
 - **Zoom "not minimizable / living its own life"** was my i3 rule floating *every* Zoom window over the tiled ones. Now the main and meeting windows tile; only notifications, dialogs and small popups (Settings, Participants, Chat) float.
 - i3 has no minimize. Added the i3 equivalent: **`Mod+minus` hides the focused window to the scratchpad, `Mod+Shift+minus` brings it back.**
+
+## i3 usage + Zoom memory (15:00)
+- Restored windows now come back **tiled**: `Mod+Shift+minus` = `scratchpad show, floating disable` (scratchpad windows are floating by nature, which is why the terminal came back floating).
+- Added `floating_modifier $mod` (Super + drag moves/resizes floating windows) and `tiling_drag modifier titlebar`. Short i3 guide added to `RICING.md`.
+- **Zoom floating bug, real cause:** every Zoom window is created with the title `zoom` and renames itself later, so the popup rule `title="^(zoom|…)$"` floated the main window at creation. Removed `zoom` from that rule.
+- **Zoom memory: 2550 MB → 727 MB** with `disableCef=true` in `~/.config/zoomus.conf` (turns off Zoom's embedded Chromium; 13 processes → 2). Verified: Home with the next meeting's Start button and meeting ID, and Chat, still work. **Lost: the Calendar, Canvas and Hub tabs.** Undo: set `disableCef=false` while Zoom is closed.
+- Tried and **had no effect**: `cefInstanceCountLimit=1` (memory unchanged) and `useSystemTheme=true` + GNOME `color-scheme prefer-dark` (Zoom stays light). Zoom for Linux has no dark mode.
+- `enableMiniWindow=false`: no floating mini meeting window when Zoom loses focus.
