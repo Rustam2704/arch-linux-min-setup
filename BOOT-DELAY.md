@@ -81,3 +81,27 @@ Do **A + B together** (add the Arch entry, delete the three dead Mac OS X entrie
 - [Arch forums: MacBook Pro waits 30 seconds white screen before GRUB](https://bbs.archlinux.org/viewtopic.php?id=138915) — the fallback `\EFI\BOOT\BOOTX64.EFI` path behavior
 - [rEFInd documentation: Mac boot delays](https://www.rodsbooks.com/refind/installing.html) — blessing, `--shortform`, ESP vs HFS+, "true causes remain mysterious"
 - [joevt: macOS nvram boot variables and EFI device paths](https://gist.github.com/joevt/477fe842d16095c2bfd839e2ab4794ff) — `efi-boot-device` XML/`-data` format
+
+---
+
+## Applied 2026-09-16 03:50 — options A + B, plus the Apple variables
+
+```bash
+sudo efibootmgr -v > logs/efi-before.txt                 # before-state saved
+sudo efibootmgr -c -d /dev/sda -p 1 -l '\EFI\systemd\systemd-bootx64.efi' -L "Arch Linux"
+sudo efibootmgr -b 0080 -B; sudo efibootmgr -b 0081 -B; sudo efibootmgr -b 0082 -B
+sudo efibootmgr -b FFFF -B                               # also dead — same wiped volume
+# Apple's own startup-disk variables, backed up to /root/nvram-*.bak then removed:
+#   efi-boot-device, efi-boot-device-data, efi-backup-boot-device-data-data
+```
+
+Resulting state — one entry, pointing straight at systemd-boot:
+```
+BootOrder: 0000
+Boot0000* Arch Linux  HD(1,GPT,6b613f39-…,0x800,0x200000)/\EFI\systemd\systemd-bootx64.efi
+```
+No NVRAM variable anywhere still references the deleted macOS volume.
+
+**Recovery**, if the firmware ever fails to find a boot device: hold **Option** at power-on and pick "EFI Boot" (the fallback `\EFI\BOOT\BOOTX64.EFI` is untouched), or reset NVRAM with ⌘⌥P+R. The removed variables can be restored from `/root/nvram-*.bak`.
+
+**Result: pending a cold boot.** Firmware time before this change: 30.498s.
