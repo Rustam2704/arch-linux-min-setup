@@ -279,3 +279,9 @@ Diagnosed from logs, not guessed:
 - `~/.config/picom/shaders/smart-invert.glsl`: invert + hue-rotate(180°), so white becomes black while blues/reds stay themselves. Verified on a nested display with a white test window.
 - Rule in `picom.conf` applies it to Zoom's main window (`name ^= 'Zoom Workplace'`) and Settings, **never** the meeting window. Config parse-checked on a throwaway display.
 - Waiting for the Zoom meeting to end before: restarting picom (dark mode), restarting Zoom with `disableCef=false` (Calendar back), restarting pipewire-pulse (mic auto-gain block).
+
+## After the meeting (17:25)
+- **Resize mode removed entirely** (user: too many ways, wastes hotkeys). Deleted the `mode "resize"` block, the `Super+R` binding, `~/.local/bin/i3-mode-hint`, and the cheat-sheet lines. Resizing is now Super+right-drag and Super+Ctrl+arrows/hjkl only. `Super+R` is free.
+- **Mic auto-gain block active**: restarted `pipewire-pulse`. Verified: `pactl set-source-volume 30%` → `Access denied`, level unchanged at 0.55.
+- **Zoom dark mode active**: restarted picom with the shader rule; confirmed on screen (black background, orange/blue buttons keep their colour). Telegram also switched to dark from the `prefer-dark` setting.
+- `disableCef` left at `true` for now, pending the calendar decision (see chat): an external calendar would make Zoom's own Calendar tab — and its ~1.8 GB of Chromium — unnecessary.

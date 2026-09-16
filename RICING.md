@@ -57,9 +57,6 @@ Super + left-drag                     move a window (tiled: drop it elsewhere)
 Super + right-drag  (inside window)   the nearest edge follows the mouse
 Super + Ctrl + ← →                    narrower / wider
 Super + Ctrl + ↑ ↓                    shorter / taller
-Super + R                             resize MODE (notification shows it's on)
-   in mode:  ← ↓ ↑ →  or  h j k l      resize in small steps
-   in mode:  Esc  or  Super + R        leave  (Enter does NOT leave)
 ━━ FLOATING / MINIMIZE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Super + Shift + Space                 float  <->  tile
 Super + Space                         focus: floating windows <-> tiled
