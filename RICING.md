@@ -39,7 +39,7 @@ It deliberately does **not** use `xfce4-session`: no session save/restore fighti
 | `Mod+Shift+c` / `Mod+Shift+r` | reload / restart i3 |
 | `Mod+Shift+e` | log out |
 | `Print` | Flameshot |
-| F-row | volume, brightness, keyboard backlight (media keys are the default; hold Fn for F1–F12) |
+| F-row | F1–F12 by default; hold Fn for volume, brightness and keyboard backlight |
 
 ## Look
 - **Background `#000000`**, accent **`#0d8ecb`** (your sky-blue, darker and more saturated) everywhere: i3 borders, GTK selection, rofi, kitty cursor.
