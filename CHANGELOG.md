@@ -260,3 +260,9 @@ Diagnosed from logs, not guessed:
 - **Zoom memory: 2550 MB → 727 MB** with `disableCef=true` in `~/.config/zoomus.conf` (turns off Zoom's embedded Chromium; 13 processes → 2). Verified: Home with the next meeting's Start button and meeting ID, and Chat, still work. **Lost: the Calendar, Canvas and Hub tabs.** Undo: set `disableCef=false` while Zoom is closed.
 - Tried and **had no effect**: `cefInstanceCountLimit=1` (memory unchanged) and `useSystemTheme=true` + GNOME `color-scheme prefer-dark` (Zoom stays light). Zoom for Linux has no dark mode.
 - `enableMiniWindow=false`: no floating mini meeting window when Zoom loses focus.
+
+## RustDesk + mic auto-gain (15:10)
+- **RustDesk** installed: `yay -S rustdesk-bin` (1.4.9, official prebuilt binary). `rustdesk.service` left **disabled** — only needed for unattended incoming access (`sudo systemctl enable --now rustdesk.service`).
+- **Mic level changing by itself**: Zoom was the app holding the mic (`ZOOM VoiceEngine`), and Zoom, browsers and Electron apps all run automatic gain control.
+  Added `~/.config/pipewire/pipewire-pulse.conf.d/10-no-mic-autogain.conf`: the `block-source-volume` quirk for every client **except** pavucontrol and the Xfce panel volume plugin (`wrapper-2.0`), so hand adjustments still work; wpctl (media keys) uses the native API and is unaffected. Parse verified with `pw-config merge`.
+  **Not active yet** — needs `systemctl --user restart pipewire-pulse`, deferred because a Zoom meeting was in progress (a restart would drop call audio).
