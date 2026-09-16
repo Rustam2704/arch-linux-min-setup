@@ -104,4 +104,13 @@ No NVRAM variable anywhere still references the deleted macOS volume.
 
 **Recovery**, if the firmware ever fails to find a boot device: hold **Option** at power-on and pick "EFI Boot" (the fallback `\EFI\BOOT\BOOTX64.EFI` is untouched), or reset NVRAM with ⌘⌥P+R. The removed variables can be restored from `/root/nvram-*.bak`.
 
-**Result: pending a cold boot.** Firmware time before this change: 30.498s.
+## Result — measured on the next cold boot
+
+```
+before:  30.498s (firmware) + 2.162s (loader) + 2.480s (kernel) + 3.312s (userspace) = 38.453s
+after:    3.373s (firmware) + 0.214s (loader) + 2.428s (kernel) + 3.294s (userspace) =  9.311s
+```
+
+**Firmware: 30.5s → 3.4s.** The stale NVRAM pointers were the entire delay — the firmware was waiting on a macOS volume that had been wiped. The loader also dropped from 2.2s to 0.2s thanks to `timeout 0` in `loader.conf`.
+
+Total boot is now **9.3 seconds**, of which Linux is 5.7s. Options C, D and E were never needed.

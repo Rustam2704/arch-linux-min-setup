@@ -182,3 +182,14 @@ Value is now `0x00` (silent). Restore with `sudo chattr -i $V && sudo cp /root/S
 
 ## Also installed
 - `efibootmgr` — read-only, used to diagnose the firmware boot delay (see `BOOT-DELAY.md`).
+
+## Boot delay — result (2026-09-16 04:03)
+`38.453s → 9.311s` total; firmware alone `30.498s → 3.373s`. See `BOOT-DELAY.md`.
+
+## Verified after this reboot
+- Autologin: straight into Xfce, no login screen.
+- Startup chime: silent (`SystemAudioVolume` = 0x00).
+- Keyboard driver: `swap_fn_leftctrl=1`, `fnmode=2` active.
+- Wi-Fi: connected automatically as `wlp3s0` → `NOKIA-062A-5G`.
+  NetworkManager had **re-created** the duplicate profile at 03:42 (new UUID) after the earlier delete, because the old connection was still active in memory at the time. Deleted again; only one profile remains.
+- NVRAM: only `Boot0000* Arch Linux`; the firmware did not recreate the macOS entries.
