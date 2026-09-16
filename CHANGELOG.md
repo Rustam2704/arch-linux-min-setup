@@ -193,3 +193,12 @@ Value is now `0x00` (silent). Restore with `sudo chattr -i $V && sudo cp /root/S
 - Wi-Fi: connected automatically as `wlp3s0` → `NOKIA-062A-5G`.
   NetworkManager had **re-created** the duplicate profile at 03:42 (new UUID) after the earlier delete, because the old connection was still active in memory at the time. Deleted again; only one profile remains.
 - NVRAM: only `Boot0000* Arch Linux`; the firmware did not recreate the macOS entries.
+
+## Startup trim (2026-09-16 04:15)
+- `NetworkManager-wait-online.service` **disabled** — nothing on this system waits for `network-online.target`.
+- `cronie`: **masked, not removed.** Removing it broke Timeshift entirely — Timeshift calls `crontab` at startup and exits with
+  `Failed to execute child process "crontab"` if it is missing, so it is a hard runtime requirement, not just for scheduling.
+  Reinstalled and masked (`systemctl mask cronie.service`), so the package is present but the service can never start.
+  To undo: `sudo systemctl unmask cronie.service`.
+- Everything else on the startup path was left alone deliberately — the remaining savings (0.5–1.5s) would cost battery life
+  (tlp), the login session picker (lightdm), or logs after a crash (volatile journald).
