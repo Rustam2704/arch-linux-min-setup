@@ -236,3 +236,5 @@ Full detail, keybindings and rollback: **`RICING.md`**.
 - Session script: `sleep 1` after `xfsettingsd` so the panel reads the 1.5× DPI and theme instead of racing it.
 - **xfce4-terminal removed** (`pacman -Rns`, config dir deleted). kitty set as Xfce's preferred terminal.
 - **touchegg** installed (extra), `touchegg.service` enabled, i3 gestures configured, client started from the session script. See `RICING.md`.
+- **Gestures fixed** (13:05): 4↓ now exits fullscreen (4↑ = `fullscreen enable`, 4↓ = `fullscreen disable`, instead of a lone toggle).
+  rofi stacking fixed with `~/.local/bin/rofi-toggle`: a second rofi used to wait invisibly for the keyboard grab and pop up after the first closed. Now it replaces the open one, and repeating the same gesture closes it. Verified: window → drun leaves exactly one rofi (drun); drun again → none.

@@ -76,9 +76,12 @@ Also killed a stuck root-owned `xfce4-panel -r` that the theme installer left be
 | Gesture | Action |
 |---|---|
 | 3 fingers ← / → | next / previous workspace |
-| 3 fingers ↑ | window switcher (rofi) |
-| 3 fingers ↓ | app launcher (rofi) |
-| 4 fingers ↑ | fullscreen toggle |
+| 3 fingers ↑ | window switcher (rofi) — swipe ↑ again to close |
+| 3 fingers ↓ | app launcher (rofi) — swipe ↓ again to close |
+| 4 fingers ↑ | fullscreen on |
+| 4 fingers ↓ | fullscreen off (back to the tiled layout) |
+
+Only one rofi exists at a time: `~/.local/bin/rofi-toggle <mode>` closes an open rofi of the same mode, or replaces one of a different mode. `Mod+d`, `Mod+Shift+d` and `Mod+Tab` go through the same wrapper, so keys and gestures behave identically.
 
 Daemon: `touchegg.service` (system). Client: started by the session script. Config: `~/.config/touchegg/touchegg.conf`.
 
