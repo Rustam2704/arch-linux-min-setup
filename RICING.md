@@ -37,7 +37,7 @@ It deliberately does **not** use `xfce4-session`: no session save/restore fighti
 | `Mod+r` | resize mode (hjkl or arrows, Esc to exit) |
 | `Mod+1…0` | workspace; `Mod+Shift+1…0` moves the window there |
 | `Mod+Shift+c` / `Mod+Shift+r` | reload / restart i3 |
-| `Mod+Shift+e` | log out |
+| `Mod+Shift+e` | power menu: shut down / reboot / suspend / log out (same as the ⏻ panel button) |
 | `Print` | Flameshot |
 | F-row | F1–F12 by default; hold Fn for volume, brightness and keyboard backlight |
 
