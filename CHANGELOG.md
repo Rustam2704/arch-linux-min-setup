@@ -202,3 +202,29 @@ Value is now `0x00` (silent). Restore with `sudo chattr -i $V && sudo cp /root/S
   To undo: `sudo systemctl unmask cronie.service`.
 - Everything else on the startup path was left alone deliberately — the remaining savings (0.5–1.5s) would cost battery life
   (tlp), the login session picker (lightdm), or logs after a crash (volatile journald).
+
+---
+
+# Round 3 — 2026-09-16 (04:30–05:15 EEST)
+
+## Sleep and screen
+- Lid was **never suspending**: `xfce4-power-manager` held a `block` inhibitor on `handle-lid-switch` and only blanked the screen.
+  Fixed with `xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/logind-handle-lid-switch -s true`, so systemd-logind
+  (`HandleLidSwitch=suspend`) owns it. Verified in the journal: `PM: suspend entry (deep)` → `PM: suspend exit`.
+- **No password on wake:** `lock-screen-suspend-hibernate=false`, `xfce4-screensaver /lock/enabled=false`, `/saver/enabled=false`.
+- **On AC, lid open: never sleeps**, screen off after 10 min (`inactivity-on-ac=0`, `dpms-on-ac-off=10`, `dpms-on-ac-sleep=0`).
+  On battery: screen off at 5 min, sleep at 20 min. logind `IdleAction` stays `ignore`.
+
+## Touchpad
+- Accidental input was **tap-to-click**, which Xfce enabled although the device default is off. Disabled.
+- `/etc/X11/xorg.conf.d/40-touchpad.conf`: `Tapping off`, `NaturalScrolling true`, `ClickMethod clickfinger`, `DisableWhileTyping true`.
+- This trackpad (`bcm5974`) does not expose libinput's disable-while-typing property, so turning tapping off is the actual fix.
+
+## Function keys
+- `fnmode=2` is `fkeysfirst` — F1–F12 by default, media with Fn. Already correct; my earlier description of it was backwards.
+
+## Desktop: Xfce + i3
+Installed `i3-wm i3lock rofi picom kitty brightnessctl ttf-iosevka-nerd xdotool dex xorg-xsetroot xorg-server-xephyr`.
+Session at `/usr/local/bin/xfce-i3-session` + `/usr/share/xsessions/xfce-i3.desktop`; LightDM autologin now points at it.
+Theme rebuilt with accent **`#0d8ecb`**, background **`#000000`**, UI scaled to **1.5×** (`Xft.dpi 144`), panel 32px.
+Full detail, keybindings and rollback: **`RICING.md`**.

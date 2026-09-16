@@ -1,0 +1,78 @@
+# Desktop: Xfce infrastructure + i3 (2026-09-16)
+
+**Your next login goes straight into the new session** — no chooser, no password. LightDM autologs into `Xfce + i3`.
+The plain **Xfce session is untouched** and still selectable if you ever want it back (see "If something's wrong").
+
+## What runs
+`/usr/local/bin/xfce-i3-session` starts, in this order:
+
+| Piece | Why |
+|---|---|
+| `xrdb ~/.Xresources` | HiDPI: `Xft.dpi 144` (1.5×) and a 36px cursor |
+| `xsetroot -solid '#000000'` | Full black background (no xfdesktop — one less process) |
+| `xfsettingsd` | GTK theme, fonts, **your US/RU/UA layouts and Alt+Shift** |
+| `xfce4-power-manager` | Battery, lid, brightness keys |
+| `xfce4-panel` | Panel, systray, clock, volume, layout indicator |
+| `Thunar --daemon`, `nm-applet` | File manager service, Wi-Fi tray |
+| `picom` | Shadows, fade, light transparency |
+| `dex -a -s ~/.config/autostart` | Your own autostart entries only |
+| `exec i3` | Window manager |
+
+It deliberately does **not** use `xfce4-session`: no session save/restore fighting i3 over window placement, and fewer moving parts.
+
+## Keys (Mod = Super/Cmd)
+| Key | Action |
+|---|---|
+| `Mod+Return` | kitty |
+| `Mod+d` / `Mod+Shift+d` | rofi app launcher / run a command |
+| `Mod+Tab` | rofi window switcher |
+| `Mod+e` | Thunar |
+| `Mod+q` | close window |
+| `Mod+h/j/k/l` or arrows | move focus |
+| `Mod+Shift+` same | move the window |
+| `Mod+b` / `Mod+v` | split horizontal / vertical |
+| `Mod+f` | fullscreen |
+| `Mod+s` / `Mod+w` / `Mod+g` | stacking / tabbed / toggle split |
+| `Mod+Shift+space` | float this window |
+| `Mod+r` | resize mode (hjkl or arrows, Esc to exit) |
+| `Mod+1…0` | workspace; `Mod+Shift+1…0` moves the window there |
+| `Mod+Shift+c` / `Mod+Shift+r` | reload / restart i3 |
+| `Mod+Shift+e` | log out |
+| `Print` | Flameshot |
+| F-row | volume, brightness, keyboard backlight (media keys are the default; hold Fn for F1–F12) |
+
+## Look
+- **Background `#000000`**, accent **`#0d8ecb`** (your sky-blue, darker and more saturated) everywhere: i3 borders, GTK selection, rofi, kitty cursor.
+- **2px borders, 8px gaps, no titlebars.** A single window on a workspace gets no gaps and no border (`smart_gaps`, `hide_edge_borders smart`).
+- **Interface at 1.5×** (`Xft.dpi 144`) — your screen is 2560×1600 on 13", so 96dpi was the reason buttons were hard to hit. Panel is 32px at that scale, icons 20px.
+- Fonts: **Inter** for UI, **JetBrains Mono Nerd Font** for code. Iosevka Nerd is installed too — swap it in kitty with one line if you prefer the narrower one.
+
+## picom — deliberately conservative for HD 5000
+`glx` backend, vsync on, shadows, 60ms fades, 6px rounded corners, kitty at 92%/88% opacity, rofi 94%.
+**No blur** — it's the one effect that would actually hurt on this GPU. Fullscreen windows bypass the compositor entirely (`unredir-if-possible`), so video and games are unaffected.
+
+## Config files
+```
+~/.config/i3/config          ~/.config/picom/picom.conf
+~/.config/rofi/config.rasi   ~/.config/rofi/sky.rasi      ~/.config/kitty/kitty.conf
+~/.Xresources                /usr/local/bin/xfce-i3-session   /usr/share/xsessions/xfce-i3.desktop
+```
+
+## Tested before you saw it
+Ran the whole session in a nested X server (Xephyr) rather than on your live desktop. That caught three things:
+1. **`xsetroot` wasn't installed** — the black background would have silently failed at login. Installed.
+2. **picom was starting twice** (session script *and* i3's `exec`). Removed from i3's config.
+3. **rofi rendered cream-colored rows** — rofi loads its default theme *after* `config.rasi`, so the theme now lives in `sky.rasi` and is pulled in with `@theme`. Verified dark afterwards.
+
+Also killed a stuck root-owned `xfce4-panel -r` that the theme installer left behind.
+
+## If something's wrong at login
+- **Ctrl+Alt+F2** gets you a text console; log in there.
+- To go back to plain Xfce: `sudo sed -i 's/^autologin-session=.*/autologin-session=xfce/' /etc/lightdm/lightdm.conf`
+- To get the session picker back: comment out `autologin-user` in `/etc/lightdm/lightdm.conf`.
+- i3 config syntax check: `i3 -C -c ~/.config/i3/config`
+
+## Not done yet, on purpose
+- **Touch gestures** (`touchegg`) — worth adding now that i3 has workspaces to swipe between.
+- **polybar** — you have a working panel; I'd only replace it if the panel annoys you.
+- **kitty vs xfce4-terminal** — kitty is installed and configured (including `Shift+Enter` for newlines in Claude Code), but xfce4-terminal is still there.
