@@ -43,29 +43,53 @@ It deliberately does **not** use `xfce4-session`: no session save/restore fighti
 | F-row | F1–F12 by default; hold Fn for volume, brightness and keyboard backlight |
 
 
-## Using i3 — the essentials
-**Mod = Super (the ⌘ key).** Windows don't overlap by default: each new window takes a share of the screen.
+## i3 cheat sheet
+**Press `Super + /` any time** for this as a searchable popup (type to filter, Esc closes). Source: `~/.config/i3/cheatsheet.txt`.
 
-**Where the next window goes**
-- `Mod+b` → next window opens **beside** the focused one; `Mod+v` → **below** it.
-- `Mod+w` → **tabbed** (one window visible, tabs on top); `Mod+s` → **stacked**; `Mod+g` → back to side-by-side.
-
-**Floating vs tiled**
-- `Mod+Shift+space` — **float / un-float** the focused window. This is the one to use when a window ends up floating.
-- `Mod+space` — switch focus between the floating windows and the tiled ones.
-- `Mod + left-drag` moves a floating window; `Mod + right-drag` resizes it.
-- Dialogs and small popups float by themselves; that's normal.
-
-**Minimize** (i3 has no real minimize, this is its equivalent)
-- `Mod+minus` — hide the window. `Mod+Shift+minus` — bring it back, **tiled** in the layout (repeat to bring back the next hidden one).
-- Caveat: if nothing is hidden, `Mod+Shift+minus` un-floats the focused window instead.
-
-**Moving around**
-- `Mod+arrows` (or `h j k l`) focus; `Mod+Shift+arrows` move the window.
-- `Mod+f` fullscreen. `Mod+r` resize mode → arrows → `Esc`.
-- `Mod+1…0` workspace; `Mod+Shift+1…0` sends the window there. Or swipe 3 fingers ← →.
-
-**Everything else:** `Mod+Return` terminal · `Mod+d` apps · `Mod+Tab` windows · `Mod+q` close · `Mod+Shift+e` power · `Mod+Shift+c` reload config.
+```
+━━ WINDOWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + ← ↓ ↑ →   (or h j k l)        focus the window in that direction
+Super + Shift + ← ↓ ↑ →               move the window in that direction
+Super + Q                             close window
+Super + F                             fullscreen on / off
+Super + left-drag                     move a window (tiled: drop it elsewhere)
+━━ RESIZE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + right-drag  (inside window)   the nearest edge follows the mouse
+Super + Ctrl + ← →                    narrower / wider
+Super + Ctrl + ↑ ↓                    shorter / taller
+Super + R                             resize MODE (notification shows it's on)
+   in mode:  ← ↓ ↑ →  or  h j k l      resize in small steps
+   in mode:  Esc  or  Super + R        leave  (Enter does NOT leave)
+━━ FLOATING / MINIMIZE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Shift + Space                 float  <->  tile
+Super + Space                         focus: floating windows <-> tiled
+Super + minus                         hide window ("minimize")
+Super + Shift + minus                 bring hidden window back, tiled
+━━ LAYOUT (where the next window opens) ━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + B                             next window opens BESIDE
+Super + V                             next window opens BELOW
+Super + W                             tabbed
+Super + S                             stacked
+Super + G                             back to side-by-side
+Super + A                             select the parent container
+━━ WORKSPACES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + 1 … 0                         go to workspace
+Super + Shift + 1 … 0                 send window to workspace
+3 fingers  ← →                        previous / next workspace
+━━ LAUNCH ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Enter                         terminal (kitty)
+Super + D     /  3 fingers ↓          app launcher
+Super + Tab   /  3 fingers ↑          window switcher
+Super + Shift + D                     run a command
+Super + E                             file manager
+Print                                 screenshot (Flameshot)
+4 fingers ↑ / ↓                       fullscreen on / off
+━━ SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Shift + E                     power menu (shut down, reboot, suspend, log out)
+Super + Shift + C                     reload i3 config
+Super + /                             this cheat sheet
+Alt + Shift                           keyboard layout  US / RU / UA
+```
 
 ## Look
 - **Background `#000000`**, accent **`#0d8ecb`** (your sky-blue, darker and more saturated) everywhere: i3 borders, GTK selection, rofi, kitty cursor.

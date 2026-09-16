@@ -266,3 +266,16 @@ Diagnosed from logs, not guessed:
 - **Mic level changing by itself**: Zoom was the app holding the mic (`ZOOM VoiceEngine`), and Zoom, browsers and Electron apps all run automatic gain control.
   Added `~/.config/pipewire/pipewire-pulse.conf.d/10-no-mic-autogain.conf`: the `block-source-volume` quirk for every client **except** pavucontrol and the Xfce panel volume plugin (`wrapper-2.0`), so hand adjustments still work; wpctl (media keys) uses the native API and is unaffected. Parse verified with `pw-config merge`.
   **Not active yet** — needs `systemctl --user restart pipewire-pulse`, deferred because a Zoom meeting was in progress (a restart would drop call audio).
+
+## i3 resize, mouse, cheat sheet (16:05)
+- **Mouse resizing, measured in a nested i3:** with gaps on, i3 only resizes tiled windows from a 1-3px sliver on the inside edge of the right/lower window (0px gaps: the whole border works). The resize arrow you see is drawn by apps like Firefox and Telegram, and i3 ignores it.
+  New: **Super + right-drag anywhere inside a window**, and the nearest edge follows the mouse (`~/.local/bin/i3-mouse-resize`, reads pointer and button state straight from X via Xlib). Tested: +300px drag → +240px, works from either side, no-op at the screen edge.
+- **kitty had no border at all:** `hide_window_decorations yes` asks i3 for no decorations and i3 honoured it. Now `for_window [class=".*"] border pixel 2` forces the thin accent border on every window.
+- **Resize without a mode:** `Super+Ctrl+arrows` / `Super+Ctrl+hjkl`.
+- **Resize mode made safe:** it now leaves **only** with `Esc` or `Super+R` (Enter removed, so a stray Enter can't be swallowed), and a sticky notification shows while it's active (`~/.local/bin/i3-mode-hint`).
+- **Cheat sheet:** `Super + /` opens a searchable popup (`~/.config/i3/cheatsheet.txt`); every binding in it was cross-checked against the config.
+
+## Zoom dark mode — staged, not active yet
+- `~/.config/picom/shaders/smart-invert.glsl`: invert + hue-rotate(180°), so white becomes black while blues/reds stay themselves. Verified on a nested display with a white test window.
+- Rule in `picom.conf` applies it to Zoom's main window (`name ^= 'Zoom Workplace'`) and Settings, **never** the meeting window. Config parse-checked on a throwaway display.
+- Waiting for the Zoom meeting to end before: restarting picom (dark mode), restarting Zoom with `disableCef=false` (Calendar back), restarting pipewire-pulse (mic auto-gain block).
