@@ -292,3 +292,8 @@ Diagnosed from logs, not guessed:
 - picom: `100:class_g = 'GoogleCalendar'` — without it the window was partly see-through.
 - Full walkthrough: `GOOGLE-CALENDAR.md`.
 - Calendar profile: `dom.disable_open_during_load=false` (popup blocker off) — the Zoom add-on signs in via a popup. Guide updated: Zoom is chosen from the ▾ arrow in the full editor, not the quick box.
+
+## i3-peek (2026-09-17 16:20)
+- **Why Claude couldn't see other workspaces:** i3 unmaps windows on hidden workspaces, so X11 has no pixels for them; screenshots and the compositor can't reach them.
+- `~/.local/bin/i3-peek --class <WM_CLASS> | --workspace <name> [-o file]`: waits until the user has been idle for 1.5s (read via XScreenSaver, no new package), switches to the workspace, captures with ffmpeg `x11grab`, switches back and restores focus to the exact window. Measured: 1.0s total, correct workspace and focus afterwards.
+- Rejected: a Firefox remote-debugging port on the calendar profile (would let any local process drive the logged-in Google session).
