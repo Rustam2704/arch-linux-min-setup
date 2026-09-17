@@ -285,3 +285,9 @@ Diagnosed from logs, not guessed:
 - **Mic auto-gain block active**: restarted `pipewire-pulse`. Verified: `pactl set-source-volume 30%` → `Access denied`, level unchanged at 0.55.
 - **Zoom dark mode active**: restarted picom with the shader rule; confirmed on screen (black background, orange/blue buttons keep their colour). Telegram also switched to dark from the `prefer-dark` setting.
 - `disableCef` left at `true` for now, pending the calendar decision (see chat): an external calendar would make Zoom's own Calendar tab — and its ~1.8 GB of Chromium — unnecessary.
+
+## Google Calendar app (2026-09-17 16:00)
+- Separate Firefox profile at `~/.local/share/google-calendar/profile` as a standalone "app" — no new packages. `user.js`: dark (`prefers-color-scheme` → dark), no welcome/default-browser nags, `fission.autostart=false` + `dom.ipc.processCount=1` (one process), telemetry off. `userChrome.css`: no address/bookmarks bar; tab strip only when a second tab exists.
+- `~/.local/bin/google-calendar` (focus if open, else launch with `--no-remote --class GoogleCalendar`), menu entry, **`Super+C`** in i3 and the cheat sheet. Verified window class `GoogleCalendar`, ~470 MB in 1 process before sign-in.
+- picom: `100:class_g = 'GoogleCalendar'` — without it the window was partly see-through.
+- Full walkthrough: `GOOGLE-CALENDAR.md`.
