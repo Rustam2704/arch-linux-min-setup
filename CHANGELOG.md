@@ -297,3 +297,9 @@ Diagnosed from logs, not guessed:
 - **Why Claude couldn't see other workspaces:** i3 unmaps windows on hidden workspaces, so X11 has no pixels for them; screenshots and the compositor can't reach them.
 - `~/.local/bin/i3-peek --class <WM_CLASS> | --workspace <name> [-o file]`: waits until the user has been idle for 1.5s (read via XScreenSaver, no new package), switches to the workspace, captures with ffmpeg `x11grab`, switches back and restores focus to the exact window. Measured: 1.0s total, correct workspace and focus afterwards.
 - Rejected: a Firefox remote-debugging port on the calendar profile (would let any local process drive the logged-in Google session).
+
+## Zoom option in Google Calendar — fixed by Claude, no user steps (17:10)
+- `i3-peek` moved to **`~/ai/claude/tools/i3-peek`** (symlinked into `~/.local/bin`), extended with `--do "<xdotool args>"` (repeatable), `--settle`, `--no-capture`; restores the pointer position. Saved as the default way to view/operate windows in any project.
+- Diagnosis, all through i3-peek while the user kept working: the full editor showed only "Add Google Meet video conferencing" with no dropdown; the Zoom add-on panel showed it **installed and signed in** (account, personal meeting link, today's meetings). Cause: Calendar loads conferencing providers at page load and the add-on was installed after that.
+- Fix: reload (`F5`). Editor now shows **"Add video conferencing ▾" → Google Meet / Add-ons: Zoom Meeting**. Editor closed without saving; calendar returned to its previous view (sidebar collapsed again after one mis-click toggled it).
+- The Firefox debugging port was not needed and was not opened.

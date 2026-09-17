@@ -74,6 +74,7 @@ After a Zoom meeting, **quit Zoom from its tray icon** — closing the window le
 ---
 
 ## Troubleshooting: Zoom missing from the video-call list
+0. **What actually fixed it here (2026-09-17):** the add-on was installed and signed in, but Calendar only loads its list of video-call providers when the page loads. **Reload Calendar with `F5`** after installing or signing in to an add-on — the button then changes from "Add Google Meet video conferencing" to **"Add video conferencing ▾"**, with **Zoom Meeting** under *Add-ons*.
 1. Use the full editor (More options) and the **▾ arrow**, not the quick box.
 2. Side panel → Zoom icon: if it says **Sign in**, the sign-in didn't complete. The calendar profile allows popups (`dom.disable_open_during_load=false`) because Zoom's sign-in uses one — restart the calendar app (close the window, `Super+C`) after changing profile settings.
 3. After signing in, reload Calendar (`F5`) so the conferencing list refreshes.
