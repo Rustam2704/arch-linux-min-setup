@@ -291,3 +291,4 @@ Diagnosed from logs, not guessed:
 - `~/.local/bin/google-calendar` (focus if open, else launch with `--no-remote --class GoogleCalendar`), menu entry, **`Super+C`** in i3 and the cheat sheet. Verified window class `GoogleCalendar`, ~470 MB in 1 process before sign-in.
 - picom: `100:class_g = 'GoogleCalendar'` — without it the window was partly see-through.
 - Full walkthrough: `GOOGLE-CALENDAR.md`.
+- Calendar profile: `dom.disable_open_during_load=false` (popup blocker off) — the Zoom add-on signs in via a popup. Guide updated: Zoom is chosen from the ▾ arrow in the full editor, not the quick box.

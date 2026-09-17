@@ -35,7 +35,7 @@ Memory: ~470 MB before sign-in, one process (per-site process isolation is off i
 ### Create a meeting
 - Press **`C`**, or **click-drag** on the time grid over the slot you want.
 - In the quick box: title → **More options** for the full editor.
-- **Video call:** the **"Add Google Meet video conferencing"** button has a dropdown arrow → **Zoom Meeting** (or keep Google Meet).
+- **Video call:** only in the **full editor** (More options): the **"Add Google Meet video conferencing"** button has a small **▾ arrow** beside it → **Zoom Meeting**. The quick box you get from clicking a date only offers Meet.
 - **Guests:** type emails in the Guests panel.
 - **Save** → **Send** invitations.
 
@@ -72,6 +72,11 @@ After a Zoom meeting, **quit Zoom from its tray icon** — closing the window le
 - Google Meet links are native to Google Calendar — nothing to install.
 
 ---
+
+## Troubleshooting: Zoom missing from the video-call list
+1. Use the full editor (More options) and the **▾ arrow**, not the quick box.
+2. Side panel → Zoom icon: if it says **Sign in**, the sign-in didn't complete. The calendar profile allows popups (`dom.disable_open_during_load=false`) because Zoom's sign-in uses one — restart the calendar app (close the window, `Super+C`) after changing profile settings.
+3. After signing in, reload Calendar (`F5`) so the conferencing list refreshes.
 
 ## Undo / remove
 ```bash
