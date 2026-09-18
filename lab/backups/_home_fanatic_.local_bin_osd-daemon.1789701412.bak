@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""Small on-screen display for the i3 session.
+
+Draws an override-redirect window, so it shows above fullscreen windows — which
+ordinary notifications under i3 do not. Volume and brightness appear as a bar,
+the keyboard layout as a badge, in the top right corner near the panel indicators.
+
+Input:
+  * FIFO (see the `osd` client):  vol <0-150>|mute · brightness <0-100> · layout <NAME>
+  * `xkb-switch -W`, which reports every keyboard layout change
+"""
+import os
+import re
+import subprocess
+import threading
+import time
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib  # noqa: E402
+
+FIFO = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "osd.fifo")
+HIDE_MS = 1100
+MARGIN_TOP = 92        # just below the two-row panel
+MARGIN_RIGHT = 24
+ACCENT = "#48daf9"
+
+CSS = ("""
+window { background: transparent; }
+#osd {
+    background-color: rgba(10, 14, 17, 0.92);
+    border: 1px solid rgba(72, 218, 249, 0.35);
+    border-radius: 12px;
+    padding: 10px 16px;
+}
+#osd label { color: #dfe8ee; font-family: Inter; font-size: 15px; font-weight: 600; }
+#osd label.glyph { font-family: "JetBrainsMono Nerd Font"; font-size: 19px; color: ACCENT; }
+#osd label.badge { font-family: Inter; font-size: 24px; font-weight: 700; color: ACCENT; letter-spacing: 2px; }
+#osd label.value { color: ACCENT; }
+progressbar trough { min-height: 6px; min-width: 190px; background-color: rgba(255,255,255,0.14); border: none; border-radius: 3px; }
+progressbar progress { min-height: 6px; background-color: ACCENT; border: none; border-radius: 3px; }
+""".replace("ACCENT", ACCENT)).encode()
+
+
+class Osd(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.POPUP)   # override-redirect: above fullscreen
+        self.set_app_paintable(True)
+        self.set_accept_focus(False)
+        self.set_focus_on_map(False)
+        self.set_resizable(False)
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
+
+        self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.box.set_name("osd")
+        self.icon = Gtk.Label()
+        self.bar = Gtk.ProgressBar(valign=Gtk.Align.CENTER)
+        self.value = Gtk.Label()
+        self.value.get_style_context().add_class("value")
+        for w in (self.icon, self.bar, self.value):
+            self.box.pack_start(w, w is self.bar, w is self.bar, 0)
+        self.add(self.box)
+        self.box.show()
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+
+        self.timer = None
+
+    def place(self):
+        """Top right corner of whichever monitor the pointer is on."""
+        display = Gdk.Display.get_default()
+        _, px, py = display.get_default_seat().get_pointer().get_position()
+        monitor = display.get_monitor_at_point(px, py) or display.get_monitor(0)
+        geo = monitor.get_geometry()
+        width = self.get_preferred_size().natural_size.width
+        self.move(geo.x + geo.width - width - MARGIN_RIGHT, geo.y + MARGIN_TOP)
+
+    def flash(self, icon, fraction, text, badge=False):
+        ctx = self.icon.get_style_context()
+        ctx.remove_class("badge")
+        ctx.remove_class("glyph")
+        ctx.add_class("badge" if badge else "glyph")
+        self.icon.set_text(icon)
+        self.icon.show()
+
+        if fraction is None:
+            self.bar.hide()
+            self.value.hide()
+        else:
+            self.bar.set_fraction(max(0.0, min(1.0, fraction)))
+            self.value.set_text(text)
+            self.bar.show()
+            self.value.show()
+
+        self.resize(1, 1)          # shrink back to the natural size of the content
+        self.place()
+        self.show()
+        if self.timer:
+            GLib.source_remove(self.timer)
+        self.timer = GLib.timeout_add(HIDE_MS, self.dismiss)
+
+    def dismiss(self):
+        self.hide()
+        self.timer = None
+        return False
+
+    def handle(self, line):
+        parts = line.strip().split()
+        if not parts:
+            return False
+        kind, arg = parts[0], (parts[1] if len(parts) > 1 else "")
+        if kind == "vol":
+            if arg == "mute":
+                self.flash("", 0.0, "mute")
+            else:
+                v = int(re.sub(r"\D", "", arg) or 0)
+                # the sink can go past 100%, so the bar is scaled to 150
+                self.flash("", v / 150.0 if v > 100 else v / 100.0, f"{v}%")
+        elif kind == "brightness":
+            v = int(re.sub(r"\D", "", arg) or 0)
+            self.flash("", v / 100.0, f"{v}%")
+        elif kind == "layout":
+            self.flash(arg.upper(), None, "", badge=True)
+        return False
+
+
+def fifo_reader(osd):
+    if not os.path.exists(FIFO):
+        os.mkfifo(FIFO, 0o600)
+    while True:
+        with open(FIFO) as f:
+            for line in f:
+                GLib.idle_add(osd.handle, line)
+
+
+def layout_watcher(osd):
+    """`xkb-switch -W` prints the layout name on every change — no polling."""
+    while True:
+        try:
+            proc = subprocess.Popen(["xkb-switch", "-W"], stdout=subprocess.PIPE, text=True)
+        except FileNotFoundError:
+            return
+        for line in proc.stdout:
+            name = line.strip()
+            if name:
+                GLib.idle_add(osd.handle, f"layout {name}")
+        time.sleep(2)   # restart if it ever exits (e.g. X restart)
+
+
+def main():
+    osd = Osd()
+    for target in (fifo_reader, layout_watcher):
+        threading.Thread(target=target, args=(osd,), daemon=True).start()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,40 @@
+━━ WINDOWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + ← ↓ ↑ →   (or h j k l)        focus the window in that direction
+Super + Shift + ← ↓ ↑ →               move the window in that direction
+Super + Q                             close window
+Super + F                             fullscreen on / off
+Super + left-drag                     move a window (tiled: drop it elsewhere)
+━━ RESIZE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + right-drag  (inside window)   the nearest edge follows the mouse
+Super + Ctrl + ← →                    narrower / wider
+Super + Ctrl + ↑ ↓                    shorter / taller
+━━ FLOATING / MINIMIZE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Shift + Space                 float  <->  tile
+Super + Space                         focus: floating windows <-> tiled
+Super + minus                         hide window ("minimize")
+Super + Shift + minus                 bring hidden window back, tiled
+━━ LAYOUT (where the next window opens) ━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + B                             next window opens BESIDE
+Super + V                             next window opens BELOW
+Super + W                             tabbed
+Super + S                             stacked
+Super + G                             back to side-by-side
+Super + A                             select the parent container
+━━ WORKSPACES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + 1 … 0                         go to workspace
+Super + Shift + 1 … 0                 send window to workspace
+3 fingers  ← →                        previous / next workspace
+━━ LAUNCH ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Enter                         terminal (kitty)
+Super + D     /  3 fingers ↓          app launcher
+Super + Tab   /  3 fingers ↑          window switcher
+Super + Shift + D                     run a command
+Super + E                             file manager
+Super + C                             Google Calendar (opens it, or jumps to it)
+Print                                 screenshot (Flameshot)
+4 fingers ↑ / ↓                       fullscreen on / off
+━━ SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Shift + E                     power menu (shut down, reboot, suspend, log out)
+Super + Shift + C                     reload i3 config
+Super + /                             this cheat sheet
+Alt + Shift                           keyboard layout  US / RU / UA

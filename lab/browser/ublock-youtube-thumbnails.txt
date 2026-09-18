@@ -1,0 +1,5 @@
+! Optional: stop YouTube preview images from loading at all.
+! Paste into uBlock Origin -> Dashboard -> My filters, then "Apply changes".
+! Remove the lines to get the thumbnails back.
+||i.ytimg.com/vi/$image,domain=youtube.com
+||i.ytimg.com/vi_webp/$image,domain=youtube.com

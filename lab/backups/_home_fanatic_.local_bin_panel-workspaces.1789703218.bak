@@ -1,0 +1,32 @@
+#!/bin/bash
+# Workspaces for the panel (genmon).
+# i3 deletes a workspace as soon as it is empty, so the stock pager keeps losing
+# entries. This always shows 1..5: the current one highlighted, the ones holding
+# windows brighter, empty ones dim.
+ACCENT="#48daf9"
+LIVE="#c6d0d9"
+DIM="#3f4a52"
+URGENT="#e05561"
+
+state=$(i3-msg -t get_workspaces 2>/dev/null)
+[ -z "$state" ] && { echo "<txt></txt>"; exit 0; }
+
+out=""
+for n in 1 2 3 4 5 6 7 8 9; do
+    info=$(printf '%s' "$state" | jq -r --arg n "$n" '.[] | select(.name==$n) | "\(.focused) \(.urgent)"')
+    if [ -z "$info" ]; then
+        [ "$n" -gt 5 ] && continue          # only keep 1..5 always visible
+        out+="<span foreground=\"$DIM\">$n</span>  "
+        continue
+    fi
+    focused=${info%% *}; urgent=${info##* }
+    if [ "$urgent" = true ]; then
+        out+="<span foreground=\"$URGENT\" weight=\"bold\">$n</span>  "
+    elif [ "$focused" = true ]; then
+        out+="<span foreground=\"$ACCENT\" weight=\"bold\" underline=\"single\">$n</span>  "
+    else
+        out+="<span foreground=\"$LIVE\">$n</span>  "
+    fi
+done
+echo "<txt>${out% }</txt>"
+echo "<tool>Workspaces: underlined is current, bright has windows, dim is empty</tool>"

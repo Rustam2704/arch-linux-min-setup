@@ -1,0 +1,6 @@
+// setup/lab experiment 01-memory — remove this file to undo.
+// Ceiling for DECODED images (YouTube thumbnails etc). They are dropped when over it
+// and decoded again from the browser's disk cache, which is cheaper than swapping them.
+user_pref("image.mem.surfacecache.max_size_kb", 131072);   // 128 MB
+// Keep fewer previous pages alive per tab for the Back button.
+user_pref("browser.sessionhistory.max_total_viewers", 2);

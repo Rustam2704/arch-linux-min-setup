@@ -1,0 +1,105 @@
+2026-09-17T23:57:53+03:00	01-memory	cmd	sudo cp /home/fanatic/ai/claude/setup/lab/backups/timeshift.json.bak /etc/timeshift/timeshift.json	
+2026-09-17T23:57:54+03:00	01-memory	cmd	sudo swapoff /swapfile 2>/dev/null; sudo rm -f /swapfile	
+2026-09-17T23:58:03+03:00	01-memory	backup	/etc/fstab	/home/fanatic/ai/claude/setup/lab/backups/_etc_fstab.1789678683.bak
+2026-09-17T23:58:10+03:00	01-memory	cmd	sudo systemctl unmask systemd-zram-setup@zram0.service	
+2026-09-17T23:58:22+03:00	01-memory	cmd	echo N | sudo tee /sys/module/zswap/parameters/enabled >/dev/null	
+2026-09-17T23:58:22+03:00	01-memory	backup	/boot/loader/entries/arch-lts.conf	/home/fanatic/ai/claude/setup/lab/backups/_boot_loader_entries_arch-lts.conf.1789678702.bak
+2026-09-17T23:58:22+03:00	01-memory	file	/etc/sysctl.d/99-lab-memory.conf	
+2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.local/bin/firefox-limited	
+2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.local/bin/firefox-mem	
+2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.config/firefox-memory.conf	
+2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.local/share/applications/firefox-developer-edition.desktop	
+2026-09-17T23:59:02+03:00	01-memory	backup	/home/fanatic/.local/share/xfce4/helpers/firefox-developer-edition.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_xfce4_helpers_firefox-developer-edition.desktop.1789678742.bak
+2026-09-17T23:59:34+03:00	01-memory	file	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	
+2026-09-18T00:00:17+03:00	02-clock	cmd	sudo pacman -Rns --noconfirm ttf-dseg	
+2026-09-18T00:00:34+03:00	02-clock	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s 'Terminus 11'; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-format -s '%T'	
+2026-09-18T00:01:14+03:00	02-clock	file	/home/fanatic/.config/gtk-3.0/gtk.css	
+2026-09-18T00:19:39+03:00	03-osd	pkg	python-xlib	
+2026-09-18T00:19:39+03:00	03-osd	file	/home/fanatic/.local/bin/osd-daemon	
+2026-09-18T00:19:39+03:00	03-osd	file	/home/fanatic/.local/bin/osd	
+2026-09-18T00:20:52+03:00	03-osd	file	/home/fanatic/.config/systemd/user/osd.service	
+2026-09-18T00:20:52+03:00	03-osd	cmd	systemctl --user disable --now osd.service; systemctl --user daemon-reload	
+2026-09-18T00:21:59+03:00	03-osd	cmd	python3 /home/fanatic/ai/claude/setup/lab/revert-i3-config.py && i3-msg -q reload	
+2026-09-18T00:24:20+03:00	03-osd	cmd	sudo pacman -Rns --noconfirm xkb-switch	
+2026-09-18T00:25:09+03:00	03-osd	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789680309.bak
+2026-09-18T00:26:27+03:00	04-panel	file	/home/fanatic/.local/bin/panel-battery	
+2026-09-18T00:26:27+03:00	04-panel	file	/home/fanatic/.local/bin/panel-telegram	
+2026-09-18T00:27:11+03:00	04-panel	file	/home/fanatic/.local/bin/panel-sys	
+2026-09-18T00:27:11+03:00	04-panel	file	/home/fanatic/.local/bin/panel-net	
+2026-09-18T00:27:46+03:00	04-panel	file	/home/fanatic/.local/bin/panel-weather	
+2026-09-18T00:28:20+03:00	04-panel	file	/home/fanatic/.local/bin/app-focus-or-launch	
+2026-09-18T00:29:07+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/launcher-13/kitty.desktop	
+2026-09-18T00:29:07+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/launcher-14/files.desktop	
+2026-09-18T00:29:08+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/launcher-15/firefox.desktop	
+2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-40.rc	
+2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-41.rc	
+2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-42.rc	
+2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-43.rc	
+2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-44.rc	
+2026-09-18T00:29:45+03:00	04-panel	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-panel.xml.1789680585.bak
+2026-09-18T00:39:29+03:00	04-panel	file	/home/fanatic/.local/bin/panel-workspaces	
+2026-09-18T00:45:09+03:00	05-calendar	file	/home/fanatic/.local/bin/mini-calendar	
+2026-09-18T00:45:09+03:00	05-calendar	file	/home/fanatic/.config/systemd/user/mini-calendar.service	
+2026-09-18T00:45:10+03:00	05-calendar	cmd	systemctl --user disable --now mini-calendar.service; systemctl --user daemon-reload; rm -rf /home/fanatic/.local/share/mini-calendar	
+2026-09-18T06:16:52+03:00	06-osd-keyboard	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789701412.bak
+2026-09-18T06:16:52+03:00	06-osd-keyboard	backup	/home/fanatic/.local/bin/osd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd.1789701412.bak
+2026-09-18T06:16:52+03:00	06-osd-keyboard	cmd	xfconf-query -c keyboard-layout -p /Default/XkbOptions/Group -n -t string -s grp:alt_shift_toggle	
+2026-09-18T06:16:52+03:00	06-osd-keyboard	cmd	sudo localectl set-x11-keymap us,ru,ua pc105 '' grp:alt_shift_toggle,grp_led:scroll	
+2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789701509.bak
+2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789701509.bak
+2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-workspaces	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-workspaces.1789701509.bak
+2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789701509.bak
+2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1789701509.bak
+2026-09-18T06:18:43+03:00	06-osd-keyboard	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-panel.xml.1789701523.bak
+2026-09-18T06:18:43+03:00	06-osd-keyboard	file	/home/fanatic/.local/bin/panel-layout	
+2026-09-18T06:18:43+03:00	06-osd-keyboard	file	/home/fanatic/.config/xfce4/panel/genmon-55.rc	
+2026-09-18T06:20:19+03:00	06-quickfixes	pkg	btop	
+2026-09-18T06:20:19+03:00	06-quickfixes	file	/home/fanatic/.local/bin/i3-cycle-focus	
+2026-09-18T06:20:19+03:00	06-quickfixes	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789701619.bak
+2026-09-18T06:20:19+03:00	06-quickfixes	file	/home/fanatic/.config/i3/generated/README.conf	
+2026-09-18T06:20:30+03:00	06-quickfixes	backup	/home/fanatic/.config/mimeapps.list	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mimeapps.list.1789701630.bak
+2026-09-18T06:20:30+03:00	06-quickfixes	cmd	sudo pacman -S --noconfirm --needed mousepad	
+2026-09-18T06:21:02+03:00	07-firefox-reclaim	file	/home/fanatic/.local/bin/firefox-memd	
+2026-09-18T06:21:02+03:00	07-firefox-reclaim	file	/home/fanatic/.config/systemd/user/firefox-memd.service	
+2026-09-18T06:21:02+03:00	07-firefox-reclaim	backup	/home/fanatic/.config/firefox-memory.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_firefox-memory.conf.1789701662.bak
+2026-09-18T06:21:02+03:00	07-firefox-reclaim	cmd	systemctl --user disable --now firefox-memd.service; systemctl --user daemon-reload	
+2026-09-18T06:21:40+03:00	07-firefox-reclaim	backup	/home/fanatic/.local/bin/firefox-mem	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_firefox-mem.1789701700.bak
+2026-09-18T06:22:25+03:00	08-net	file	/home/fanatic/.local/bin/netqd	
+2026-09-18T06:22:25+03:00	08-net	backup	/home/fanatic/.local/bin/panel-net	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-net.1789701745.bak
+2026-09-18T06:22:25+03:00	08-net	file	/home/fanatic/.config/systemd/user/netqd.service	
+2026-09-18T06:22:25+03:00	08-net	cmd	systemctl --user disable --now netqd.service; systemctl --user daemon-reload	
+2026-09-18T06:22:55+03:00	08-net	file	/home/fanatic/.local/bin/net-menu	
+2026-09-18T06:23:13+03:00	08-net	cmd	echo 'panel update periods were all 30000 ms before 08-net'	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/32x32/apps/light-year.png	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/48x48/apps/light-year.png	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/64x64/apps/light-year.png	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/128x128/apps/light-year.png	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/256x256/apps/light-year.png	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/light-year/api.py	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/light-year/app.py	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/bin/light-year	
+2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/applications/light-year.desktop	
+2026-09-18T06:26:57+03:00	09-light-year	cmd	tar -C ~/.local/share -xzf /home/fanatic/ai/claude/setup/lab/backups/mini-calendar-code.tar.gz; cp /home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_mini-calendar.removed ~/.local/bin/mini-calendar; cp /home/fanatic/ai/claude/setup/lab/backups/mini-calendar.service.removed ~/.config/systemd/user/mini-calendar.service; systemctl --user daemon-reload	
+2026-09-18T06:27:16+03:00	09-light-year	file	/home/fanatic/.local/share/light-year/ИНСТРУКЦИЯ.md	
+2026-09-18T06:28:29+03:00	10-favorites	file	/home/fanatic/.local/bin/deskd-favorites	
+2026-09-18T06:28:55+03:00	10-favorites	cmd	rm -f ~/.config/deskd/apps.conf ~/.config/i3/generated/apps.conf	
+2026-09-18T06:28:55+03:00	10-favorites	file	/home/fanatic/.config/xfce4/panel/launcher-56/favorites.desktop	
+2026-09-18T06:28:55+03:00	10-favorites	file	/home/fanatic/.config/autostart/deskd-favorites.desktop	
+2026-09-18T06:29:12+03:00	10-favorites	file	/home/fanatic/.config/autostart/deskd-favorites.desktop	
+2026-09-18T06:45:30+03:00	12-monitors	pkg	autorandr	
+2026-09-18T06:45:30+03:00	12-monitors	cmd	xfconf-query -c displays -p /Notify -s 1; xfconf-query -c displays -p /AutoEnableProfiles -s 3	
+2026-09-18T06:45:32+03:00	12-monitors	cmd	rm -rf ~/.config/autorandr	
+2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.local/share/deskd/deskd.py	
+2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.local/share/deskd/i3ipc.py	
+2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.local/bin/deskd-ctl	
+2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.config/systemd/user/deskd.service	
+2026-09-18T06:46:58+03:00	11-deskd	cmd	systemctl --user disable --now deskd.service; systemctl --user daemon-reload	
+2026-09-18T06:46:58+03:00	11-deskd	backup	/home/fanatic/.local/bin/panel-workspaces	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-workspaces.1789703218.bak
+2026-09-18T06:47:22+03:00	11-deskd	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789703242.bak
+2026-09-18T06:49:59+03:00	11-deskd	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.1789703399.bak
+2026-09-18T06:50:18+03:00	11-deskd	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.1789703418.bak
+2026-09-18T06:52:01+03:00	11-deskd	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789703521.bak
+2026-09-18T06:52:24+03:00	11-deskd	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.1789703544.bak
+2026-09-18T06:53:06+03:00	11-deskd	backup	/home/fanatic/.config/systemd/user/osd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_osd.service.1789703586.bak
+2026-09-18T06:53:06+03:00	11-deskd	backup	/home/fanatic/.config/systemd/user/deskd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_deskd.service.1789703586.bak
+2026-09-18T06:53:06+03:00	11-deskd	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789703586.bak

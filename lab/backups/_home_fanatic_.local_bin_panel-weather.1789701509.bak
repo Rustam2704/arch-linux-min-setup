@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Weather for the panel (genmon), from Open-Meteo — no account, no key.
+
+Survives being offline: the last reading is kept on disk and shown dimmed with
+its age, instead of the panel going blank or showing an error.
+"""
+import json
+import os
+import time
+import urllib.request
+
+LAT, LON = 50.260106, 28.669628          # Zhytomyr
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "panel-weather.json")
+MAX_AGE = 900                             # refresh at most every 15 minutes
+STALE_AFTER = 3 * 3600                    # dim the reading after 3 hours
+ACCENT = "#48daf9"
+DIM = "#5b6b76"
+
+URL = (f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}"
+       "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m"
+       "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2")
+
+# WMO weather codes -> a readable icon and name
+CODES = {
+    0: ("☀", "ясно"), 1: ("🌤", "малооблачно"), 2: ("⛅", "переменная облачность"), 3: ("☁", "пасмурно"),
+    45: ("🌫", "туман"), 48: ("🌫", "изморозь"),
+    51: ("🌦", "морось"), 53: ("🌦", "морось"), 55: ("🌦", "сильная морось"),
+    61: ("🌧", "дождь"), 63: ("🌧", "дождь"), 65: ("🌧", "сильный дождь"),
+    66: ("🌧", "ледяной дождь"), 67: ("🌧", "ледяной дождь"),
+    71: ("🌨", "снег"), 73: ("🌨", "снег"), 75: ("🌨", "сильный снег"), 77: ("🌨", "снежная крупа"),
+    80: ("🌦", "ливень"), 81: ("🌧", "ливень"), 82: ("⛈", "сильный ливень"),
+    85: ("🌨", "снегопад"), 86: ("🌨", "снегопад"),
+    95: ("⛈", "гроза"), 96: ("⛈", "гроза с градом"), 99: ("⛈", "гроза с градом"),
+}
+
+
+def load_cache():
+    try:
+        with open(CACHE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def fetch():
+    with urllib.request.urlopen(URL, timeout=8) as r:
+        data = json.load(r)
+    data["fetched"] = time.time()
+    tmp = CACHE + ".tmp"
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, CACHE)
+    return data
+
+
+cached = load_cache()
+age = time.time() - cached["fetched"] if cached else None
+data, offline = cached, False
+if age is None or age > MAX_AGE:
+    try:
+        data = fetch()
+        age = 0
+    except Exception:
+        offline = True
+
+if not data:
+    print(f'<txt> <span foreground="{DIM}">погода —</span></txt>'
+          f'<tool>Нет данных о погоде: не было ни одного успешного запроса</tool>')
+    raise SystemExit
+
+cur = data["current"]
+icon, name = CODES.get(int(cur["weather_code"]), ("•", "—"))
+temp = round(cur["temperature_2m"])
+feels = round(cur["apparent_temperature"])
+daily = data.get("daily", {})
+tmin = round(daily.get("temperature_2m_min", [0])[0])
+tmax = round(daily.get("temperature_2m_max", [0])[0])
+
+stale = age is not None and age > STALE_AFTER
+colour = DIM if stale else ACCENT
+print(f'<txt> {icon} <span foreground="{colour}">{temp:+d}°</span></txt>')
+
+if age is None:
+    when = "неизвестно когда"
+elif age < 90:
+    when = "только что"
+elif age < 3600:
+    when = f"{int(age // 60)} мин назад"
+else:
+    when = f"{int(age // 3600)} ч назад"
+
+note = "\n(нет сети — показано последнее значение)" if offline else ""
+print(f"<tool>{name.capitalize()}, {temp:+d}° (ощущается {feels:+d}°)\n"
+      f"Сегодня: от {tmin:+d}° до {tmax:+d}°\nВетер: {cur.get('wind_speed_10m', '?')} км/ч, "
+      f"влажность {cur.get('relative_humidity_2m', '?')}%\nОбновлено: {when}{note}</tool>")

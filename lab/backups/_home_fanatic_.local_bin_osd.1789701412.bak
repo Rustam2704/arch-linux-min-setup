@@ -1,0 +1,20 @@
+#!/bin/sh
+# osd — send a message to the on-screen display, starting it if needed.
+#   osd vol        (reads the current volume itself)
+#   osd brightness
+#   osd layout RU
+FIFO="${XDG_RUNTIME_DIR:-/tmp}/osd.fifo"
+pgrep -f 'python3 .*osd-daemon' >/dev/null 2>&1 || { setsid -f "$HOME/.local/bin/osd-daemon" >/dev/null 2>&1; sleep 0.5; }
+[ -p "$FIFO" ] || exit 0
+case "${1-}" in
+  vol)
+      state=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
+      case "$state" in *MUTED*) printf 'vol mute\n' > "$FIFO"; exit 0;; esac
+      v=$(printf '%s' "$state" | awk '{printf "%d", $2*100}')
+      printf 'vol %s\n' "$v" > "$FIFO" ;;
+  brightness)
+      cur=$(brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d '%')
+      printf 'brightness %s\n' "${cur:-0}" > "$FIFO" ;;
+  layout) printf 'layout %s\n' "${2:-US}" > "$FIFO" ;;
+  *) printf '%s\n' "$*" > "$FIFO" ;;
+esac

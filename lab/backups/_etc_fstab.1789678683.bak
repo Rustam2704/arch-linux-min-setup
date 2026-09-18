@@ -1,0 +1,6 @@
+# /dev/sda2 LABEL=ARCHROOT
+UUID=21752c44-7097-41cf-8e70-458f93fa9722	/         	ext4      	rw,noatime	0 1
+
+# /dev/sda1 LABEL=EFI
+UUID=53C1-C3C1      	/boot     	vfat      	rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro	0 2
+

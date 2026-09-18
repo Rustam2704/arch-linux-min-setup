@@ -1,0 +1,30 @@
+{
+  "backup_device_uuid": "21752c44-7097-41cf-8e70-458f93fa9722",
+  "parent_device_uuid": "",
+  "do_first_run": "false",
+  "btrfs_mode": "false",
+  "include_btrfs_home_for_backup": "false",
+  "include_btrfs_home_for_restore": "false",
+  "stop_cron_emails": "true",
+  "schedule_monthly": "false",
+  "schedule_weekly": "false",
+  "schedule_daily": "false",
+  "schedule_hourly": "false",
+  "schedule_boot": "false",
+  "count_monthly": "0",
+  "count_weekly": "0",
+  "count_daily": "0",
+  "count_hourly": "0",
+  "count_boot": "0",
+  "snapshot_size": "7035429640",
+  "snapshot_count": "276015",
+  "date_format": "%Y-%m-%d %H:%M:%S",
+  "exclude": [
+    "/home/fanatic/.cache/**",
+    "/home/fanatic/Downloads/**",
+    "/var/cache/pacman/pkg/**",
+    "/home/fanatic/**",
+    "/root/**"
+  ],
+  "exclude-apps": []
+}

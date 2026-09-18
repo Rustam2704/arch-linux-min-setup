@@ -1,0 +1,30 @@
+#!/bin/sh
+# firefox-mem — show or change Firefox's memory limit, live, with no restart and no "Save".
+#   firefox-mem                 status
+#   firefox-mem on | off        limit on/off (off also lifts it from the running browser)
+#   firefox-mem set 3G          new limit, applied immediately
+#   firefox-mem reclaim [500M]  push that much cold memory out to swap right now
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-memory.conf"
+ENABLED=1; LIMIT=4G
+[ -r "$CONF" ] && . "$CONF"
+save() { printf 'ENABLED=%s\nLIMIT=%s\n' "$1" "$2" > "$CONF"; }
+scope=/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/app.slice/firefox.scope
+h() { [ -r "$1" ] && numfmt --to=iec --suffix=B "$(cat "$1")" 2>/dev/null || echo n/a; }
+
+case "${1-status}" in
+  status)
+    echo "limit:     $LIMIT ($([ "$ENABLED" = 1 ] && echo on || echo off))"
+    if [ -d "$scope" ]; then
+        echo "in RAM:    $(h $scope/memory.current)"
+        echo "in swap:   $(h $scope/memory.swap.current)"
+        echo "ceiling:   $(cat $scope/memory.high 2>/dev/null)"
+    else
+        echo "state:     Firefox is not running inside the limited scope"
+    fi ;;
+  on)  save 1 "$LIMIT"; systemctl --user set-property --runtime firefox.scope MemoryHigh="$LIMIT" 2>/dev/null; echo "limit on: $LIMIT" ;;
+  off) save 0 "$LIMIT"; systemctl --user set-property --runtime firefox.scope MemoryHigh=infinity 2>/dev/null; echo "limit off" ;;
+  set) [ -n "${2-}" ] || { echo "usage: firefox-mem set 3G" >&2; exit 1; }
+       save 1 "$2"; systemctl --user set-property --runtime firefox.scope MemoryHigh="$2" 2>/dev/null; echo "limit: $2" ;;
+  reclaim) echo "${2:-500M}" > "$scope/memory.reclaim" 2>/dev/null && echo "reclaimed ${2:-500M}" || echo "reclaim not available" ;;
+  *) sed -n '2,8p' "$0" ;;
+esac
