@@ -337,7 +337,9 @@ Timeshift `before-lab-experiments` снят до начала.
   демон сам меняет громкость и яркость (без shell и `wpctl` на каждое нажатие).
 - **Раскладки EN / RU / UA:** `Alt+Shift` — EN ⇄ RU (из UA — в EN), `Ctrl+Shift` — UA
   (повтор — назад). Срабатывает при отпускании, как в Windows: `Ctrl+Shift+V/C/T` не мешает.
-  Опция xkb `grp:alt_shift_toggle` снята (xfconf + localectl). Индикатор в панели — `EN/RU/UA`,
+  Опция xkb `grp:alt_shift_toggle` снята (xfconf + localectl). В xfconf ключ `XkbOptions/Group`
+  задан **пустой строкой**: если его удалить, xfsettingsd при переприменении подставляет
+  свой default `grp:alt_shift_toggle` (это случилось один раз ночью, найдено финальной проверкой). Индикатор в панели — `EN/RU/UA`,
   обновляется мгновенно, клик — EN ⇄ RU. Проверено: `RU EN UA EN EN UA EN EN` на наборе нажатий.
 - **Панель:** батарея при полном заряде — `100%`; индикаторы обновлялись раз в 30 с —
   теперь сеть 1 с, CPU/RAM 2 с, Telegram 3 с, батарея 10 с, погода 60 с; числа фиксированной
