@@ -141,3 +141,12 @@ Python плюс страница: месяц, создание, редактир
 ### 12-monitors — экраны
 - `autorandr` (пакет), профили в `~/.config/autorandr/` сохраняет deskd; xfconf `displays`:
   `Notify=0`, `AutoEnableProfiles=0`.
+
+### 13-round4 — раунд 4 (19.09)
+- `deskd`: общий движок перетаскивания, двойной клик, заглушки для возврата, вписывание
+  плавающих окон, `panels.py` (панель на каждом экране), широкие цифры, кнопки 1.5x.
+- `~/.local/bin/snip` + пакеты `maim slop xclip`; привязки `Print`, `Super+Shift+S`.
+- Панель: `plugin-6/hidden-items = [TelegramDesktop]`, `plugin-1` снова applicationsmenu,
+  `~/.config/menus/xfce-applications.menu` (+ `deskd-favorites.desktop` третьим пунктом).
+- Шрифт значков в `panel-battery`, `panel-telegram` → JetBrainsMono Nerd Font Propo.
+- light-year: `api.py` (`change_occurrence`, `delete_occurrence`), `app.py` (выбор охвата).
