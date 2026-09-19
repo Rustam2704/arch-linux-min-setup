@@ -1,0 +1,48 @@
+# kitty — whitebook
+font_family      JetBrainsMono Nerd Font Mono
+font_size        11.0
+adjust_line_height 108%
+disable_ligatures never
+
+background            #000000
+foreground            #c6d0d9
+cursor                #0d8ecb
+cursor_text_color     #000000
+selection_background  #17384a
+selection_foreground  #e4ebf0
+url_color             #0d8ecb
+background_opacity    0.92
+
+color0  #12171a
+color8  #3a464e
+color1  #e05561
+color9  #ef6b76
+color2  #71c36a
+color10 #89d982
+color3  #e0a453
+color11 #f0bb6a
+color4  #0d8ecb
+color12 #2ba3dd
+color5  #9a7fd6
+color13 #b39bea
+color6  #3fbbf2
+color14 #6ad2fa
+color7  #9aa7b0
+color15 #e4ebf0
+
+window_padding_width 8
+hide_window_decorations yes
+confirm_os_window_close 0
+enable_audio_bell no
+scrollback_lines 20000
+tab_bar_style powerline
+
+# newline without sending, for Claude Code and friends
+map shift+enter send_text all \x1b\r
+map ctrl+shift+c copy_to_clipboard
+map ctrl+shift+v paste_from_clipboard
+
+# links: Ctrl+click opens in the default browser (xdg-open → Firefox),
+# also inside programs that grab the mouse (Claude Code, vim…); plain clicks still reach them
+mouse_map ctrl+left press grabbed discard_event
+mouse_map ctrl+left release grabbed,ungrabbed mouse_handle_click link

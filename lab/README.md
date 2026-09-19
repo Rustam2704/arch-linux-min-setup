@@ -150,3 +150,14 @@ Python плюс страница: месяц, создание, редактир
   `~/.config/menus/xfce-applications.menu` (+ `deskd-favorites.desktop` третьим пунктом).
 - Шрифт значков в `panel-battery`, `panel-telegram` → JetBrainsMono Nerd Font Propo.
 - light-year: `api.py` (`change_occurrence`, `delete_occurrence`), `app.py` (выбор охвата).
+
+### 14-round5 — раунд 5 (20.09)
+- kitty: `mouse_map` (правый и средний клик), `map ctrl+v`, `select_by_word_characters`,
+  `~/.local/bin/open-path` (открыть путь / меню).
+- `deskd-favorites`: запуск через i3 из `Exec`, пауза между программами, лог,
+  правила `assign` с `(?i)`; `app-focus-or-launch` шлёт deskd подсказку при Ctrl.
+- `deskd`: `place_new_window` (второе окно программы рядом с первым и плавающим),
+  команда tick `expect <class> <ws>`; `[settings] popup_apps` в `apps.conf`.
+- `netqd`: перезапуск умерших `ping`; `panel-telegram` + `telegram-toggle` (клик как в трее).
+- light-year `app.py`: недели по месяцу, подсветка правки, `TimeField`, `MiniCalendar`,
+  `DateField`, оттенки колонок, бледное прошлое, свайп и кэш соседних месяцев.
