@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Open what was clicked in the terminal: a file, a file:line, or a folder.
+
+kitty hands us the selected word (see mouse_map in kitty.conf) and runs us in the
+window's own directory, so relative paths work too.
+    open-path <text>            open it
+    open-path --menu <text>     small menu: open / show in file manager / copy
+"""
+import os
+import re
+import subprocess
+import sys
+
+FILE_MANAGER = "thunar"
+
+
+def resolve(text):
+    """(path, line) from what was clicked; None when it is not a path."""
+    text = text.strip().strip("'\"“”`,;()[]<>")
+    line = None
+    m = re.match(r"^(.*?):(\d+)(?::\d+)?$", text)       # file.py:42 or file.py:42:7
+    if m and not os.path.exists(text):
+        text, line = m.group(1), int(m.group(2))
+    path = os.path.expanduser(text)
+    if not os.path.isabs(path):
+        path = os.path.abspath(path)
+    return (path, line) if os.path.exists(path) else (None, None)
+
+
+def open_it(path, line):
+    if os.path.isdir(path):
+        subprocess.Popen([FILE_MANAGER, path], start_new_session=True)
+    elif line:
+        subprocess.Popen(["subl", f"{path}:{line}"], start_new_session=True)
+    else:
+        subprocess.Popen(["xdg-open", path], start_new_session=True)
+
+
+def reveal(path):
+    subprocess.Popen([FILE_MANAGER, path if os.path.isdir(path) else os.path.dirname(path)],
+                     start_new_session=True)
+
+
+def copy(path):
+    subprocess.run(["xclip", "-selection", "clipboard"], input=path.encode())
+
+
+def menu(path, line):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    m = Gtk.Menu()
+    head = Gtk.MenuItem(label=os.path.basename(path) + (f":{line}" if line else ""))
+    head.set_sensitive(False)
+    m.append(head)
+    m.append(Gtk.SeparatorMenuItem())
+    for label, fn in (("Open", lambda: open_it(path, line)),
+                      ("Show in file manager", lambda: reveal(path)),
+                      ("Copy path", lambda: copy(path))):
+        item = Gtk.MenuItem(label=label)
+        item.connect("activate", lambda _i, f=fn: f())
+        m.append(item)
+    m.connect("deactivate", lambda *_: Gtk.main_quit())
+    m.show_all()
+    m.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+    Gtk.main()
+
+
+def main():
+    args = [a for a in sys.argv[1:] if a != "--menu"]
+    path, line = resolve(" ".join(args))
+    if not path:
+        return 0
+    if "--menu" in sys.argv:
+        menu(path, line)
+    else:
+        open_it(path, line)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

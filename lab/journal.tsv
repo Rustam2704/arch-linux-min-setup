@@ -130,3 +130,22 @@
 2026-09-20T01:30:11+03:00	14-round5	backup	/home/fanatic/.local/bin/app-focus-or-launch	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_app-focus-or-launch.1789857011.bak
 2026-09-20T01:42:01+03:00	14-round5	file	/home/fanatic/.local/bin/open-path	
 2026-09-20T01:42:01+03:00	14-round5	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789857721.bak
+2026-09-20T02:11:51+03:00	15-codex-mcp	pkg	nodejs	
+2026-09-20T02:56:30+03:00	16-round6	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.1789862190.bak
+2026-09-20T04:12:14+03:00	16-round6	cmd	xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 44; xfconf-query -c xfce4-panel -p /panels/panel-1/icon-size -s 32; for p in 40 41 42 43 44 45 55; do xfconf-query -c xfce4-panel -p /plugins/plugin-$p/font -s "Inter 10"; done; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s "Terminus 11"	
+2026-09-20T04:16:50+03:00	16-round6	file	/home/fanatic/.local/share/panel-icons/telegram.png	
+2026-09-20T04:16:50+03:00	16-round6	file	/home/fanatic/.local/share/panel-icons/telegram-accent.png	
+2026-09-20T04:16:50+03:00	16-round6	file	/home/fanatic/.local/share/panel-icons/telegram-off.png	
+2026-09-20T04:16:51+03:00	16-round6	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789867011.bak
+2026-09-20T04:17:03+03:00	16-round6	cmd	rmdir /home/fanatic/.local/share/panel-icons 2>/dev/null	
+2026-09-20T04:17:19+03:00	16-round6	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789867039.bak
+2026-09-20T04:17:36+03:00	16-round6	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-56 -r -R; xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -t int -s 1 -t int -s 13 -t int -s 14 -t int -s 15 -t int -s 50 -t int -s 2 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 40 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 20 -t int -s 55 -t int -s 8 -t int -s 21	
+2026-09-20T04:18:55+03:00	16-round6	backup	/home/fanatic/.config/xfce4/panel/launcher-13/kitty.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-13_kitty.desktop.1789867135.bak
+2026-09-20T04:19:01+03:00	16-round6	backup	/home/fanatic/.config/xfce4/panel/launcher-14/files.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-14_files.desktop.1789867141.bak
+2026-09-20T04:19:09+03:00	16-round6	backup	/home/fanatic/.config/xfce4/panel/launcher-15/firefox.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-15_firefox.desktop.1789867149.bak
+2026-09-20T04:25:34+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789867534.bak
+2026-09-20T04:27:24+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789867644.bak
+2026-09-20T04:30:48+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789867848.bak
+2026-09-20T04:32:03+03:00	16-round6	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789867923.bak
+2026-09-20T04:33:46+03:00	16-round6	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.1789868026.bak
+2026-09-20T04:33:46+03:00	16-round6	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789868026.bak
