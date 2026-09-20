@@ -182,3 +182,24 @@
 2026-09-20T17:08:58+03:00	18-round8	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789913338.bak
 2026-09-20T17:10:55+03:00	18-round8	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789913455.bak
 2026-09-21T00:40:50+03:00	15-kitty-layout-shortcuts	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789940450.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	cmd	rmdir /home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status /home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable /home/fanatic/.local/share/icons/Sky-Dark-Icons 2>/dev/null || true	
+2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789942239.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789942239.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789942239.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.1789942239.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.1789942239.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789942239.bak
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-000.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-025.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-050.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-075.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-100-dim.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-100.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-charging.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/index.theme	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-high-symbolic.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-low-symbolic.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-medium-symbolic.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-muted-symbolic.svg	
+2026-09-21T01:10:39+03:00	19-panel-polish	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s "DSEG7 Classic Bold 18"; xfconf-query -c xsettings -p /Net/IconThemeName -s "Papirus-Dark"	
+2026-09-21T01:22:19+03:00	19-panel-polish	file	/home/fanatic/.config/kitty/open-click.py	

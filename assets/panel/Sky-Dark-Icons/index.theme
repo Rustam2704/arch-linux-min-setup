@@ -1,0 +1,12 @@
+[Icon Theme]
+Name=Sky Dark Icons
+Comment=Small panel overrides on top of Papirus Dark
+Inherits=Papirus-Dark,hicolor
+Directories=scalable/status
+
+[scalable/status]
+Context=Status
+Size=48
+MinSize=16
+MaxSize=64
+Type=Scalable
