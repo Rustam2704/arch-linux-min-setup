@@ -1,0 +1,63 @@
+#
+# ~/.bashrc
+#
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+PS1='[\u@\h \W]\$ '
+
+# >>> Codex installer >>>
+export PATH="/home/fanatic/.local/bin:$PATH"
+# <<< Codex installer <<<
+
+# Start new Codex chats in the dedicated workspace. Explicit -C/--cd paths
+# and commands that operate on existing sessions or Codex itself are preserved.
+codex() {
+    local codex_arg
+
+    for codex_arg in "$@"; do
+        case "$codex_arg" in
+            -C|--cd|--cd=*)
+                command codex "$@"
+                return
+                ;;
+            resume|fork|agents|login|logout|mcp|plugin|app-server|remote-control|completion|update|doctor|sandbox|debug|apply|queue|archive|delete|migrate-rollouts|unarchive|cloud|exec-server|features|help)
+                command codex "$@"
+                return
+                ;;
+        esac
+    done
+
+    command codex -C /home/fanatic/ai/codex "$@"
+}
+
+# Claude Code files its chat history per working directory, so "/resume" used to
+# show nothing when it was started somewhere else. Share one store between $HOME
+# and the project folder ~/ai/claude (see claude-projects-link).
+claude() {
+    claude-projects-link
+    # A window opened from the panel can inherit the variables of a Claude session
+    # that started the panel; CLAUDE_CODE_CHILD_SESSION then switches transcript
+    # saving off. Keep them only when this really is a Claude inside a Claude.
+    if [ -n "$CLAUDE_CODE_CHILD_SESSION" ] && ! _claude_inside_claude; then
+        unset CLAUDE_CODE_CHILD_SESSION CLAUDECODE CLAUDE_CODE_SESSION_ID \
+              CLAUDE_CODE_SESSION_ATTENDED CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_EXECPATH \
+              CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN \
+              CLAUDE_PID CLAUDE_EFFORT AI_AGENT
+    fi
+    command claude "$@"
+}
+
+# Is one of our parent processes a running claude?
+_claude_inside_claude() {
+    local pid=$PPID comm
+    while [ "${pid:-0}" -gt 1 ]; do
+        comm=$(cat "/proc/$pid/comm" 2>/dev/null) || return 1
+        [ "$comm" = "claude" ] && return 0
+        pid=$(awk '{print $4}' "/proc/$pid/stat" 2>/dev/null) || return 1
+    done
+    return 1
+}
