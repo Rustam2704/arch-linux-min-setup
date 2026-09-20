@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Windows-style launcher behaviour for panel buttons.
+
+    app-focus-or-launch <window-class-regex> <command> [args...]
+
+Plain click  - focus the window that is already open (switching to its
+               workspace), and only start the program when nothing is open.
+Ctrl or Shift held - always start another window.
+"""
+import json
+import re
+import subprocess
+import sys
+
+
+def modifier_held():
+    """True when Ctrl or Shift is down right now (checked straight from X)."""
+    try:
+        from Xlib import X, display
+        d = display.Display()
+        state = d.screen().root.query_pointer().state
+        return bool(state & (X.ControlMask | X.ShiftMask))
+    except Exception:
+        return False
+
+
+def find_window(pattern):
+    try:
+        tree = json.loads(subprocess.run(["i3-msg", "-t", "get_tree"],
+                                         capture_output=True, text=True, timeout=4).stdout)
+    except Exception:
+        return None
+    rx = re.compile(pattern, re.I)
+    found = []
+
+    def walk(node):
+        props = node.get("window_properties") or {}
+        if rx.search(props.get("class", "") or "") or rx.search(props.get("instance", "") or ""):
+            found.append(node)
+        for child in node.get("nodes", []) + node.get("floating_nodes", []):
+            walk(child)
+
+    walk(tree)
+    return found[0] if found else None
+
+
+def main():
+    if len(sys.argv) < 3:
+        print(__doc__, file=sys.stderr)
+        return 2
+    pattern, command = sys.argv[1], sys.argv[2:]
+
+    if not modifier_held():
+        window = find_window(pattern)
+        if window:
+            subprocess.run(["i3-msg", "-q", f'[con_id={window["id"]}] focus'])
+            return 0
+    else:
+        # Ctrl/Shift + panel button: the new window belongs on the workspace in front
+        # of the user, not next to the app's other windows (deskd does the placing)
+        here = next((w["num"] for w in json.loads(subprocess.run(
+            ["i3-msg", "-t", "get_workspaces"], capture_output=True, text=True).stdout)
+            if w["focused"]), None)
+        cls = re.sub(r"[^\w.-]", "", pattern)
+        if here:
+            subprocess.run(["i3-msg", "-q", "-t", "send_tick", f"deskd expect {cls} {here}"])
+    subprocess.Popen(command, start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
