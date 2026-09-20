@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""netqd — connection quality for the panel.
+
+Two long-running pings, one per second: to the router (default gateway) and to the
+internet (1.1.1.1). Every second it writes the panel text to
+$XDG_RUNTIME_DIR/netq.txt (genmon just `cat`s it - no process per update):
+
+    latency now · median of the last 10 s   (internet)
+
+The tooltip separates router from internet, so it is clear whether the Wi-Fi or
+the provider is the slow part, and shows packet loss, current traffic and the
+last speed test (run from the click menu: `net-menu`).
+"""
+import json
+import os
+import statistics
+import subprocess
+import threading
+import time
+from collections import deque
+
+RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+OUT = os.path.join(RUN, "netq.txt")
+STATE = os.path.join(RUN, "netq.json")
+SPEED = os.path.join(os.path.expanduser("~/.cache"), "netq-speed.json")
+INTERNET = "1.1.1.1"
+WINDOW = 10                     # seconds for the median and the loss
+ACCENT, WARN, CRIT, DIM, TEXT = "#48daf9", "#e0a33e", "#e05561", "#5b6b76", "#c6d0d9"
+
+
+def default_route():
+    """(interface, gateway ip) of the default route, or (None, None)."""
+    try:
+        with open("/proc/net/route") as f:
+            next(f)
+            for line in f:
+                p = line.split()
+                if p[1] == "00000000" and int(p[3], 16) & 2:        # RTF_GATEWAY
+                    gw = bytes.fromhex(p[2])[::-1]
+                    return p[0], ".".join(str(b) for b in gw)
+    except (OSError, StopIteration, ValueError):
+        pass
+    return None, None
+
+
+class Pinger:
+    """One `ping -O` per target; keeps (time, rtt or None) for the last WINDOW s."""
+    def __init__(self):
+        self.samples = deque()
+        self.proc = None
+        self.target = None
+        self.lock = threading.Lock()
+
+    def alive(self):
+        return self.proc is not None and self.proc.poll() is None
+
+    def retarget(self, target, force=False):
+        if target == self.target and not force:
+            return
+        self.stop()
+        self.target = target
+        with self.lock:
+            self.samples.clear()
+        if target:
+            self.proc = subprocess.Popen(
+                ["stdbuf", "-oL", "ping", "-n", "-O", "-i", "1", "-W", "1", target],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            threading.Thread(target=self._read, args=(self.proc,), daemon=True).start()
+
+    def stop(self):
+        if self.proc:
+            self.proc.kill()
+            self.proc = None
+
+    def _read(self, proc):
+        for line in proc.stdout:
+            rtt = None
+            if "time=" in line:
+                try:
+                    rtt = float(line.split("time=")[1].split()[0])
+                except (IndexError, ValueError):
+                    continue
+            elif "no answer yet" not in line:
+                continue
+            with self.lock:
+                self.samples.append((time.monotonic(), rtt))
+
+    def summary(self):
+        now = time.monotonic()
+        with self.lock:
+            while self.samples and now - self.samples[0][0] > WINDOW:
+                self.samples.popleft()
+            s = list(self.samples)
+        if not s:
+            return None
+        ok = [r for _, r in s if r is not None]
+        return {
+            "now": s[-1][1],
+            "median": statistics.median(ok) if ok else None,
+            "loss": round(100 * (len(s) - len(ok)) / len(s)),
+            "fresh": now - s[-1][0] < 3,
+        }
+
+
+def counters(iface):
+    try:
+        with open("/proc/net/dev") as f:
+            for line in f:
+                name, _, rest = line.partition(":")
+                if name.strip() == iface:
+                    v = rest.split()
+                    return int(v[0]), int(v[8])
+    except OSError:
+        pass
+    return 0, 0
+
+
+def rate(bps):
+    if bps >= 1 << 20:
+        return f"{bps / (1 << 20):.1f} MB/s"
+    if bps >= 1 << 10:
+        return f"{bps / (1 << 10):.0f} KB/s"
+    return f"{bps:.0f} B/s"
+
+
+def colour(ms, loss):
+    if ms is None or loss >= 30:
+        return CRIT
+    if loss >= 5 or ms >= 150:
+        return WARN if ms is not None and ms < 300 else CRIT
+    if ms >= 60:
+        return WARN
+    return ACCENT
+
+
+def dim(colour, factor=0.8):
+    """The same colour at a lower brightness: the median is the quieter number."""
+    r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    return "#%02x%02x%02x" % (int(r * factor), int(g * factor), int(b * factor))
+
+
+def fmt(ms):
+    return "—" if ms is None else f"{ms:.0f}"
+
+
+def pad(text, width=3):
+    """Fixed width in the panel: figure spaces are exactly one digit wide."""
+    return "\u2007" * max(0, width - len(text)) + text
+
+
+def line(label, s):
+    if not s:
+        return f"{label}: no data"
+    return (f"{label}: now {fmt(s['now'])} ms, median {fmt(s['median'])} ms, "
+            f"loss {s['loss']}% (last {WINDOW} s)")
+
+
+def main():
+    router, internet = Pinger(), Pinger()
+    internet.retarget(INTERNET)
+    iface = gw = None
+    prev = None
+    last_route_check = 0.0
+    while True:
+        t0 = time.monotonic()
+        if t0 - last_route_check > 5:
+            last_route_check = t0
+            new_iface, new_gw = default_route()
+            # ping dies when there is no route yet (right after boot): start it again
+            if new_gw != gw or (new_gw and not router.alive()):
+                router.retarget(new_gw, force=True)
+            if (new_iface is None) != (iface is None) or (new_iface and not internet.alive()):
+                internet.retarget(INTERNET if new_iface else None, force=True)
+            iface, gw = new_iface, new_gw
+
+        r, i = router.summary(), internet.summary()
+        down = up = 0.0
+        if iface:
+            rx, tx = counters(iface)
+            if prev and prev[0] == iface:
+                span = t0 - prev[1]
+                down, up = max(0, (rx - prev[2]) / span), max(0, (tx - prev[3]) / span)
+            prev = (iface, t0, rx, tx)
+
+        if not iface:
+            text = f'<span foreground="{DIM}">offline</span>'
+            verdict = "No network connection"
+        elif not i or not i["fresh"]:
+            text = f'<span foreground="{DIM}">…</span>'
+            verdict = "Measuring…"
+        else:
+            c = colour(i["median"], i["loss"])
+            text = (f'<span font_features="tnum"><span foreground="{DIM}">ping</span> '
+                    f'<span foreground="{colour(i["now"], 0)}">{pad(fmt(i["now"]))}</span>'
+                    f'<span foreground="{DIM}"> · </span>'
+                    f'<span size="75%" foreground="{dim(c)}">{pad(fmt(i["median"]))}</span>'
+                    f'<span foreground="{DIM}"> ms</span></span> ')
+            router_bad = r and (r["median"] is None or r["median"] > 40 or r["loss"] >= 10)
+            net_bad = i["median"] is None or i["median"] > 100 or i["loss"] >= 5
+            verdict = ("Slow: Wi-Fi / router" if router_bad else
+                       "Slow: provider / internet" if net_bad else "Connection is fine")
+
+        speed = ""
+        try:
+            with open(SPEED) as f:
+                sp = json.load(f)
+            speed = (f"\nLast speed test ({sp['when']}): ↓ {sp['down']:.1f} Mbit/s, "
+                     f"↑ {sp['up']:.1f} Mbit/s")
+        except (OSError, ValueError, KeyError):
+            pass
+
+        tip = "\n".join([verdict, "", line(f"Internet ({INTERNET})", i),
+                         line(f"Router ({gw or 'none'})", r),
+                         f"Interface: {iface or 'none'}   ↓ {rate(down)}   ↑ {rate(up)}"]) + speed
+        tip += "\n\nClick: menu with speed test"
+        out = (f"<txt>{text}</txt>\n<txtclick>{os.path.expanduser('~/.local/bin/net-menu')}</txtclick>\n"
+               f"<tool>{tip}</tool>\n")
+        with open(OUT + ".tmp", "w") as f:
+            f.write(out)
+        os.replace(OUT + ".tmp", OUT)
+        with open(STATE + ".tmp", "w") as f:
+            json.dump({"verdict": verdict, "internet": i, "router": r, "gateway": gw,
+                       "iface": iface, "down": down, "up": up}, f)
+        os.replace(STATE + ".tmp", STATE)
+        time.sleep(max(0.2, 1 - (time.monotonic() - t0)))
+
+
+if __name__ == "__main__":
+    main()

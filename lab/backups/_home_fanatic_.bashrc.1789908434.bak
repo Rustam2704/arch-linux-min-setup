@@ -1,0 +1,35 @@
+#
+# ~/.bashrc
+#
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+PS1='[\u@\h \W]\$ '
+
+# >>> Codex installer >>>
+export PATH="/home/fanatic/.local/bin:$PATH"
+# <<< Codex installer <<<
+
+# Start new Codex chats in the dedicated workspace. Explicit -C/--cd paths
+# and commands that operate on existing sessions or Codex itself are preserved.
+codex() {
+    local codex_arg
+
+    for codex_arg in "$@"; do
+        case "$codex_arg" in
+            -C|--cd|--cd=*)
+                command codex "$@"
+                return
+                ;;
+            resume|fork|agents|login|logout|mcp|plugin|app-server|remote-control|completion|update|doctor|sandbox|debug|apply|queue|archive|delete|migrate-rollouts|unarchive|cloud|exec-server|features|help)
+                command codex "$@"
+                return
+                ;;
+        esac
+    done
+
+    command codex -C /home/fanatic/ai/codex "$@"
+}
