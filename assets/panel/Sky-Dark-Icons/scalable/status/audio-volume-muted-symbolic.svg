@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <g transform="translate(32 32) scale(1.08) translate(-32 -32)">
-  <path fill="#bebebe" d="M6 24h10l13-11v38L16 40H6z"/>
-  <g fill="none" stroke="#bebebe" stroke-width="4" stroke-linecap="round">
-    <path opacity=".18" d="M34 25q7 7 0 14"/><path opacity=".18" d="M40 19q13 13 0 26"/><path opacity=".18" d="M46 13q19 19 0 38"/>
-    <path d="m39 24 16 16m0-16L39 40"/>
-  </g>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path style="fill:none!important;stroke:#5b6b76!important" stroke-width="2.6" d="M7 24h9l12-10v36L16 40H7z"/>
+    <path style="fill:none!important;stroke:#28c840!important" stroke-width="4" d="M34 26q6 6 0 12" opacity=".10"/>
+    <path style="fill:none!important;stroke:#febc2e!important" stroke-width="4" d="M41 20q12 12 0 24" opacity=".10"/>
+    <path style="fill:none!important;stroke:#ff5f57!important" stroke-width="4" d="M48 14q18 18 0 36" opacity=".10"/>
+    <path style="fill:none!important;stroke:#ff5f57!important" stroke-width="4" d="m36 24 16 16m0-16L36 40"/>
   </g>
 </svg>

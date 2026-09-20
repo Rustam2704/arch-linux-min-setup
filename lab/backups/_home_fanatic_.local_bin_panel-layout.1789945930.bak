@@ -1,0 +1,17 @@
+#!/bin/sh
+# Keyboard layout for the panel (genmon): EN / RU / UA, written by osd-daemon,
+# which also refreshes this plugin the moment the layout changes.
+name=$(cat "${XDG_RUNTIME_DIR:-/tmp}/kbd-layout" 2>/dev/null || echo "--")
+case "$name" in
+    EN) COLOUR="#47d6f9"; EXTRA="#2f80ff" ;;  # cyan + 5% blue
+    RU) COLOUR="#4cd4ef"; EXTRA="#9b5d30" ;;  # cyan + 5% brown
+    UA) COLOUR="#51d9ef"; EXTRA="#febc2e" ;;  # cyan + 5% yellow
+    *)  COLOUR="#48daf9"; EXTRA="#48daf9" ;;
+esac
+# The letters use the literal 95/5 colour blend. The thin pure-colour underline
+# keeps the language accent legible at panel size.
+echo "<txt><span foreground=\"$COLOUR\" weight=\"bold\" underline=\"single\" underline_color=\"$EXTRA\">$name</span></txt>"
+echo "<txtclick>$HOME/.local/bin/osd layout next</txtclick>"
+echo "<tool>Keyboard layout: $name
+Alt+Shift: English / Russian
+Ctrl+Shift: Ukrainian</tool>"
