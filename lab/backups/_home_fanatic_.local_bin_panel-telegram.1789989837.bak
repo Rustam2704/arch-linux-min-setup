@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Telegram for the panel (genmon): its own icon plus the number of unread messages.
+
+Telegram's tray icon is switched off, so this is the only Telegram indicator.
+The icon is Telegram's own, from the icon theme; unread messages turn it the
+accent colour (see setup/assets/make-telegram-icons.py). The number comes from
+the window title, which carries the same count as Telegram's "badge counter"
+setting (archived and muted chats excluded when that is off).
+"""
+import os
+import re
+import subprocess
+
+ACCENT = "#48daf9"
+ICONS = os.path.expanduser("~/.local/share/panel-icons")
+
+title = ""
+try:
+    out = subprocess.run(["xdotool", "search", "--class", "TelegramDesktop", "getwindowname", "%@"],
+                         capture_output=True, text=True, timeout=3).stdout
+    title = " ".join(out.split("\n"))
+except Exception:
+    pass
+
+running = bool(title.strip())
+match = re.search(r"\((\d+)\)", title)
+count = int(match.group(1)) if match else 0
+
+if not running:
+    icon, tip, text = "telegram-off.png", "Telegram is not running", ""
+elif count:
+    icon = "telegram-accent.png"
+    tip = f"Telegram: {count} unread"
+    text = f'<span foreground="{ACCENT}" weight="bold">{count}</span>'
+else:
+    icon, tip, text = "telegram.png", "Telegram: no unread messages", ""
+
+print(f"<img>{os.path.join(ICONS, icon)}</img>")
+if text:
+    print(f"<txt>{text} </txt>")
+print(f"<tool>{tip}</tool>")
+# clicking the indicator behaves like clicking Telegram's tray icon
+print(f"<txtclick>{os.path.expanduser('~/.local/bin/telegram-toggle')}</txtclick>")

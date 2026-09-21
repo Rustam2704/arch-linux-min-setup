@@ -1,0 +1,3 @@
+#!/bin/sh
+# Network quality for the panel (genmon). netqd renders it once a second; this only reads it.
+cat "${XDG_RUNTIME_DIR:-/tmp}/netq.txt" 2>/dev/null || echo "<txt>…</txt>"
