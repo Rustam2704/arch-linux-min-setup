@@ -40,13 +40,23 @@ def paint(pixbuf, colour):
         out.get_bits_per_sample(), out.get_width(), out.get_height(), rowstride)
 
 
+def pad_left(pixbuf, pad):
+    """Empty pixels on the left of the icon: the panel gives a genmon image no
+    margin of its own, and this is the gap to the separator beside it."""
+    out = GdkPixbuf.Pixbuf.new(pixbuf.get_colorspace(), True, pixbuf.get_bits_per_sample(),
+                               pixbuf.get_width() + pad, pixbuf.get_height())
+    out.fill(0x00000000)
+    pixbuf.copy_area(0, 0, pixbuf.get_width(), pixbuf.get_height(), out, pad, 0)
+    return out
+
+
 def main():
     out_dir = sys.argv[1]
     size = int(sys.argv[2]) if len(sys.argv) > 2 else 48
     os.makedirs(out_dir, exist_ok=True)
     glyph = GdkPixbuf.Pixbuf.new_from_file_at_size(SOURCE, size, size)
     for name, colour in COLOURS.items():
-        paint(glyph, colour).savev(os.path.join(out_dir, name), "png", [], [])
+        pad_left(paint(glyph, colour), 10).savev(os.path.join(out_dir, name), "png", [], [])
     print(f"wrote {', '.join(COLOURS)} ({size}px) to {out_dir}")
 
 

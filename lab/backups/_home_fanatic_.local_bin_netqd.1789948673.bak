@@ -1,0 +1,390 @@
+#!/usr/bin/env python3
+"""netqd — connection quality for the panel.
+
+Two long-running pings, one per second: to the router (default gateway) and to the
+internet (1.1.1.1). Every second it writes the panel text to
+$XDG_RUNTIME_DIR/netq.txt (genmon just `cat`s it - no process per update):
+
+    latency now · median of the last 10 s   (internet)
+
+The line starts with the link itself - Wi-Fi strength, cable or phone - because
+nm-applet's tray icon is an XEmbed one and the panel cannot scale it past 22 px.
+The tooltip separates router from internet, so it is clear whether the Wi-Fi or
+the provider is the slow part, and shows packet loss, current traffic and the
+last speed test (run from the click menu: `net-menu`).
+"""
+import json
+import os
+import re
+import statistics
+import subprocess
+import threading
+import time
+from collections import deque
+
+RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+OUT = os.path.join(RUN, "netq.txt")
+STATE = os.path.join(RUN, "netq.json")
+SPEED = os.path.join(os.path.expanduser("~/.cache"), "netq-speed.json")
+INTERNET = "1.1.1.1"
+WINDOW = 10                     # seconds for the median and the loss
+ACCENT, WARN, CRIT, DIM, TEXT = "#48daf9", "#e0a33e", "#e05561", "#5b6b76", "#c6d0d9"
+GAP = '<span size="50%"> </span>'      # half a space: a word and its number belong together
+NERD = "JetBrainsMono Nerd Font Propo"
+WIFI_OFF, WIRED, TETHER = "\U000f05aa", "\U000f0200", "\U000f0227"
+LINK_EVERY = 10                 # seconds between asking NetworkManager about the link
+WIFI_ICON = os.path.join(RUN, "panel-wifi.svg")
+
+
+def signal_dbm(iface, percent):
+    """Actual dBm when the driver exposes it, otherwise NetworkManager's estimate."""
+    try:
+        out = subprocess.run(["iw", "dev", iface, "link"], capture_output=True,
+                             text=True, timeout=3).stdout
+        match = re.search(r"signal:\s*(-?\d+)\s*dBm", out)
+        if match:
+            return int(match.group(1))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return round(percent / 2 - 100) if percent is not None else None
+
+
+def write_wifi_icon(signal, dbm):
+    """The Wi-Fi fan as an SVG: the solid fan it always was, cut into eight steps
+    instead of four so a change in signal shows sooner, with the level in dBm
+    written across it. The number is black on the lit part of the fan and turns
+    into the fan's own colour where it crosses the dark part - the usual
+    inverted-text effect, which needs the fan to be solid to work at panel size."""
+    signal = 0 if signal is None else max(0, min(100, signal))
+    steps = 8
+    lit = max(1, min(steps, round(signal * steps / 100)))
+    cx, cy, radius = 28.0, 33.0, 30.0        # apex, and the radius of the whole fan
+    half, drop = 0.866, 0.5                  # a 120 degree fan: cos 30, sin 30
+
+    def sector(r, colour, extra=""):
+        x0, y0 = cx - half * r, cy - drop * r
+        x1, y1 = cx + half * r, cy - drop * r
+        return (f'<path d="M{cx} {cy} L{x0:.1f} {y0:.1f} A{r:.1f} {r:.1f} 0 0 1 {x1:.1f} {y1:.1f} Z" '
+                f'fill="{colour}"{extra}/>')
+
+    def divider(r):
+        x0, y0 = cx - half * r, cy - drop * r
+        x1, y1 = cx + half * r, cy - drop * r
+        return (f'<path d="M{x0:.1f} {y0:.1f} A{r:.1f} {r:.1f} 0 0 1 {x1:.1f} {y1:.1f}" '
+                f'fill="none" stroke="#000000" stroke-width="0.7"/>')
+
+    lit_radius = radius * lit / steps
+    body = sector(radius, "#21343d") + sector(lit_radius, ACCENT)
+    body += "".join(divider(radius * k / steps) for k in range(1, steps))
+    label = "---" if dbm is None else str(dbm)
+    text = (f'<text x="{cx}" y="24" text-anchor="middle" font-family="Inter" '
+            f'font-size="13" font-weight="700" letter-spacing="0.1"')
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="56" height="35" viewBox="0 0 56 35">
+  <mask id="unlit" maskUnits="userSpaceOnUse" x="0" y="0" width="56" height="35">
+    <rect width="56" height="35" fill="#ffffff"/>{sector(lit_radius, "#000000")}
+  </mask>
+  {body}
+  {text} fill="#000000">{label}</text>
+  {text} fill="{ACCENT}" mask="url(#unlit)">{label}</text>
+</svg>"""
+    try:
+        old = ""
+        try:
+            with open(WIFI_ICON) as stream:
+                old = stream.read()
+        except OSError:
+            pass
+        if old != svg:
+            with open(WIFI_ICON + ".tmp", "w") as stream:
+                stream.write(svg)
+            os.replace(WIFI_ICON + ".tmp", WIFI_ICON)
+    except OSError:
+        pass
+
+
+class Link:
+    """What the connection is on: Wi-Fi (with its strength), a cable, or a phone.
+    NetworkManager is asked at most every LINK_EVERY seconds - the glyph does not
+    need to be quicker than that, and nmcli is a process each time."""
+    def __init__(self):
+        self.at = 0.0
+        self.ssid = None
+        self.signal = None
+        self.dbm = None
+
+    def refresh(self, iface):
+        if not iface or not iface.startswith("wl"):
+            self.ssid = self.signal = self.dbm = None
+            return
+        now = time.monotonic()
+        if now - self.at < LINK_EVERY:
+            return
+        self.at = now
+        try:
+            out = subprocess.run(["nmcli", "-t", "-f", "IN-USE,SIGNAL,SSID", "dev", "wifi"],
+                                 capture_output=True, text=True, timeout=4).stdout
+        except (OSError, subprocess.SubprocessError):
+            return
+        for line in out.splitlines():
+            if line.startswith("*"):
+                fields = split_fields(line)
+                self.signal = int(fields[1]) if len(fields) > 1 and fields[1].isdigit() else None
+                self.ssid = fields[2] if len(fields) > 2 else None
+                self.dbm = signal_dbm(iface, self.signal)
+                return
+        self.ssid = self.signal = self.dbm = None
+
+    def markup(self, iface, online):
+        """(image path or None, text glyph or empty, tooltip line). Wi-Fi is drawn as
+        an image because it carries the dBm readout; the others stay glyphs."""
+        if not iface or not online:
+            return (None, f'<span font_family="{NERD}" size="140%" foreground="{DIM}">{WIFI_OFF}</span>',
+                    "No link")
+        if iface.startswith("wl"):
+            write_wifi_icon(self.signal, self.dbm)
+            where = self.ssid or "Wi-Fi"
+            if self.signal is not None and self.dbm is not None:
+                tip = f"{where} ({self.dbm} dBm, {self.signal}%)"
+            else:
+                tip = where
+            return (WIFI_ICON, "", tip)
+        elif iface.startswith(("en", "eth")):
+            glyph, tip = WIRED, "Wired connection"
+        else:
+            glyph, tip = TETHER, f"Phone or USB ({iface})"
+        return (None, f'<span font_family="{NERD}" size="140%" foreground="{ACCENT}">{glyph}</span>', tip)
+
+
+def split_fields(line):
+    """nmcli -t escapes a colon inside a value as "\\:"."""
+    out, cur, escaped = [], "", False
+    for ch in line:
+        if escaped:
+            cur += ch
+            escaped = False
+        elif ch == "\\":
+            escaped = True
+        elif ch == ":":
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    out.append(cur)
+    return out
+
+
+def default_route():
+    """(interface, gateway ip) of the default route, or (None, None)."""
+    try:
+        with open("/proc/net/route") as f:
+            next(f)
+            for line in f:
+                p = line.split()
+                if p[1] == "00000000" and int(p[3], 16) & 2:        # RTF_GATEWAY
+                    gw = bytes.fromhex(p[2])[::-1]
+                    return p[0], ".".join(str(b) for b in gw)
+    except (OSError, StopIteration, ValueError):
+        pass
+    return None, None
+
+
+class Pinger:
+    """One `ping -O` per target; keeps (time, rtt or None) for the last WINDOW s."""
+    def __init__(self):
+        self.samples = deque()
+        self.proc = None
+        self.target = None
+        self.lock = threading.Lock()
+
+    def alive(self):
+        return self.proc is not None and self.proc.poll() is None
+
+    def retarget(self, target, force=False):
+        if target == self.target and not force:
+            return
+        self.stop()
+        self.target = target
+        with self.lock:
+            self.samples.clear()
+        if target:
+            self.proc = subprocess.Popen(
+                ["stdbuf", "-oL", "ping", "-n", "-O", "-i", "1", "-W", "1", target],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            threading.Thread(target=self._read, args=(self.proc,), daemon=True).start()
+
+    def stop(self):
+        if self.proc:
+            self.proc.kill()
+            self.proc = None
+
+    def _read(self, proc):
+        for line in proc.stdout:
+            rtt = None
+            if "time=" in line:
+                try:
+                    rtt = float(line.split("time=")[1].split()[0])
+                except (IndexError, ValueError):
+                    continue
+            elif "no answer yet" not in line:
+                continue
+            with self.lock:
+                self.samples.append((time.monotonic(), rtt))
+
+    def summary(self):
+        now = time.monotonic()
+        with self.lock:
+            while self.samples and now - self.samples[0][0] > WINDOW:
+                self.samples.popleft()
+            s = list(self.samples)
+        if not s:
+            return None
+        ok = [r for _, r in s if r is not None]
+        return {
+            "now": s[-1][1],
+            "median": statistics.median(ok) if ok else None,
+            "loss": round(100 * (len(s) - len(ok)) / len(s)),
+            "fresh": now - s[-1][0] < 3,
+        }
+
+
+def counters(iface):
+    try:
+        with open("/proc/net/dev") as f:
+            for line in f:
+                name, _, rest = line.partition(":")
+                if name.strip() == iface:
+                    v = rest.split()
+                    return int(v[0]), int(v[8])
+    except OSError:
+        pass
+    return 0, 0
+
+
+def rate(bps):
+    if bps >= 1 << 20:
+        return f"{bps / (1 << 20):.1f} MB/s"
+    if bps >= 1 << 10:
+        return f"{bps / (1 << 10):.0f} KB/s"
+    return f"{bps:.0f} B/s"
+
+
+def colour(ms, loss):
+    if ms is None or loss >= 30:
+        return CRIT
+    if loss >= 5 or ms >= 150:
+        return WARN if ms is not None and ms < 300 else CRIT
+    if ms >= 60:
+        return WARN
+    return ACCENT
+
+
+def dim(colour, factor=0.8):
+    """The same colour at a lower brightness: the median is the quieter number."""
+    r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    return "#%02x%02x%02x" % (int(r * factor), int(g * factor), int(b * factor))
+
+
+def fmt(ms, panel=False):
+    """Three digit positions in the panel; 1000 and above roll over to 000, as asked."""
+    if ms is None:
+        return "—"
+    rounded = round(ms)
+    return "000" if panel and rounded >= 1000 else str(rounded)
+
+
+def value(text, colour, width=3, size=""):
+    """A cell exactly `width` digits wide with the number against its right edge: the
+    reading never shifts sideways when it gains a digit. Transparent zeroes hold the
+    space, because whitespace is not reliable inside a panel label."""
+    room = "0" * max(0, width - len(text))
+    return (f'<span{size} foreground="{colour}"><span alpha="1">{room}</span>'
+            f'{text}</span>')
+
+
+def line(label, s):
+    if not s:
+        return f"{label}: no data"
+    return (f"{label}: now {fmt(s['now'])} ms, median {fmt(s['median'])} ms, "
+            f"loss {s['loss']}% (last {WINDOW} s)")
+
+
+def main():
+    router, internet = Pinger(), Pinger()
+    link = Link()
+    internet.retarget(INTERNET)
+    iface = gw = None
+    prev = None
+    last_route_check = 0.0
+    while True:
+        t0 = time.monotonic()
+        if t0 - last_route_check > 5:
+            last_route_check = t0
+            new_iface, new_gw = default_route()
+            # ping dies when there is no route yet (right after boot): start it again
+            if new_gw != gw or (new_gw and not router.alive()):
+                router.retarget(new_gw, force=True)
+            if (new_iface is None) != (iface is None) or (new_iface and not internet.alive()):
+                internet.retarget(INTERNET if new_iface else None, force=True)
+            iface, gw = new_iface, new_gw
+
+        link.refresh(iface)
+        r, i = router.summary(), internet.summary()
+        down = up = 0.0
+        if iface:
+            rx, tx = counters(iface)
+            if prev and prev[0] == iface:
+                span = t0 - prev[1]
+                down, up = max(0, (rx - prev[2]) / span), max(0, (tx - prev[3]) / span)
+            prev = (iface, t0, rx, tx)
+
+        image, glyph, link_tip = link.markup(iface, bool(iface))
+        lead = f"{glyph} " if glyph else ""
+        if not iface:
+            text = f'{lead}<span foreground="{DIM}">offline</span>'
+            verdict = "No network connection"
+        elif not i or not i["fresh"]:
+            text = f'{lead}<span foreground="{DIM}">…</span>'
+            verdict = "Measuring…"
+        else:
+            c = colour(i["median"], i["loss"])
+            text = (f'{lead}<span font_features="tnum"><span foreground="{DIM}">ping</span>{GAP}'
+                    f'{value(fmt(i["now"], panel=True), colour(i["now"], 0))}'
+                    f'<span foreground="{DIM}">{GAP}·{GAP}</span>'
+                    f'{value(fmt(i["median"], panel=True), dim(c), size=" size=\"75%\"")}'
+                    f'<span foreground="{DIM}">{GAP}ms</span></span> ')
+            router_bad = r and (r["median"] is None or r["median"] > 40 or r["loss"] >= 10)
+            net_bad = i["median"] is None or i["median"] > 100 or i["loss"] >= 5
+            verdict = ("Slow: Wi-Fi / router" if router_bad else
+                       "Slow: provider / internet" if net_bad else "Connection is fine")
+
+        speed = ""
+        try:
+            with open(SPEED) as f:
+                sp = json.load(f)
+            speed = (f"\nLast speed test ({sp['when']}): ↓ {sp['down']:.1f} Mbit/s, "
+                     f"↑ {sp['up']:.1f} Mbit/s")
+        except (OSError, ValueError, KeyError):
+            pass
+
+        tip = "\n".join([link_tip, verdict, "", line(f"Internet ({INTERNET})", i),
+                         line(f"Router ({gw or 'none'})", r),
+                         f"Interface: {iface or 'none'}   ↓ {rate(down)}   ↑ {rate(up)}"]) + speed
+        tip += "\n\nClick: menu with speed test"
+        # the image is its own genmon tag, never inside <txt>: nested there it is
+        # drawn twice and drags the label off the line the other plugins sit on
+        picture = f"<img>{image}</img>\n" if image else ""
+        out = (f"{picture}<txt>{text}</txt>\n"
+               f"<txtclick>{os.path.expanduser('~/.local/bin/net-menu')}</txtclick>\n"
+               f"<tool>{tip}</tool>\n")
+        with open(OUT + ".tmp", "w") as f:
+            f.write(out)
+        os.replace(OUT + ".tmp", OUT)
+        with open(STATE + ".tmp", "w") as f:
+            json.dump({"verdict": verdict, "internet": i, "router": r, "gateway": gw,
+                       "iface": iface, "down": down, "up": up}, f)
+        os.replace(STATE + ".tmp", STATE)
+        time.sleep(max(0.2, 1 - (time.monotonic() - t0)))
+
+
+if __name__ == "__main__":
+    main()

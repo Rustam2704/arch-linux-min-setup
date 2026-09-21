@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Weather for the panel (genmon), from Open-Meteo — no account, no key.
+
+Survives being offline: the last reading is kept on disk and shown dimmed with
+its age, instead of the panel going blank or showing an error.
+"""
+import json
+import os
+import time
+import urllib.request
+
+LAT, LON = 50.260106, 28.669628          # Zhytomyr
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "panel-weather.json")
+MAX_AGE = 900                             # refresh at most every 15 minutes
+STALE_AFTER = 3 * 3600                    # dim the reading after 3 hours
+ACCENT = "#48daf9"
+DIM = "#5b6b76"
+
+URL = (f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}"
+       "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m"
+       "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2")
+
+# WMO weather codes -> an icon and a name. The icons are the weather glyphs of the
+# panel font: a colour emoji cannot be grown to the size of the Wi-Fi and battery
+# icons without its line box outgrowing the panel, these can.
+NERD = "JetBrainsMono Nerd Font Propo"
+ICON_SIZE = "170%"
+CODES = {
+    0: ("\ue30d", "clear"), 1: ("\ue302", "mainly clear"), 2: ("\ue312", "partly cloudy"),
+    3: ("\ue33d", "overcast"),
+    45: ("\ue313", "fog"), 48: ("\ue313", "rime fog"),
+    51: ("\ue319", "drizzle"), 53: ("\ue319", "drizzle"), 55: ("\ue319", "heavy drizzle"),
+    61: ("\ue318", "rain"), 63: ("\ue318", "rain"), 65: ("\ue318", "heavy rain"),
+    66: ("\ue31a", "freezing rain"), 67: ("\ue31a", "freezing rain"),
+    71: ("\ue31b", "snow"), 73: ("\ue31b", "snow"), 75: ("\ue31b", "heavy snow"),
+    77: ("\ue31b", "snow grains"),
+    80: ("\ue31c", "showers"), 81: ("\ue31c", "showers"), 82: ("\ue31d", "violent showers"),
+    85: ("\ue31b", "snow showers"), 86: ("\ue31b", "snow showers"),
+    95: ("\ue31d", "thunderstorm"), 96: ("\ue31d", "thunderstorm with hail"),
+    99: ("\ue31d", "thunderstorm with hail"),
+}
+
+
+def load_cache():
+    try:
+        with open(CACHE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def fetch():
+    with urllib.request.urlopen(URL, timeout=8) as r:
+        data = json.load(r)
+    data["fetched"] = time.time()
+    tmp = CACHE + ".tmp"
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, CACHE)
+    return data
+
+
+cached = load_cache()
+age = time.time() - cached["fetched"] if cached else None
+data, offline = cached, False
+if age is None or age > MAX_AGE:
+    try:
+        data = fetch()
+        age = 0
+    except Exception:
+        offline = True
+
+if not data:
+    print(f'<txt> <span foreground="{DIM}">weather —</span></txt>'
+          f'<tool>No weather data yet: no request has succeeded</tool>')
+    raise SystemExit
+
+cur = data["current"]
+icon, name = CODES.get(int(cur["weather_code"]), ("\ue374", "—"))
+temp = round(cur["temperature_2m"])
+feels = round(cur["apparent_temperature"])
+daily = data.get("daily", {})
+tmin = round(daily.get("temperature_2m_min", [0])[0])
+tmax = round(daily.get("temperature_2m_max", [0])[0])
+
+stale = age is not None and age > STALE_AFTER
+colour = DIM if stale else ACCENT
+# the glyph is sized to sit next to the Wi-Fi and battery icons, not next to the text
+print(f'<txt> <span font_family="{NERD}" size="{ICON_SIZE}" foreground="#c6d0d9">{icon}</span>'
+      f' <span foreground="{colour}">{temp:+d}°</span></txt>')
+
+if age is None:
+    when = "unknown"
+elif age < 90:
+    when = "just now"
+elif age < 3600:
+    when = f"{int(age // 60)} min ago"
+else:
+    when = f"{int(age // 3600)} h ago"
+
+note = "\n(offline: showing the last known value)" if offline else ""
+print(f"<tool>{name.capitalize()}, {temp:+d}° (feels like {feels:+d}°)\n"
+      f"Today: {tmin:+d}° to {tmax:+d}°\nWind: {cur.get('wind_speed_10m', '?')} km/h, "
+      f"humidity {cur.get('relative_humidity_2m', '?')}%\nUpdated: {when}{note}</tool>")
