@@ -78,7 +78,10 @@ try:
 except ValueError:
     pct = 0
 
-plugged = status != "Discharging"
+# the adapter flips the moment the cable moves; the battery's own status
+# ("Charging"/"Discharging") follows seconds later on this Mac
+adapter = next(iter(sorted(glob.glob("/sys/class/power_supply/A[CD]*/online"))), None)
+plugged = read(adapter, "") == "1" if adapter else status != "Discharging"
 full = status == "Full" or (plugged and pct >= 97)
 shown = 100 if full else pct
 colour = ACCENT if plugged else (CRIT if pct <= 10 else WARN if pct <= 20 else THEME["text"])

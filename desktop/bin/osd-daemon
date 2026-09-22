@@ -19,6 +19,7 @@ The current layout name is written to $XDG_RUNTIME_DIR/kbd-layout for the panel.
 import ctypes
 import os
 import queue
+import re
 import subprocess
 import threading
 import time
@@ -39,8 +40,8 @@ from sky_theme import THEME, css
 ACCENT = THEME["light"]
 OVER = THEME["warning"]     # above 100%
 LAYOUT_COLOURS = THEME["layouts"]   # one colour per language, the same as in the panel
-VOL_STEP = "5%"
-VOL_LIMIT = "1.5"
+VOL_STEP = 5
+VOL_LIMIT = 150            # percent; the bar shows "over" above 100
 PANEL_LAYOUT_PLUGIN = "genmon-55"
 
 GLYPH = {
@@ -168,25 +169,40 @@ class Osd(Gtk.Window):
 
 
 # ---------------------------------------------------------------- audio / brightness
+_vol = {"v": None, "muted": False, "t": 0.0}
+
+
 def volume_state():
-    out = run("wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@")   # "Volume: 0.45 [MUTED]"
-    try:
-        v = round(float(out.split()[1]) * 100)
-    except (IndexError, ValueError):
-        v = 0
-    return v, "MUTED" in out
+    """(percent, muted) from pactl - about 20 ms a call, half of what wpctl costs."""
+    out = run("pactl", "get-sink-volume", "@DEFAULT_SINK@")   # Volume: front-left: 29491 /  45% / ...
+    m = re.search(r"(\d+)%", out)
+    v = int(m.group(1)) if m else 0
+    muted = "yes" in run("pactl", "get-sink-mute", "@DEFAULT_SINK@")
+    _vol.update(v=v, muted=muted, t=time.monotonic())
+    return v, muted
+
+
+def show_volume(osd, v, muted):
+    glyph = GLYPH["vol-mute"] if muted or v == 0 else GLYPH["vol-high" if v >= 50 else "vol-low"]
+    GLib.idle_add(osd.level, glyph, v, muted)
 
 
 def do_volume(osd, arg):
-    sink = "@DEFAULT_AUDIO_SINK@"
+    sink = "@DEFAULT_SINK@"
     if arg == "mute":
-        run("wpctl", "set-mute", sink, "toggle")
+        run("pactl", "set-sink-mute", sink, "toggle")
     else:
-        run("wpctl", "set-mute", sink, "0")          # any change unmutes
-        run("wpctl", "set-volume", "-l", VOL_LIMIT, sink, VOL_STEP + ("+" if arg == "up" else "-"))
-    v, muted = volume_state()
-    glyph = GLYPH["vol-mute"] if muted or v == 0 else GLYPH["vol-high" if v >= 50 else "vol-low"]
-    GLib.idle_add(osd.level, glyph, v, muted)
+        if _vol["v"] is None or time.monotonic() - _vol["t"] > 5:
+            volume_state()
+        v = max(0, min(VOL_LIMIT, _vol["v"] + (VOL_STEP if arg == "up" else -VOL_STEP)))
+        # the OSD moves first, then the sink: the key feels instant, and a held
+        # key runs at the cost of two pactl calls per step
+        show_volume(osd, v, False)
+        _vol.update(v=v, muted=False, t=time.monotonic())
+        run("pactl", "set-sink-mute", sink, "0")          # any change unmutes
+        run("pactl", "set-sink-volume", sink, f"{v}%")
+        return
+    show_volume(osd, *volume_state())
 
 
 def do_brightness(osd, arg):

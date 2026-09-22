@@ -23,5 +23,5 @@
   "mono_font": "JetBrainsMono Nerd Font",
   "panel_font": "Inter 15",
   "panel_gap": 12,
-  "icons": {"latency": "󰓅", "cpu": "", "memory": "", "swap": "󰋊"}
+  "icons": {"latency": "󰓅", "cpu": "", "memory": "", "swap": "󰋊"}
 }

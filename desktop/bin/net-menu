@@ -190,11 +190,12 @@ def menu(wifi_only=False):
         dynamic = []
         pending = False
 
-        def show_networks():
+        scanning = {"polls": 0}
+
+        def fill(wifi, note=None):
             for item in dynamic:
                 m.remove(item)
             dynamic.clear()
-            wifi = networks() if switch.get_active() else []
             for in_use, ssid, signal, secured in wifi:
                 mark = "● " if in_use else "   "
                 lock = " 🔒" if secured else ""
@@ -204,11 +205,42 @@ def menu(wifi_only=False):
                 m.insert(item, 2 + len(dynamic))
                 dynamic.append(item)
             if not wifi:
-                item = Gtk.MenuItem(label="No cached networks · click Refresh" if switch.get_active() else "Wi-Fi is off")
+                item = Gtk.MenuItem(label=note or "No networks found")
                 item.set_sensitive(False)
                 m.insert(item, 2)
                 dynamic.append(item)
             m.show_all()
+
+        def poll():
+            """NetworkManager scans in the background; show the list as soon as it has one."""
+            if not switch.get_active():
+                scanning["polls"] = 0
+                return False
+            wifi = networks()
+            scanning["polls"] += 1
+            if wifi or scanning["polls"] > 10:
+                scanning["polls"] = 0
+                fill(wifi)
+                return False
+            return True
+
+        def start_scan():
+            if scanning["polls"]:
+                return
+            scanning["polls"] = 1
+            threading.Thread(target=lambda: subprocess.run(
+                ["nmcli", "dev", "wifi", "rescan"], capture_output=True, timeout=20), daemon=True).start()
+            GLib.timeout_add(1000, poll)
+
+        def show_networks():
+            wifi = networks() if switch.get_active() else []
+            if wifi or not switch.get_active():
+                fill(wifi, "Wi-Fi is off")
+            else:
+                # nothing cached (radio just came on, or after sleep): this click is
+                # the user asking, so a scan is fine here - never in the background
+                fill([], "Scanning…")
+                start_scan()
 
         def operation(args):
             nonlocal pending
@@ -241,7 +273,7 @@ def menu(wifi_only=False):
 
         toggle_handler = switch.connect("notify::active", lambda widget, _: operation(
             ["radio", "wifi", "on" if widget.get_active() else "off"]))
-        refresh.connect("clicked", lambda *_: operation(["dev", "wifi", "rescan"]))
+        refresh.connect("clicked", lambda *_: (fill([], "Scanning…"), start_scan()))
         refresh.set_sensitive(switch.get_active())
         show_networks()
         other = Gtk.MenuItem(label="Other network…")
