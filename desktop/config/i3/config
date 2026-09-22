@@ -149,6 +149,17 @@ bindsym $mod+Shift+minus nop deskd unminimize
 # machine; deskd switches this mode on and off with the focus. Super+Esc leaves it.
 mode "passthrough" {
     bindsym $mod+Escape mode "default"
+    # the remote machine gets every other key; moving the window itself must still work
+    bindsym $mod+Shift+1 nop deskd move 1
+    bindsym $mod+Shift+2 nop deskd move 2
+    bindsym $mod+Shift+3 nop deskd move 3
+    bindsym $mod+Shift+4 nop deskd move 4
+    bindsym $mod+Shift+5 nop deskd move 5
+    bindsym $mod+Shift+6 nop deskd move 6
+    bindsym $mod+Shift+7 nop deskd move 7
+    bindsym $mod+Shift+8 nop deskd move 8
+    bindsym $mod+Shift+9 nop deskd move 9
+    bindsym $mod+Shift+0 nop deskd move 10
 }
 
 # --- session ------------------------------------------------------------

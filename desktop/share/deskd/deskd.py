@@ -558,25 +558,26 @@ class Deskd:
         self.pump()
 
     def watch_power(self):
-        """UPower says the moment the cable goes in or out; the battery indicator is
-        refreshed there and then, instead of waiting for its own two-second beat.
-        Plugging in and out repeatedly is worth seeing at once."""
+        """The kernel reports the cable the moment it moves (udev, power_supply); the
+        battery indicator is refreshed there and then, instead of waiting for its own
+        ten-second beat. UPower was tried first and turned out to lag on plugging in."""
         try:
-            from gi.repository import Gio
-            bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-            bus.signal_subscribe("org.freedesktop.UPower", "org.freedesktop.DBus.Properties",
-                                 "PropertiesChanged", None, None, Gio.DBusSignalFlags.NONE,
-                                 lambda *a: self.refresh_plugin("panel-battery"), None)
+            gi.require_version("GUdev", "1.0")
+            from gi.repository import GUdev
+            self.udev = GUdev.Client(subsystems=["power_supply"])
+            self.udev.connect("uevent", lambda *_: self.refresh_plugin("panel-battery"))
         except Exception as e:                       # noqa: BLE001 - only the quick update
             log("power watch failed:", e)
 
     def refresh_plugin(self, command):
         """Make one genmon plugin run its script now."""
-        for key, value in panels.read_all().items():
-            if key.endswith("/command") and os.path.basename(value.strip()) == command:
-                pid = key.split("/")[2].split("-")[1]
-                spawn(["xfce4-panel", f"--plugin-event=genmon-{pid}:refresh:bool:true"])
-                return
+        cache = self.__dict__.setdefault("plugin_ids", {})
+        if command not in cache:                     # one xfconf query, then remembered
+            for key, value in panels.read_all().items():
+                if key.endswith("/command") and os.path.basename(value.strip()) == command:
+                    cache[command] = key.split("/")[2].split("-")[1]
+        if command in cache:
+            spawn(["xfce4-panel", f"--plugin-event=genmon-{cache[command]}:refresh:bool:true"])
 
     def watch_panel_items(self):
         """Follow the pointer across the panel and work out what it is over. Pointer

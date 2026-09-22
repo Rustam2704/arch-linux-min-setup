@@ -538,10 +538,10 @@ class EventDialog(Gtk.Dialog):
         if event:
             delete = self.add_button("Delete", 2)
             delete.get_style_context().add_class("danger")
-        self.add_button("Close" if event else "Cancel", Gtk.ResponseType.CANCEL)
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        ok = self.add_button("Save" if event else "Create", Gtk.ResponseType.OK)
+        ok.get_style_context().add_class("primary")
         if not event:
-            create = self.add_button("Create", Gtk.ResponseType.OK)
-            create.get_style_context().add_class("primary")
             self.set_default_response(Gtk.ResponseType.OK)
         self.scope = Gtk.ComboBoxText()
         for key, caption in (("this", "This event"), ("following", "This and following events"), ("all", "All events")):

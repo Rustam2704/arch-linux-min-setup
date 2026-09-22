@@ -89,10 +89,13 @@ def nmcli(*args, timeout=8):
         return ""
 
 
-def networks():
-    """[(in_use, ssid, signal, secured)] from the scan NetworkManager already has."""
+def networks(rescan=False):
+    """[(in_use, ssid, signal, secured)]: the scan NetworkManager already has, or with
+    rescan=True a fresh one - nmcli then blocks until the scan is complete, so the
+    list is whole instead of just the network in use."""
     seen, out = set(), []
-    for row in nmcli("-t", "-f", "IN-USE,SIGNAL,SECURITY,SSID", "dev", "wifi", "list", "--rescan", "no").splitlines():
+    for row in nmcli("-t", "-f", "IN-USE,SIGNAL,SECURITY,SSID", "dev", "wifi", "list",
+                     "--rescan", "yes" if rescan else "no", timeout=40).splitlines():
         f = split_fields(row)
         if len(f) < 4 or not f[3] or f[3] in seen:
             continue
@@ -190,7 +193,7 @@ def menu(wifi_only=False):
         dynamic = []
         pending = False
 
-        scanning = {"polls": 0}
+        scanning = {"busy": False}
 
         def fill(wifi, note=None):
             for item in dynamic:
@@ -212,26 +215,21 @@ def menu(wifi_only=False):
             for item in dynamic:          # not show_all(): that would unhide "Turn Wi-Fi on"
                 item.show()
 
-        def poll():
-            """NetworkManager scans in the background; show the list as soon as it has one."""
-            if not switch.get_active():
-                scanning["polls"] = 0
-                return False
-            wifi = networks()
-            scanning["polls"] += 1
-            if wifi or scanning["polls"] > 10:
-                scanning["polls"] = 0
-                fill(wifi)
-                return False
-            return True
-
         def start_scan():
-            if scanning["polls"]:
+            if scanning["busy"]:
                 return
-            scanning["polls"] = 1
-            threading.Thread(target=lambda: subprocess.run(
-                ["nmcli", "dev", "wifi", "rescan"], capture_output=True, timeout=20), daemon=True).start()
-            GLib.timeout_add(1000, poll)
+            scanning["busy"] = True
+
+            def work():
+                wifi = networks(rescan=True)
+
+                def done():
+                    scanning["busy"] = False
+                    if switch.get_active():
+                        fill(wifi)
+                    return False
+                GLib.idle_add(done)
+            threading.Thread(target=work, daemon=True).start()
 
         def show_networks():
             wifi = networks() if switch.get_active() else []
