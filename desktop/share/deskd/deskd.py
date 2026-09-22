@@ -56,9 +56,10 @@ ACCENT = theme_rgb("accent")
 ACCENT_LIGHT = theme_rgb("light")
 BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
-PANEL_WS_COUNT = 6            # workspaces always shown per screen (6 while the fire test runs)
-FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit test sheets (Diablo flames)
+PANEL_WS_COUNT = 5            # workspaces always shown per screen
+FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit sheets cut from the Diablo logo
 FIRE_FRAME_MS = 60            # DevilutionX: GetAnimationFrame(frames, 60) = one frame per 60 ms
+FIRE_FLAMES = 6               # the logo's six flames (D i a b l O); digit n burns with flame (n-1) % 6 + 1
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -352,15 +353,22 @@ class ActiveMark:
 
 
 class FireDigits:
-    """Test: the workspace numbers 1..6 burn with the six flames of the Diablo logo,
-    one flame per number, so they can be compared side by side. Each number gets a
-    small ARGB window over its ink with a black backing; the frames come from the
-    sheets that external-assets/tools/fire-digits.py cut out of ui_art/smlogo.pcx."""
+    """The number of the workspace in front of you burns with one of the six flames of
+    the Diablo logo (digit n gets flame (n-1) % 6 + 1). The frames were cut once by
+    external-assets/tools/fire-digits.py; here they are uploaded to the X server as
+    pixmaps the first time a digit burns, and every 60 ms is one CopyArea request -
+    the client does no drawing at all. Only the active digit has a window."""
     def __init__(self, xs):
         self.xs = xs
-        self.marks = {}          # label -> (window, geom, sheet, frame_h)
+        self.win = xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True)
+        self.gc = self.win.create_gc()
+        self.pixmaps = {}        # label -> [pixmap per frame]
+        self.info = {}           # label -> sheet info
+        self.label = None
+        self.geom = None
         self.frame = 0
         self.timer = None
+        self.shown = False
         try:
             with open(os.path.join(FIRE_DIR, "index.json")) as f:
                 self.index = json.load(f)["sheets"]
@@ -368,66 +376,78 @@ class FireDigits:
             log("fire sheets missing:", e)
             self.index = {}
 
-    def place(self, label, centre_x, top_y):
-        name = f"flame{label}-digit{label}.png"
+    def sheet_name(self, label):
+        try:
+            n = int(label)
+        except ValueError:
+            return None
+        return f"flame{(n - 1) % FIRE_FLAMES + 1}-digit{n}.png"
+
+    def load(self, label):
+        """15 pixmaps for this digit, uploaded once; about 9 KB each."""
+        if label in self.pixmaps:
+            return True
+        name = self.sheet_name(label)
         if name not in self.index:
-            return
+            return False
         info = self.index[name]
         w, h = info["width"], info["height"]
-        x, y = int(centre_x - info["digit_width"] / 2 - info["hole_x"]), int(top_y - info["above"])
-        if label not in self.marks:
-            win = self.xs.window(self.xs.root, x, y, w, h, argb=True, override=True, events=X.ExposureMask)
-            sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
-            self.marks[label] = [win, None, sheet, h]
-            win.map()
-        mark = self.marks[label]
-        if mark[1] != (x, y, w, h):
-            mark[0].configure(x=x, y=y, width=w, height=h)
-            mark[1] = (x, y, w, h)
-            self.draw(label)
+        sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
+        frames = []
+        for i in range(15):
+            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+            ctx = cairo.Context(surface)
+            ctx.set_operator(cairo.OPERATOR_SOURCE)
+            ctx.set_source_surface(sheet, 0, -i * h)
+            ctx.rectangle(0, 0, w, h)
+            ctx.fill()
+            surface.flush()
+            pixmap = self.win.create_pixmap(w, h, 32)
+            pixmap.put_image(self.gc, 0, 0, w, h, X.ZPixmap, 32, 0, bytes(surface.get_data()))
+            frames.append(pixmap)
+        self.pixmaps[label] = frames
+        self.info[label] = info
+        return True
+
+    def show(self, label, centre_x, top_y):
+        if not self.load(label):
+            self.hide()
+            return
+        info = self.info[label]
+        w, h = info["width"], info["height"]
+        geom = (int(centre_x - info["digit_width"] / 2 - info["hole_x"]), int(top_y - info["above"]), w, h)
+        if geom != self.geom:
+            self.win.configure(x=geom[0], y=geom[1], width=w, height=h)
+            self.geom = geom
+        self.label = label
+        if not self.shown:
+            self.win.map()
+            self.shown = True
+        self.blit()
         if self.timer is None:
             self.timer = GLib.timeout_add(FIRE_FRAME_MS, self.tick)
 
-    def draw(self, label):
-        """The frame as it is: fire with a transparent hole, over the panel's digit.
-        Frames are cut from the sheet once and kept as raw pixels, so a tick is one
-        PutImage per number and no cairo work."""
-        win, geom, sheet, fh = self.marks[label]
-        if not geom:
-            return
-        _, _, w, h = geom
-        frames = self.__dict__.setdefault("frames", {}).get(label)
-        if frames is None:
-            frames = []
-            for i in range(15):
-                surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
-                ctx = cairo.Context(surface)
-                ctx.set_operator(cairo.OPERATOR_SOURCE)
-                ctx.set_source_surface(sheet, 0, -i * fh)
-                ctx.rectangle(0, 0, w, h)
-                ctx.fill()
-                surface.flush()
-                frames.append(bytes(surface.get_data()))
-            self.frames[label] = frames
-        gc = self.xs.gc_cache.get(win.id)
-        if gc is None:
-            gc = self.xs.gc_cache[win.id] = win.create_gc()
-        win.put_image(gc, 0, 0, w, h, X.ZPixmap, 32, 0, frames[self.frame])
-
-    def tick(self):
-        self.frame = (self.frame + 1) % 15
-        for label in list(self.marks):
-            self.draw(label)
-        self.xs.d.flush()         # a timer has no event to piggyback on: push the frames now
-        return True
-
-    def hide_all(self):
-        for win, *_ in self.marks.values():
-            win.unmap()
-        self.marks.clear()
+    def hide(self):
+        if self.shown:
+            self.win.unmap()
+            self.shown = False
         if self.timer is not None:
             GLib.source_remove(self.timer)
             self.timer = None
+
+    def blit(self):
+        _, _, w, h = self.geom
+        self.win.copy_area(self.gc, self.pixmaps[self.label][self.frame], 0, 0, w, h, 0, 0)
+
+    def tick(self):
+        self.frame = (self.frame + 1) % 15
+        self.blit()
+        self.xs.d.flush()         # a timer has no event to piggyback on
+        return True
+
+    def raise_above(self):
+        if self.shown:
+            self.win.configure(stack_mode=X.Above)
 
 
 class PanelDim:
@@ -687,6 +707,7 @@ class Deskd:
         """Our own windows over the panel: the pentagram first, then the veil on top of
         it - the mark belongs to the panel and dims with it."""
         if self.ws_mark is not None and self.ws_mark.shown:
+            self.fire_digits.raise_above()           # fire, then the star over it
             self.ws_mark.win.configure(stack_mode=X.Above)
         for veil in self.veils.values():
             veil.raise_above()
@@ -2009,6 +2030,7 @@ class Deskd:
             veil.set_visible(clear)
             if not clear and self.ws_mark is not None:
                 self.ws_mark.hide()
+                self.fire_digits.hide()
 
     def sync_active_mark(self, focused=None):
         """Put the pentagram over the number of the workspace in front of you. The
@@ -2027,15 +2049,14 @@ class Deskd:
                 continue
             (gx, gy, gw, gh), items, bounds = view
             for (lo, hi), (label, num) in zip(bounds, items):
-                if label in ("1", "2", "3", "4", "5", "6"):
-                    self.fire_digits.place(label, self.digit_centre(label, lo, hi), self.digit_top(label, gy, gh))
-            for (lo, hi), (label, num) in zip(bounds, items):
                 if num == focused:
                     centre = self.digit_centre(label, lo, hi)
                     width = min(hi - lo, gh * 1.15)
+                    self.fire_digits.show(label, centre, self.digit_top(label, gy, gh))
                     self.ws_mark.place(int(centre - width / 2), gy, int(width), gh,
                                        label, self.panel_font(), self.dpi())
                     return
+        self.fire_digits.hide()
         self.ws_mark.hide()
 
     def strip_layout(self, text):
