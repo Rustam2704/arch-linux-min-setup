@@ -2017,6 +2017,7 @@ class Deskd:
             for (lo, hi), (label, num) in zip(bounds, items):
                 if label in ("1", "2", "3", "4", "5", "6"):
                     self.fire_digits.place(label, self.digit_centre(label, lo, hi), self.digit_top(label, gy, gh))
+            for (lo, hi), (label, num) in zip(bounds, items):
                 if num == focused:
                     centre = self.digit_centre(label, lo, hi)
                     width = min(hi - lo, gh * 1.15)

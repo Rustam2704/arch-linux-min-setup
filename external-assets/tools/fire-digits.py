@@ -93,6 +93,8 @@ def frame_surface(px, w, h, pal, static, x0, x1):
             if idx == TRANSPARENT or static[i]:
                 continue
             r, g, b = pal[idx]
+            if not (r >= g >= b and r - b > 40):
+                continue                      # grey, white, black: a letter's edge, not fire
             o = y * stride + (x - x0) * 4
             buf[o:o + 4] = bytes((b, g, r, 255))
     surf.mark_dirty()
@@ -132,6 +134,25 @@ def main():
             # the band's width becomes the frame's width; the letters' top row lands
             # on the digit's top, so the flames rise from the digit like from a letter
             scale = W / bw
+            edge = cairo.ImageSurface(cairo.FORMAT_A8, W, H)
+            ec = cairo.Context(edge)
+            ec.set_source_rgba(0, 0, 0, 1)
+            ec.paint()
+            ec.set_operator(cairo.OPERATOR_SOURCE)
+            fade = cairo.LinearGradient(0, H - 8, 0, H)
+            fade.add_color_stop_rgba(0, 0, 0, 0, 1)
+            fade.add_color_stop_rgba(1, 0, 0, 0, 0)
+            ec.set_source(fade)
+            ec.rectangle(0, H - 8, W, 8)
+            ec.fill()
+            for x0, x1 in ((0, 3), (W, W - 3)):
+                fade = cairo.LinearGradient(x0, 0, x1, 0)
+                fade.add_color_stop_rgba(0, 0, 0, 0, 0)
+                fade.add_color_stop_rgba(1, 0, 0, 0, 1)
+                ec.set_source(fade)
+                ec.rectangle(min(x0, x1), 0, 3, H - 8)
+                ec.fill()
+            edge.flush()
             sheet = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H * FRAMES)
             ctx = cairo.Context(sheet)
             for i, s in enumerate(surfaces):
@@ -147,21 +168,10 @@ def main():
                 ctx.set_source(pat)
                 ctx.paint()
                 ctx.restore()
-                # soft edges at the bottom and sides instead of a hard cut
+                # soft edges at the bottom and sides instead of a hard cut (DEST_IN is
+                # unbounded in cairo, so the fade is applied as one full-frame mask)
                 ctx.set_operator(cairo.OPERATOR_DEST_IN)
-                fade = cairo.LinearGradient(0, H - 8, 0, H)
-                fade.add_color_stop_rgba(0, 0, 0, 0, 1)
-                fade.add_color_stop_rgba(1, 0, 0, 0, 0)
-                ctx.set_source(fade)
-                ctx.rectangle(0, H - 8, W, 8)
-                ctx.fill()
-                for x0, x1 in ((0, 3), (W, W - 3)):
-                    fade = cairo.LinearGradient(x0, 0, x1, 0)
-                    fade.add_color_stop_rgba(0, 0, 0, 0, 0)
-                    fade.add_color_stop_rgba(1, 0, 0, 0, 1)
-                    ctx.set_source(fade)
-                    ctx.rectangle(min(x0, x1), 0, 3, H)
-                    ctx.fill()
+                ctx.mask_surface(edge, 0, 0)
                 # the digit is a hole in the fire: the panel's own number shows through
                 ctx.set_operator(cairo.OPERATOR_CLEAR)
                 ctx.translate(SIDE, ABOVE)
