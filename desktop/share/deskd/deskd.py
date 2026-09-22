@@ -58,7 +58,7 @@ BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
 PANEL_WS_COUNT = 6            # workspaces always shown per screen (6 while the fire test runs)
 FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit test sheets (Diablo flames)
-FIRE_FPS = 30                 # DevilutionX cycles the logo at 60; half of that for a start
+FIRE_FPS = 20                 # Diablo's own game loop ran at 20; DevilutionX cycles the logo at 60
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -389,18 +389,30 @@ class FireDigits:
             self.timer = GLib.timeout_add(1000 // FIRE_FPS, self.tick)
 
     def draw(self, label):
-        """The frame as it is: fire with a transparent hole, over the panel's digit."""
+        """The frame as it is: fire with a transparent hole, over the panel's digit.
+        Frames are cut from the sheet once and kept as raw pixels, so a tick is one
+        PutImage per number and no cairo work."""
         win, geom, sheet, fh = self.marks[label]
         if not geom:
             return
         _, _, w, h = geom
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
-        ctx = cairo.Context(surface)
-        ctx.set_operator(cairo.OPERATOR_SOURCE)
-        ctx.set_source_surface(sheet, 0, -self.frame * fh)
-        ctx.rectangle(0, 0, w, h)
-        ctx.fill()
-        self.xs.paint(win, surface, 32)
+        frames = self.__dict__.setdefault("frames", {}).get(label)
+        if frames is None:
+            frames = []
+            for i in range(15):
+                surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+                ctx = cairo.Context(surface)
+                ctx.set_operator(cairo.OPERATOR_SOURCE)
+                ctx.set_source_surface(sheet, 0, -i * fh)
+                ctx.rectangle(0, 0, w, h)
+                ctx.fill()
+                surface.flush()
+                frames.append(bytes(surface.get_data()))
+            self.frames[label] = frames
+        gc = self.xs.gc_cache.get(win.id)
+        if gc is None:
+            gc = self.xs.gc_cache[win.id] = win.create_gc()
+        win.put_image(gc, 0, 0, w, h, X.ZPixmap, 32, 0, frames[self.frame])
 
     def tick(self):
         self.frame = (self.frame + 1) % 15
