@@ -361,7 +361,11 @@ class FireDigits:
     def __init__(self, xs):
         self.xs = xs
         self.win = xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True)
-        self.gc = self.win.create_gc()
+        # typed as a dock: picom then draws no shadow and no rounded corners for it,
+        # which otherwise widen the region it recomposites sixteen times a second
+        dock = xs.d.intern_atom("_NET_WM_WINDOW_TYPE_DOCK")
+        self.win.change_property(xs.d.intern_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM, 32, [dock])
+        self.gc = self.win.create_gc(graphics_exposures=0)   # no NoExpose event per CopyArea
         self.pixmaps = {}        # label -> [pixmap per frame]
         self.info = {}           # label -> sheet info
         self.label = None
