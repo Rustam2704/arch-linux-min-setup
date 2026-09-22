@@ -85,7 +85,14 @@ class RecurrencePicker(Gtk.Box):
 
 
 class DayEvents(Gtk.Box):
-    """The viewport never dictates the grid's minimum height. Allocation does."""
+    """The viewport never dictates the grid's minimum height. Allocation does.
+
+    Every cell is the same height, so the last measured one is remembered on the
+    class: a freshly built grid (the month is redrawn around the event dialog) lays
+    its rows out right away instead of showing every chip and a "+N more" for one
+    frame before the first allocation arrives."""
+    cell_height = None
+
     def __init__(self, chips, expanded=False, on_expand=lambda value: None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.chips, self.expanded, self.on_expand = chips, expanded, on_expand
@@ -108,7 +115,8 @@ class DayEvents(Gtk.Box):
         self.more.set_no_show_all(True)
         self.more.connect("clicked", self.toggle)
         self.pack_start(self.more, False, False, 0)
-        self.more.show()
+        if DayEvents.cell_height:
+            self.layout(DayEvents.cell_height)
         self.connect("size-allocate", self.allocated)
         self.connect("destroy", self.destroyed)
         self.scroll.connect("scroll-event", self.scrolled)
@@ -142,18 +150,21 @@ class DayEvents(Gtk.Box):
 
     def reflow(self):
         self.pending = None
+        height = self.get_allocated_height()
+        if height > 1:
+            DayEvents.cell_height = height
+        self.layout(height)
+        return False
+
+    def layout(self, height):
         if not self.chips:
             self.more.hide()
-            return False
+            return
         self.row_height = max(self.row_height, *(c.get_preferred_height()[1] for c in self.chips))
-        row = self.row_height
-        height = self.get_allocated_height()
         self.more_height = max(self.more_height, self.more.get_preferred_height()[1])
-        more_height = self.more_height
-        count = recurrence.capacity(height, row, more_height, len(self.chips))
+        count = recurrence.capacity(height, self.row_height, self.more_height, len(self.chips))
         overflow = count < len(self.chips)
         for i, chip in enumerate(self.chips):
             chip.set_visible(self.expanded or i < count)
         self.more.set_label("Show less" if self.expanded else f"+{len(self.chips) - count} more")
         self.more.set_visible(overflow)
-        return False
