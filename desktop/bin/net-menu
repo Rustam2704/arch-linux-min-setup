@@ -209,7 +209,8 @@ def menu(wifi_only=False):
                 item.set_sensitive(False)
                 m.insert(item, 2)
                 dynamic.append(item)
-            m.show_all()
+            for item in dynamic:          # not show_all(): that would unhide "Turn Wi-Fi on"
+                item.show()
 
         def poll():
             """NetworkManager scans in the background; show the list as soon as it has one."""
@@ -276,6 +277,24 @@ def menu(wifi_only=False):
         refresh.connect("clicked", lambda *_: (fill([], "Scanning…"), start_scan()))
         refresh.set_sensitive(switch.get_active())
         show_networks()
+        # plain menu rows as well as the small header controls: a big target that
+        # says what it does, for the case the icon shows "off" and you need a network
+        turn_on = Gtk.MenuItem(label="Turn Wi-Fi on")
+        turn_on.connect("activate", lambda *_: switch.set_active(True))
+        m.append(turn_on)
+        rescan = Gtk.MenuItem(label="Refresh networks")
+        rescan.connect("activate", lambda *_: (fill([], "Scanning…"), start_scan()))
+        m.append(rescan)
+        for row in (turn_on, rescan):
+            # GTK closes a menu when a row activates; these two keep it open so the
+            # list can fill in right here, like the header switch does
+            row.connect("button-release-event", lambda w, e: (w.activate(), True)[1])
+
+        def sync_rows(*_):
+            turn_on.set_visible(not switch.get_active())
+            rescan.set_sensitive(switch.get_active())
+        switch.connect("notify::active", sync_rows)
+        m.connect("show", sync_rows)
         other = Gtk.MenuItem(label="Other network…")
         other.connect("activate", lambda *_: subprocess.Popen(
             ["kitty", "--class", "nmtui", "-e", "nmtui-connect"], start_new_session=True))
@@ -297,7 +316,13 @@ def menu(wifi_only=False):
         m.append(run)
     m.connect("deactivate", lambda *_: Gtk.main_quit())
     m.show_all()
-    m.popup_at_pointer(None)
+    # started by the panel, not from a click inside a GTK window: there is no trigger
+    # event, so the menu is placed at the pointer explicitly (popup_at_pointer would
+    # warn "no trigger event" and show nothing)
+    _, x, y = Gdk.Display.get_default().get_default_seat().get_pointer().get_position()
+    rect = Gdk.Rectangle()
+    rect.x, rect.y, rect.width, rect.height = x, y, 1, 1
+    m.popup_at_rect(Gdk.get_default_root_window(), rect, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
     Gtk.main()
 
 
