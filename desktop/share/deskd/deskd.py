@@ -373,12 +373,12 @@ class FireDigits:
         if name not in self.index:
             return
         info = self.index[name]
-        w, h = info["width"] + 4, info["height"] + 4
-        x, y = int(centre_x - w / 2), int(top_y - 2)
+        w, h = info["width"], info["height"]
+        x, y = int(centre_x - w / 2), int(top_y - info["above"])
         if label not in self.marks:
             win = self.xs.window(self.xs.root, x, y, w, h, argb=True, override=True, events=X.ExposureMask)
             sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
-            self.marks[label] = [win, None, sheet, info["height"]]
+            self.marks[label] = [win, None, sheet, h]
             win.map()
         mark = self.marks[label]
         if mark[1] != (x, y, w, h):
@@ -389,24 +389,24 @@ class FireDigits:
             self.timer = GLib.timeout_add(1000 // FIRE_FPS, self.tick)
 
     def draw(self, label):
+        """The frame as it is: fire with a transparent hole, over the panel's digit."""
         win, geom, sheet, fh = self.marks[label]
         if not geom:
             return
         _, _, w, h = geom
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         ctx = cairo.Context(surface)
-        ctx.set_source_rgb(0, 0, 0)
-        ctx.paint()
-        ctx.rectangle(2, 2, w - 4, h - 4)
-        ctx.clip()
-        ctx.set_source_surface(sheet, 2, 2 - self.frame * fh)
-        ctx.paint()
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        ctx.set_source_surface(sheet, 0, -self.frame * fh)
+        ctx.rectangle(0, 0, w, h)
+        ctx.fill()
         self.xs.paint(win, surface, 32)
 
     def tick(self):
         self.frame = (self.frame + 1) % 15
         for label in list(self.marks):
             self.draw(label)
+        self.xs.d.flush()         # a timer has no event to piggyback on: push the frames now
         return True
 
     def hide_all(self):

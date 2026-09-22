@@ -4,7 +4,8 @@ press each flame through the shapes of the digits 1-9 as the panel draws them.
 
 Output (external-assets/fire-digits/):
   flames/flame{k}/frame{i:02d}.png   the k-th flame alone, letter removed (k = 1..6 = D i a b l O)
-  flame{k}-digit{d}.png              15 frames stacked vertically, digit-sized, fire only inside the digit
+  flame{k}-digit{d}.png              15 frames stacked vertically: the flame around and above the digit,
+                                     the digit itself cut out (a transparent hole - the panel's own digit shows)
   preview.png                        frame 0 of every flame x digit, 4x, for a look
   index.json                         frame size per sheet
 
@@ -31,8 +32,8 @@ OUT = os.path.join(ROOT, "fire-digits")
 FRAMES = 15
 TRANSPARENT = 250
 LETTER_TOP = 78                     # first row of the letters; the flames live above
-FLAME_ROWS = 40                     # the dense part of a flame, just above its letter, fills the digit
-EMBER = (0.24, 0.05, 0.0)           # a dark-red digit body under the fire: the number stays readable
+ABOVE, SIDE, BELOW = 24, 8, 4       # fire around the digit: how far the frame reaches past its ink
+AIR = 1.5                           # the cut-out is a little wider than the glyph
 LETTERS = [(17, 71), (98, 114), (142, 176), (202, 232), (260, 287), (313, 364)]
 MARGIN = 6
 
@@ -127,32 +128,50 @@ def main():
         bw = x1 - x0 + 1
         for d in range(1, 10):
             mask, dw, dh = masks[d]
-            # the digit is filled from the bottom of the flame band, where the fire is
-            # dense; one uniform scale that covers the digit both ways, centred
-            scale = max(dw / bw, dh / FLAME_ROWS)
-            sheet = cairo.ImageSurface(cairo.FORMAT_ARGB32, dw, dh * FRAMES)
+            W, H = dw + 2 * SIDE, ABOVE + dh + BELOW
+            # the band's width becomes the frame's width; the letters' top row lands
+            # on the digit's top, so the flames rise from the digit like from a letter
+            scale = W / bw
+            sheet = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H * FRAMES)
             ctx = cairo.Context(sheet)
             for i, s in enumerate(surfaces):
                 ctx.save()
-                ctx.translate(0, i * dh)
-                ctx.rectangle(0, 0, dw, dh)
+                ctx.translate(0, i * H)
+                ctx.rectangle(0, 0, W, H)
                 ctx.clip()
-                ctx.set_source_rgb(*EMBER)
-                ctx.mask_surface(mask, 0, 0)
-                ctx.push_group()
-                ctx.translate(dw / 2 - bw * scale / 2, dh - LETTER_TOP * scale)
+                ctx.save()
+                ctx.translate(0, ABOVE - LETTER_TOP * scale)
                 ctx.scale(scale, scale)
                 pat = cairo.SurfacePattern(s)
                 pat.set_filter(cairo.FILTER_BILINEAR)
                 ctx.set_source(pat)
                 ctx.paint()
-                ctx.pop_group_to_source()
-                ctx.mask_surface(mask, 0, 0)
+                ctx.restore()
+                # soft edges at the bottom and sides instead of a hard cut
+                ctx.set_operator(cairo.OPERATOR_DEST_IN)
+                fade = cairo.LinearGradient(0, H - 8, 0, H)
+                fade.add_color_stop_rgba(0, 0, 0, 0, 1)
+                fade.add_color_stop_rgba(1, 0, 0, 0, 0)
+                ctx.set_source(fade)
+                ctx.rectangle(0, H - 8, W, 8)
+                ctx.fill()
+                for x0, x1 in ((0, 3), (W, W - 3)):
+                    fade = cairo.LinearGradient(x0, 0, x1, 0)
+                    fade.add_color_stop_rgba(0, 0, 0, 0, 0)
+                    fade.add_color_stop_rgba(1, 0, 0, 0, 1)
+                    ctx.set_source(fade)
+                    ctx.rectangle(min(x0, x1), 0, 3, H)
+                    ctx.fill()
+                # the digit is a hole in the fire: the panel's own number shows through
+                ctx.set_operator(cairo.OPERATOR_CLEAR)
+                ctx.translate(SIDE, ABOVE)
+                for dx, dy in ((-AIR, 0), (AIR, 0), (0, -AIR), (0, AIR), (0, 0)):
+                    ctx.mask_surface(mask, dx, dy)
                 ctx.restore()
             name = f"flame{k}-digit{d}.png"
             sheet.write_to_png(os.path.join(OUT, name))
-            index["sheets"][name] = {"flame": k, "digit": d, "width": dw, "height": dh}
-            preview_cells.append((k, d, sheet, dw, dh))
+            index["sheets"][name] = {"flame": k, "digit": d, "width": W, "height": H, "above": ABOVE, "side": SIDE}
+            preview_cells.append((k, d, sheet, W, H))
     # preview: rows = flames, columns = digits, frame 0 at 4x
     cw, ch = max(c[3] for c in preview_cells) + 6, max(c[4] for c in preview_cells) + 6
     prev = cairo.ImageSurface(cairo.FORMAT_ARGB32, cw * 9 * 4, ch * 6 * 4)

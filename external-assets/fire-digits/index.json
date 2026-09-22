@@ -6,326 +6,434 @@
   "flame1-digit1.png": {
    "flame": 1,
    "digit": 1,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit2.png": {
    "flame": 1,
    "digit": 2,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit3.png": {
    "flame": 1,
    "digit": 3,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit4.png": {
    "flame": 1,
    "digit": 4,
-   "width": 19,
-   "height": 22
+   "width": 35,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit5.png": {
    "flame": 1,
    "digit": 5,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit6.png": {
    "flame": 1,
    "digit": 6,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit7.png": {
    "flame": 1,
    "digit": 7,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit8.png": {
    "flame": 1,
    "digit": 8,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame1-digit9.png": {
    "flame": 1,
    "digit": 9,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit1.png": {
    "flame": 2,
    "digit": 1,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit2.png": {
    "flame": 2,
    "digit": 2,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit3.png": {
    "flame": 2,
    "digit": 3,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit4.png": {
    "flame": 2,
    "digit": 4,
-   "width": 19,
-   "height": 22
+   "width": 35,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit5.png": {
    "flame": 2,
    "digit": 5,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit6.png": {
    "flame": 2,
    "digit": 6,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit7.png": {
    "flame": 2,
    "digit": 7,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit8.png": {
    "flame": 2,
    "digit": 8,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame2-digit9.png": {
    "flame": 2,
    "digit": 9,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit1.png": {
    "flame": 3,
    "digit": 1,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit2.png": {
    "flame": 3,
    "digit": 2,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit3.png": {
    "flame": 3,
    "digit": 3,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit4.png": {
    "flame": 3,
    "digit": 4,
-   "width": 19,
-   "height": 22
+   "width": 35,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit5.png": {
    "flame": 3,
    "digit": 5,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit6.png": {
    "flame": 3,
    "digit": 6,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit7.png": {
    "flame": 3,
    "digit": 7,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit8.png": {
    "flame": 3,
    "digit": 8,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame3-digit9.png": {
    "flame": 3,
    "digit": 9,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit1.png": {
    "flame": 4,
    "digit": 1,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit2.png": {
    "flame": 4,
    "digit": 2,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit3.png": {
    "flame": 4,
    "digit": 3,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit4.png": {
    "flame": 4,
    "digit": 4,
-   "width": 19,
-   "height": 22
+   "width": 35,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit5.png": {
    "flame": 4,
    "digit": 5,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit6.png": {
    "flame": 4,
    "digit": 6,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit7.png": {
    "flame": 4,
    "digit": 7,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit8.png": {
    "flame": 4,
    "digit": 8,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame4-digit9.png": {
    "flame": 4,
    "digit": 9,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit1.png": {
    "flame": 5,
    "digit": 1,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit2.png": {
    "flame": 5,
    "digit": 2,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit3.png": {
    "flame": 5,
    "digit": 3,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit4.png": {
    "flame": 5,
    "digit": 4,
-   "width": 19,
-   "height": 22
+   "width": 35,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit5.png": {
    "flame": 5,
    "digit": 5,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit6.png": {
    "flame": 5,
    "digit": 6,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit7.png": {
    "flame": 5,
    "digit": 7,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit8.png": {
    "flame": 5,
    "digit": 8,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame5-digit9.png": {
    "flame": 5,
    "digit": 9,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit1.png": {
    "flame": 6,
    "digit": 1,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit2.png": {
    "flame": 6,
    "digit": 2,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit3.png": {
    "flame": 6,
    "digit": 3,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit4.png": {
    "flame": 6,
    "digit": 4,
-   "width": 19,
-   "height": 22
+   "width": 35,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit5.png": {
    "flame": 6,
    "digit": 5,
-   "width": 17,
-   "height": 22
+   "width": 33,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit6.png": {
    "flame": 6,
    "digit": 6,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit7.png": {
    "flame": 6,
    "digit": 7,
-   "width": 16,
-   "height": 22
+   "width": 32,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit8.png": {
    "flame": 6,
    "digit": 8,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   },
   "flame6-digit9.png": {
    "flame": 6,
    "digit": 9,
-   "width": 18,
-   "height": 22
+   "width": 34,
+   "height": 50,
+   "above": 24,
+   "side": 8
   }
  }
 }
