@@ -127,6 +127,25 @@ def main():
             s.write_to_png(os.path.join(flame_dir, f"frame{i:02d}.png"))
             surfaces.append(s)
         bands.append((x0, x1, surfaces))
+    # where each flame's foot is: the x centre of the fire in the 30 rows above the
+    # letters, over all frames, relative to the band
+    base_x = []
+    for x0, x1, _ in bands:
+        total = weight = 0
+        for f in frames:
+            for y in range(LETTER_TOP - 30, LETTER_TOP):
+                row = y * w
+                for x in range(x0, x1 + 1):
+                    i = row + x
+                    idx = f[i]
+                    if idx == TRANSPARENT or static[i]:
+                        continue
+                    r, g, b = pal[idx]
+                    if r >= g >= b and r - b > 40:
+                        total += x - x0
+                        weight += 1
+        base_x.append(total / weight if weight else (x1 - x0) / 2)
+    print("flame feet at", [round(x0 + b) for (x0, _, _), b in zip(bands, base_x)])
     preview_cells = []
     for k, (x0, x1, surfaces) in enumerate(bands, 1):
         bw = x1 - x0 + 1
@@ -136,9 +155,11 @@ def main():
             # scale: the letter's own neighbourhood (letter +-6 px) becomes digit + HUG
             # px wide - the proportions of the first test, which read well; the frame
             # itself spans the whole flame so no tongue is cut
-            scale = (dw + HUG) / (lx1 - lx0 + 1 + 12)
+            scale = min(0.85, (dw + HUG) / (lx1 - lx0 + 1 + 12))
             W, H = int(bw * scale + 0.5), ABOVE + dh + BELOW
-            hole_x = int(((lx0 + lx1) / 2 - x0) * scale - dw / 2 + 0.5)
+            # the digit sits under the foot of the flame, not under the letter's middle:
+            # the tongues lean, and a number placed by the letter looked pushed aside
+            hole_x = int(base_x[k - 1] * scale - dw / 2 + 0.5)
             # below the flame, in the letters' zone, the fire only hugs the digit: the
             # rest there is shaped like the letter, not like the number
             hug = cairo.ImageSurface(cairo.FORMAT_A8, W, H)

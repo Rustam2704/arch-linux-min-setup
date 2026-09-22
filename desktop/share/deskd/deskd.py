@@ -58,7 +58,7 @@ BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
 PANEL_WS_COUNT = 6            # workspaces always shown per screen (6 while the fire test runs)
 FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit test sheets (Diablo flames)
-FIRE_FPS = 20                 # Diablo's own game loop ran at 20; DevilutionX cycles the logo at 60
+FIRE_FRAME_MS = 60            # DevilutionX: GetAnimationFrame(frames, 60) = one frame per 60 ms
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -386,7 +386,7 @@ class FireDigits:
             mark[1] = (x, y, w, h)
             self.draw(label)
         if self.timer is None:
-            self.timer = GLib.timeout_add(1000 // FIRE_FPS, self.tick)
+            self.timer = GLib.timeout_add(FIRE_FRAME_MS, self.tick)
 
     def draw(self, label):
         """The frame as it is: fire with a transparent hole, over the panel's digit.
