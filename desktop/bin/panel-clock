@@ -1,0 +1,10 @@
+#!/bin/sh
+# Panel clock (genmon, 1 s): HH MM in the seven-segment font, the colon lit on even
+# seconds and invisible on odd ones, like an old digital clock. The invisible colon
+# is the same glyph at alpha 1, so the digits never move. Click: the calendar pop-up.
+set -- $(date '+%H %M %s %A %d %B %Y')
+if [ $(( $3 % 2 )) -eq 0 ]; then colon=':'; else colon='<span alpha="1">:</span>'; fi
+printf '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>\n'
+printf '<txt><span foreground="@COLOUR_LIGHT@">%s%s%s</span></txt>\n' "$1" "$colon" "$2"
+printf '<txtclick>@HOME@/.local/bin/panel-calendar</txtclick>\n'
+printf '<tool>%s %s %s %s</tool>\n' "$4" "$5" "$6" "$7"

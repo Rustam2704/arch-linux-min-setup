@@ -13,3 +13,7 @@ calendar:selected {
     font-weight: 700;
     border-radius: 6px;
 }
+
+/* The clock's own calendar pop-up (panel-calendar): the same dark surface as menus. */
+#panel-calendar { background-color: @COLOUR_BACKGROUND@; border: 1px solid @COLOUR_BORDER@; border-radius: 8px; }
+#panel-calendar calendar { font-family: @FONT@; }   /* no background here: it would outrank calendar:selected */

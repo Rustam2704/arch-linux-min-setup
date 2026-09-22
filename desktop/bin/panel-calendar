@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""The calendar under the panel clock: a month with today selected, dropped below the
+panel at the pointer. Escape, or a click anywhere outside, closes it - like a menu.
+Styled by ~/.config/gtk-3.0/gtk.css (the accent plate on the selected day)."""
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gtk  # noqa: E402
+
+PANEL = 66
+GAP = 6
+
+
+def main():
+    win = Gtk.Window(type=Gtk.WindowType.POPUP)   # override-redirect: i3 leaves it alone
+    win.set_name("panel-calendar")
+    win.get_style_context().add_class("panel-calendar")
+    cal = Gtk.Calendar(margin=8)
+    cal.set_display_options(Gtk.CalendarDisplayOptions.SHOW_HEADING
+                            | Gtk.CalendarDisplayOptions.SHOW_DAY_NAMES
+                            | Gtk.CalendarDisplayOptions.SHOW_WEEK_NUMBERS)
+    win.add(cal)
+    win.show_all()
+
+    display = Gdk.Display.get_default()
+    seat = display.get_default_seat()
+    _, px, py = seat.get_pointer().get_position()
+    monitor = display.get_monitor_at_point(px, py).get_geometry()
+    width = win.get_preferred_width()[1]
+    x = max(monitor.x, min(px - width // 2, monitor.x + monitor.width - width))
+    win.move(x, monitor.y + PANEL + GAP)
+
+    def grab(*_):
+        seat.grab(win.get_window(), Gdk.SeatCapabilities.ALL, True, None, None, None, None)
+
+    def pressed(_w, event):
+        inside = 0 <= event.x < win.get_allocated_width() and 0 <= event.y < win.get_allocated_height()
+        if not inside:
+            Gtk.main_quit()
+        return not inside
+
+    win.connect("map-event", grab)
+    win.connect("button-press-event", pressed)
+    win.connect("key-press-event", lambda _w, e: Gtk.main_quit() if e.keyval == Gdk.KEY_Escape else None)
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()
