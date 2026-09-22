@@ -146,11 +146,13 @@ def main():
             hc.set_source_rgba(0, 0, 0, 1)
             hc.rectangle(0, 0, W, ABOVE)
             hc.fill()
-            fade = cairo.LinearGradient(0, ABOVE, 0, H)     # behind the digit the fire dies down
+            # the flame's foot dies out over a few rows; below that only the halo around
+            # the digit survives (the letter's own golden outline lives there)
+            fade = cairo.LinearGradient(0, ABOVE, 0, ABOVE + 7)
             fade.add_color_stop_rgba(0, 0, 0, 0, 1)
-            fade.add_color_stop_rgba(1, 0, 0, 0, 0.1)
+            fade.add_color_stop_rgba(1, 0, 0, 0, 0)
             hc.set_source(fade)
-            hc.rectangle(0, ABOVE, W, H - ABOVE)
+            hc.rectangle(0, ABOVE, W, 7)
             hc.fill()
             hc.translate(hole_x, ABOVE)
             for width, alpha in ((14, 0.3), (9, 0.6), (5, 1.0)):
