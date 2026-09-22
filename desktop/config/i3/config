@@ -5,7 +5,6 @@ set $bg       @COLOUR_BACKGROUND@
 set $inactive @COLOUR_SURFACE@
 set $text     @COLOUR_TEXT@
 set $dim      @COLOUR_MUTED@
-set $urgent   @COLOUR_DANGER@
 
 font pango:Inter 11
 
@@ -24,7 +23,8 @@ title_align center
 client.focused          $accent   $inactive   @COLOUR_LIGHT@  $accent    $accent
 client.focused_inactive $inactive $bg         $dim     $inactive  $inactive
 client.unfocused        $inactive $bg         $dim     $inactive  $inactive
-client.urgent           $urgent   $urgent     $bg      $urgent    $urgent
+# an urgent window looks like any other: the workspace strip in the panel carries the notice
+client.urgent           $inactive $bg         $dim     $inactive  $inactive
 client.background       $bg
 
 # --- mouse ------------------------------------------------------------
