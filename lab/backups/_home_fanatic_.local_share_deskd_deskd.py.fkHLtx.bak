@@ -765,10 +765,6 @@ class Deskd:
         elif name == "window":
             change = ev.get("change")
             con = ev.get("container", {})
-            if change in ("title", "urgent"):
-                # neither moves, stacks or focuses anything; a busy terminal (spinner
-                # in the title) would otherwise cost a full tree refresh every 100 ms
-                return
             if change == "new":
                 GLib.timeout_add(60, lambda c=con: self.place_new_window(c))
             elif change == "close":

@@ -910,13 +910,17 @@ class Window(Gtk.ApplicationWindow):
         self.pending_day = None if event else day
         self.draw()
         dlg = EventDialog(self, day, event, zoom_available=self.state.get("zoom"))
+        timer = None
         busy = False
         closing = False
         saved_values = dlg.values() if event else None
         saved_rules = list((event or {}).get("recurrence", []))
 
         def flush(close=False):
-            nonlocal busy, closing, saved_values, saved_rules, event
+            nonlocal timer, busy, closing, saved_values, saved_rules, event
+            if timer is not None:
+                GLib.source_remove(timer)
+                timer = None
             closing = closing or close
             if busy:
                 return False
@@ -972,8 +976,20 @@ class Window(Gtk.ApplicationWindow):
             run_async(lambda: api.change_occurrence(event, scope, *values, recurrence=changed_rules), done)
             return False
 
-        # Nothing is written until Save is pressed: an edit in progress is a draft,
-        # and a wrong keystroke must not reach Google before the user has seen it.
+        def queue(*_):
+            nonlocal timer
+            if busy:
+                return
+            if timer is not None:
+                GLib.source_remove(timer)
+            # Text fields are debounced; controls persist as soon as their change settles.
+            timer = GLib.timeout_add(650, flush)
+
+        if event:
+            for field in (dlg.title, dlg.date, dlg.start, dlg.end):
+                field.connect("changed", queue)
+            dlg.notes.get_buffer().connect("changed", queue)
+            dlg.repeat.changed = lambda: flush()
         while True:
             resp = dlg.run()
             if resp == 3:
@@ -982,19 +998,22 @@ class Window(Gtk.ApplicationWindow):
                 closing = True
                 continue
             if resp == 2 and event:
+                if timer is not None:
+                    GLib.source_remove(timer)
+                    timer = None
                 scope = ask_scope(dlg, "Delete") if event.get("recurring_id") else "this"
                 if scope is None:
                     continue
                 self.mutate(lambda e=event, sc=scope: api.delete_occurrence(e, sc))
                 break
-            if resp != Gtk.ResponseType.OK:
-                break                                 # Cancel or Esc: the draft is dropped
             if event:
                 closing = True
                 flush(close=True)
                 if not busy and closing:
                     break
                 continue
+            if resp != Gtk.ResponseType.OK:
+                break
             try:
                 values = dlg.values()
                 rules = dlg.repeat.values(values[1].date())
@@ -1015,6 +1034,8 @@ class Window(Gtk.ApplicationWindow):
                     self.load(force=True)
                     dlg.response(3)
             run_async(lambda: api.create_event(*values, with_zoom, rules), created)
+        if timer is not None:
+            GLib.source_remove(timer)
         dlg.destroy()
         self.editing_id = self.pending_day = None
         self.draw()

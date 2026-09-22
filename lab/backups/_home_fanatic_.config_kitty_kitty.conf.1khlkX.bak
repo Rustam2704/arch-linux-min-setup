@@ -15,7 +15,7 @@ background_opacity    0.92
 
 color0  #12171a
 color8  #3a464e
-color1  #e05561
+color1  #ff5f57
 color9  #ef6b76
 color2  #71c36a
 color10 #89d982
@@ -72,13 +72,15 @@ select_by_word_characters @-./_~?&=%+#:
 # The kitten sees the click position plus neighboring screen rows, so it can
 # reconstruct paths split by a full-screen TUI's hard visual wrapping.
 mouse_map ctrl+left press ungrabbed,grabbed kitten open-click.py
-mouse_map middle press ungrabbed,grabbed combine : mouse_selection word : pass_selection_to_program @HOME@/.local/bin/open-path --menu
+mouse_map middle press ungrabbed,grabbed combine : mouse_selection word : pass_selection_to_program /home/fanatic/.local/bin/open-path --menu
 
 # A path that a click cannot catch by itself - wrapped over two lines, or with
 # spaces in it - is selected by hand and opened with Ctrl+Shift+O
 # (Ctrl+Shift+Alt+O for the small menu: open / show in Thunar / copy).
-map --allow-fallback=shifted,ascii ctrl+shift+o pass_selection_to_program @HOME@/.local/bin/open-path
-map --allow-fallback=shifted,ascii ctrl+shift+alt+o pass_selection_to_program @HOME@/.local/bin/open-path --menu
+map --allow-fallback=shifted,ascii ctrl+shift+o pass_selection_to_program /home/fanatic/.local/bin/open-path
+map --allow-fallback=shifted,ascii ctrl+shift+alt+o pass_selection_to_program /home/fanatic/.local/bin/open-path --menu
 
+# Native external composer editor (Codex: Ctrl+G). New terminal children inherit it.
+env VISUAL=/home/fanatic/.local/bin/sky-edit
 # Shift bypasses TUI mouse capture; Shift+click extends an existing selection.
 mouse_map shift+left press ungrabbed,grabbed mouse_selection extend

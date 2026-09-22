@@ -11,7 +11,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "desktop"
 BUILD = ROOT / ".build/desktop"
-EXPERIMENT = "29-desktop-polish"
+# Each round of changes gets its own journal id: LAB_EXPERIMENT=31-something make apply
+EXPERIMENT = os.environ.get("LAB_EXPERIMENT", "desktop-apply")
 THEME = json.loads((SOURCE / "share/sky-desktop/theme.json").read_text())
 PALETTE = {"#000000": "background", "#0a0e11": "background", "#12171a": "surface",
            "#dfe8ee": "foreground", "#5b6b76": "muted", "#1e262c": "border",

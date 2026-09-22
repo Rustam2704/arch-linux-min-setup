@@ -1,0 +1,15 @@
+/* Panel clock: the sky-blue of the reference photo (selector name from xfce4-panel). */
+#clock-button,
+#clock-button image,
+#clock-button label {
+    color: @COLOUR_LIGHT@;
+}
+
+/* The clock's drop-down calendar opens on today and keeps it selected: that cell
+   is the one that matters, so it gets the accent as a plate instead of a faint tint. */
+calendar:selected {
+    background-color: @COLOUR_LIGHT@;
+    color: @COLOUR_BACKGROUND@;
+    font-weight: 700;
+    border-radius: 6px;
+}

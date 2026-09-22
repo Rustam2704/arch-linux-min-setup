@@ -765,10 +765,6 @@ class Deskd:
         elif name == "window":
             change = ev.get("change")
             con = ev.get("container", {})
-            if change in ("title", "urgent"):
-                # neither moves, stacks or focuses anything; a busy terminal (spinner
-                # in the title) would otherwise cost a full tree refresh every 100 ms
-                return
             if change == "new":
                 GLib.timeout_add(60, lambda c=con: self.place_new_window(c))
             elif change == "close":
@@ -892,27 +888,6 @@ class Deskd:
                 for win, info, _ in self.handles:
                     if info and info.get("frame") == focused[0]:
                         win.configure(sibling=focused[0], stack_mode=X.Above)
-            # a dialog (WM_TRANSIENT_FOR) belongs on top of the window it came from.
-            # i3 re-pushes its own order (focused floating window on top) on every
-            # focus change, so check every pair on the workspace, not only the
-            # focused window's children, and touch only what is actually wrong -
-            # each configure comes back as ConfigureNotify and another refresh.
-            clients = {n["window"]: n for n, _ in walk(workspace) if n.get("window")}
-            for wid in clients:
-                try:
-                    client = self.xs.d.create_resource_object("window", wid)
-                    owner = client.get_wm_transient_for()
-                except error.XError:
-                    continue
-                if owner is None or owner.id not in clients or owner.id == wid:
-                    continue
-                child, parent = self.frame_of(wid), self.frame_of(owner.id)
-                if not child or not parent:
-                    continue
-                order = [w.id for w in self.xs.root.query_tree().children]
-                if child[0].id in order and parent[0].id in order and \
-                        order.index(child[0].id) < order.index(parent[0].id):
-                    child[0].configure(sibling=parent[0], stack_mode=X.Above)
         except error.XError:
             pass
 
@@ -1152,10 +1127,8 @@ class Deskd:
             self.raise_popup(e.window)
         elif t == X.ConfigureNotify:
             # i3 can restore its tiled/floating split after a resize or maximize.
-            # Only managed frames need reconciliation, never our own overlays - and
-            # not while we are the ones moving the window (drag_end refreshes once).
-            if self.drag is None and self.resizing is None and any(
-                    frame.id == e.window.id for frame, _ in self.frames.values()):
+            # Only managed frames need reconciliation, never our own overlays.
+            if any(frame.id == e.window.id for frame, _ in self.frames.values()):
                 self.schedule_refresh()
 
 
@@ -1371,9 +1344,6 @@ class Deskd:
         self.cmd(f"[con_id={cid}] floating enable, mark --add {MARK_MAX}_{cid}, "
                  f"move position {x} px {y} px, resize set {w} px {h} px")
         self.fit_floating(cid, (x, y, w, h))
-        # remember() opened an empty placeholder, and i3 gives a new container the
-        # focus - so the window that fills the screen would be the one without it
-        self.cmd(f"[con_id={cid}] focus")
 
     def fit_floating(self, cid, target):
         """i3 sizes floating windows without decorations; correct once to the exact frame."""
