@@ -1,0 +1,15 @@
+[Unit]
+# Started by i3 (exec in ~/.config/i3/config) once the X display exists; never gives up restarting
+StartLimitIntervalSec=0
+Description=On-screen display for volume, brightness and keyboard layout (setup/lab)
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStart=%h/.local/bin/osd-daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,9 @@
+configuration {
+  modes: "drun,run,window";
+  font: "Inter 12";
+  show-icons: true;
+  icon-theme: "Papirus-Dark";
+  drun-display-format: "{name}";
+  terminal: "kitty";
+}
+@theme "~/.config/rofi/sky.rasi"

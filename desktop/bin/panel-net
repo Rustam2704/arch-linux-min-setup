@@ -1,0 +1,7 @@
+#!/bin/sh
+# Network quality for the panel (genmon). netqd renders it once a second; this only reads it.
+# The plugin has a click command, so genmon makes it a button and the theme draws its own
+# hover box on it. Only the veil deskd holds over the panel should show that, so the
+# button's own background is taken away.
+echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>'
+cat "${XDG_RUNTIME_DIR:-/tmp}/netq.txt" 2>/dev/null || echo "<txt>…</txt>"

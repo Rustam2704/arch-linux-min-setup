@@ -1,0 +1,47 @@
+#!/bin/sh
+# rofi-toggle <mode> — exactly one rofi at a time, safe against gesture bursts.
+#   same mode open  -> close it
+#   other mode open -> replace it
+#   nothing open    -> open it
+# A single swipe can fire its command several times; every trigger within
+# DEBOUNCE_MS of the last accepted one is ignored, and triggers are serialized.
+mode="${1:-drun}"
+DEBOUNCE_MS=600
+RUN="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+LOCK="$RUN/rofi-toggle.lock"
+STAMP="$RUN/rofi-toggle.stamp"
+LOG="$RUN/rofi-toggle.log"
+
+exec 9>"$LOCK"
+flock -n 9 || { echo "$(date +%T.%3N) $mode dropped (busy)" >>"$LOG"; exit 0; }
+
+now=$(date +%s%3N)
+last=$(cat "$STAMP" 2>/dev/null || echo 0)
+if [ $((now - last)) -lt $DEBOUNCE_MS ]; then
+    echo "$(date +%T.%3N) $mode dropped (debounce $((now - last))ms)" >>"$LOG"
+    exit 0
+fi
+echo "$now" >"$STAMP"
+
+open_mode=$(pgrep -a -x rofi | sed -n 's/.*-show \([a-z]*\).*/\1/p' | head -1)
+
+# close everything that exists, including instances queued behind the pidfile lock
+close_all() {
+    pkill -x rofi
+    i=0
+    while pgrep -x rofi >/dev/null && [ $i -lt 40 ]; do sleep 0.025; i=$((i+1)); done
+    pkill -9 -x rofi 2>/dev/null
+}
+
+if [ "$open_mode" = "$mode" ]; then
+    close_all
+    echo "$(date +%T.%3N) $mode closed" >>"$LOG"
+    exit 0
+fi
+
+[ -n "$open_mode" ] && close_all
+echo "$(date +%T.%3N) $mode opened (replaced: ${open_mode:-none})" >>"$LOG"
+
+# release the lock before rofi runs, otherwise it would be held for rofi's lifetime
+exec 9>&-
+setsid -f rofi -show "$mode" >/dev/null 2>&1   # detached: touchegg kills its own child processes at gesture boundaries

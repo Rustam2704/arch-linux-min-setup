@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Click on the Telegram indicator in the panel = click on its tray icon:
+show the window (switching to its workspace), click again to hide it away."""
+import json
+import subprocess
+
+CLASS = "telegramdesktop"
+
+
+def tree():
+    return json.loads(subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True, text=True).stdout)
+
+
+def find(node):
+    props = node.get("window_properties") or {}
+    if (props.get("class") or "").lower() == CLASS:
+        return node
+    for child in node.get("nodes", []) + node.get("floating_nodes", []):
+        got = find(child)
+        if got:
+            return got
+    return None
+
+
+con = find(tree())
+if con is None:
+    subprocess.run(["i3-msg", "-q", "exec --no-startup-id telegram-desktop"])
+elif con.get("focused"):
+    subprocess.run(["i3-msg", "-q", "-t", "send_tick", "deskd minimize"])
+else:
+    subprocess.run(["i3-msg", "-q", f'[con_id={con["id"]}] focus'])

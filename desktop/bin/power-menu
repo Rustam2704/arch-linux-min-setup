@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""Power menu anchored to the pointer at the panel button."""
+import subprocess
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+from gi.repository import Gdk, Gtk
+
+menu = Gtk.Menu()
+for label, icon, command in (
+        ('Shut down', 'system-shutdown-symbolic', ['systemctl', 'poweroff']),
+        ('Reboot', 'system-reboot-symbolic', ['systemctl', 'reboot']),
+        ('Suspend', 'media-playback-pause-symbolic', ['systemctl', 'suspend']),
+        ('Log out', 'system-log-out-symbolic', ['i3-msg', 'exit'])):
+    item = Gtk.MenuItem()
+    row = Gtk.Box(spacing=12, margin=8)
+    row.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+    row.pack_start(Gtk.Label(label=label, xalign=0), True, True, 0)
+    item.add(row)
+    item.connect('activate', lambda _, cmd=command: subprocess.Popen(cmd))
+    menu.append(item)
+menu.connect('deactivate', lambda *_: Gtk.main_quit())
+menu.show_all()
+display = Gdk.Display.get_default()
+_, x, y = display.get_default_seat().get_pointer().get_position()
+monitor = display.get_monitor_at_point(x, y).get_geometry()
+rect = Gdk.Rectangle()
+rect.x = x if y < monitor.y + 100 else monitor.x + monitor.width - 12
+rect.y = max(y, monitor.y + 44) if y < monitor.y + 100 else monitor.y + 60
+rect.width = rect.height = 1
+menu.popup_at_rect(Gdk.get_default_root_window(), rect, Gdk.Gravity.SOUTH_EAST, Gdk.Gravity.NORTH_EAST, None)
+Gtk.main()

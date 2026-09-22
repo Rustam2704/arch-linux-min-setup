@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Open what was clicked in the terminal: a file, a file:line, or a folder.
+
+Ctrl+click selects the complete logical terminal line, so a path stays intact
+when kitty wraps it visually. This program extracts an existing path or a
+Markdown link target from that line. Ctrl+Shift+O still accepts a manual
+selection.
+    open-path <text>            open it
+    open-path --menu <text>     small menu: open / show in file manager / copy
+
+Nothing openable in the text: a short notification says so, so a click that does
+not work is never silent.
+"""
+import os
+import re
+import subprocess
+import sys
+from urllib.parse import unquote
+
+FILE_MANAGER = "thunar"
+
+
+def candidates(text, cwd=None):
+    """Where a relative path could be: next to the terminal, or in the home folder."""
+    yield os.path.abspath(os.path.join(cwd or os.getcwd(), text))
+    home = os.path.expanduser("~")
+    yield os.path.join(home, text)
+    ai_root = os.path.join(home, "ai")
+    try:
+        tool_dirs = sorted(entry.path for entry in os.scandir(ai_root) if entry.is_dir())
+    except OSError:
+        tool_dirs = []
+    for tool_dir in tool_dirs:
+        yield os.path.join(tool_dir, text)
+        try:
+            project_dirs = sorted(entry.path for entry in os.scandir(tool_dir) if entry.is_dir())
+        except OSError:
+            continue
+        for project_dir in project_dirs:
+            yield os.path.join(project_dir, text)
+
+
+def resolve_one(text, cwd=None):
+    """Resolve one candidate that is expected to be mostly path text."""
+    text = text.strip().strip("'\"“”`,;()[]<>")
+    if re.match(r"^(?:https?|mailto):", text):
+        return text, None
+    if text.startswith("file://"):
+        text = unquote(text[7:])
+    line = None
+    m = re.match(r"^(.*?):(\d+)(?::\d+)?$", text)       # file.py:42 or file.py:42:7
+    if m and not os.path.exists(text):
+        text, line = m.group(1), int(m.group(2))
+    path = os.path.expanduser(text)
+    if os.path.isabs(path):
+        return (path, line) if os.path.exists(path) else (None, None)
+    for guess in candidates(path, cwd):
+        if os.path.exists(guess):
+            return guess, line
+    return None, None
+
+
+def candidate_texts(text):
+    """Likely paths, longest/most explicit first.
+
+    Both forms are tried because copied terminal selections can represent a
+    visual wrap either as a newline or as no separator at all.
+    """
+    forms = []
+    for form in (text.replace("\r", "").replace("\n", ""),
+                 " ".join(text.split())):
+        if form not in forms:
+            forms.append(form)
+    for form in forms:
+        for match in re.finditer(r"\[[^]]*\]\(([^)]+)\)", form):
+            yield match.group(1)
+        for match in re.finditer(r"(?:https?|mailto):[^\s<>\]\[()]+", form):
+            yield match.group(0)
+        for match in re.finditer(r"(?:file://|/|~/|\.\.?/)[^\s<>\]\[()]+", form):
+            yield match.group(0)
+        for token in re.findall(r"[^\s<>\]\[()]+", form):
+            yield token
+        yield form
+
+
+def resolve(text, cwd=None):
+    """(path, line) from a clicked logical line or manual selection."""
+    seen = set()
+    for candidate in candidate_texts(text):
+        candidate = candidate.strip("'\"“”`,;()[]<>")
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        path, line = resolve_one(candidate, cwd)
+        if path:
+            return path, line
+    return None, None
+
+
+def open_it(path, line):
+    if os.path.isdir(path):
+        subprocess.Popen([FILE_MANAGER, path], start_new_session=True)
+    elif line:
+        subprocess.Popen(["subl", f"{path}:{line}"], start_new_session=True)
+    else:
+        subprocess.Popen(["xdg-open", path], start_new_session=True)
+
+
+def reveal(path):
+    subprocess.Popen([FILE_MANAGER, path if os.path.isdir(path) else os.path.dirname(path)],
+                     start_new_session=True)
+
+
+def copy(path):
+    subprocess.run(["xclip", "-selection", "clipboard"], input=path.encode())
+
+
+def menu(path, line):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    m = Gtk.Menu()
+    head = Gtk.MenuItem(label=os.path.basename(path) + (f":{line}" if line else ""))
+    head.set_sensitive(False)
+    m.append(head)
+    m.append(Gtk.SeparatorMenuItem())
+    for label, fn in (("Open", lambda: open_it(path, line)),
+                      ("Show in file manager", lambda: reveal(path)),
+                      ("Copy path", lambda: copy(path))):
+        item = Gtk.MenuItem(label=label)
+        item.connect("activate", lambda _i, f=fn: f())
+        m.append(item)
+    m.connect("deactivate", lambda *_: Gtk.main_quit())
+    m.show_all()
+    m.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+    Gtk.main()
+
+
+def complain(text):
+    """A click that opens nothing should still say something."""
+    short = text.strip()
+    short = short[:60] + "…" if len(short) > 60 else short
+    subprocess.run(["notify-send", "-a", "open-path", "-t", "2500",
+                    "Nothing to open", short or "(no text selected)"],
+                   stderr=subprocess.DEVNULL)
+
+
+def main():
+    args = [a for a in sys.argv[1:] if a != "--menu"]
+    text = " ".join(args)
+    path, line = resolve(text)
+    if not path:
+        complain(text)
+        return 0
+    if "--menu" in sys.argv:
+        menu(path, line)
+    else:
+        open_it(path, line)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

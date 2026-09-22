@@ -1,0 +1,5 @@
+#!/bin/sh
+# deskd-ctl — send a command to deskd through i3 (a "tick" event), e.g. from gestures:
+#   deskd-ctl maximize | maximize-on | restore | minimize | unminimize
+#   deskd-ctl key up|down|left|right | ws N | move N | cycle [prev]
+exec i3-msg -q -t send_tick "deskd $*"

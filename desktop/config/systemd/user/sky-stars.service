@@ -1,0 +1,15 @@
+[Unit]
+Description=Astra starfield on a pure black desktop
+After=graphical-session.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+ExecStart=%h/.local/bin/sky-stars
+Restart=on-failure
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,22 @@
+#!/bin/sh
+# snip — screenshots the Windows way, into the clipboard and a file.
+#   snip area     select a region (Super+Shift+S); Esc cancels
+#   snip screen   the whole screen under the pointer (Print)
+# Files go to ~/Pictures/Screenshots; a notification says where.
+DIR="$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Screenshots"
+mkdir -p "$DIR"
+FILE="$DIR/$(date +%Y-%m-%d_%H-%M-%S).png"
+case "${1:-area}" in
+  area)
+      # accent-coloured selection, highlight mode; -u: no cursor in the shot
+      maim -u -s -b 2 -c 0.05,0.56,0.8,0.9 -l -c 0.05,0.56,0.8,0.25 "$FILE" || exit 0 ;;
+  screen)
+      eval "$(xdotool getmouselocation --shell)"
+      geo=$(xrandr --query | awk -v x="$X" -v y="$Y" '/ connected/ {
+              for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) {
+                  split($i, a, /[x+]/); if (x >= a[3] && x < a[3]+a[1] && y >= a[4] && y < a[4]+a[2]) print $i } }')
+      maim -u ${geo:+-g "$geo"} "$FILE" || exit 1 ;;
+  *) echo "usage: snip [area|screen]" >&2; exit 2 ;;
+esac
+xclip -selection clipboard -t image/png -i "$FILE"
+notify-send -a Screenshot -i "$FILE" "Screenshot copied" "Saved to ${FILE#"$HOME"/}"

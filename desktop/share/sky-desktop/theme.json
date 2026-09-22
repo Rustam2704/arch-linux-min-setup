@@ -1,0 +1,16 @@
+{
+  "background": "#000000",
+  "surface": "#12171a",
+  "foreground": "#dfe8ee",
+  "muted": "#5b6b76",
+  "border": "#1e262c",
+  "accent": "#0d8ecb",
+  "light": "#48daf9",
+  "warning": "#febc2e",
+  "danger": "#ff5f57",
+  "success": "#28c840",
+  "font": "Inter",
+  "panel_font": "Inter 15",
+  "panel_gap": 12,
+  "icons": {"latency": "󰓅", "cpu": "", "memory": "", "swap": "󰋊"}
+}

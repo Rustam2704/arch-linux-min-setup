@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Battery for the panel (genmon).
+
+One drawing for every state, written out as an SVG next to the other runtime
+files: the case and its four segments never move, and charging only adds the
+bolt beside them. The segments carry the colours of the window buttons -
+green, green, yellow, red from the top - and light up from the bottom, so the
+colour of the topmost lit segment is the charge at a glance.
+
+This pack's batteries stop charging at ~97% because the cell is worn, and the
+firmware then reports "Full". Showing 97% forever is just confusing, so a full
+battery is shown as 100%.
+"""
+import glob
+import os
+
+import sys
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
+from sky_theme import THEME
+ACCENT = THEME["light"]
+WARN = "#e0a33e"
+CRIT = "#e05561"
+DEAD = "#23404a"                       # a segment that is not lit
+ICON = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "panel-battery.svg")
+# top to bottom: the desktop accent for a full battery, then the colours of the
+# buttons in a window's title bar
+SEGMENTS = [(ACCENT, 7.0), ("#28c840", 11.5), ("#febc2e", 16.0), ("#ff5f57", 20.5)]
+
+
+def read(path, default=""):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return default
+
+
+def write_icon(pct, plugged):
+    """The case, the segments lit from the bottom, and the bolt when plugged in.
+    Every state uses the same canvas, so nothing beside it shifts."""
+    lit = max(1, min(4, round(pct / 25))) if pct > 0 else 0
+    case = ('<g fill="none" stroke="#c6d0d9" stroke-width="1.8" stroke-linejoin="round">'
+            '<rect x="2" y="4" width="16" height="22" rx="2"/><path d="M7 2h6v2"/></g>')
+    bars = ""
+    for index, (colour, y) in enumerate(SEGMENTS):
+        on = index >= len(SEGMENTS) - lit
+        bars += (f'<rect x="5" y="{y}" width="10" height="3" rx=".7" '
+                 f'fill="{colour if on else DEAD}"/>')
+    bolt = ('<path d="M22 4 14 17h5l-2 10 11-16h-6z" fill="#febc2e" stroke="#000000" '
+            'stroke-width="1.25" stroke-linejoin="round"/>') if plugged else ""
+    # the viewBox starts left of the drawing: that empty strip is the gap to the
+    # separator, the same one the weather glyph gets from its leading space
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="54" height="44" viewBox="-7 0 37 30">'
+           f'{case}{bars}{bolt}</svg>')
+    try:
+        old = ""
+        try:
+            with open(ICON) as stream:
+                old = stream.read()
+        except OSError:
+            pass
+        if old != svg:
+            with open(ICON + ".tmp", "w") as stream:
+                stream.write(svg)
+            os.replace(ICON + ".tmp", ICON)
+    except OSError:
+        pass
+
+
+bat = next(iter(sorted(glob.glob("/sys/class/power_supply/BAT*"))), None)
+if not bat:
+    print("<txt></txt>")
+    raise SystemExit
+
+status = read(os.path.join(bat, "status"), "Unknown")
+try:
+    pct = int(read(os.path.join(bat, "capacity"), "0"))
+except ValueError:
+    pct = 0
+
+plugged = status != "Discharging"
+full = status == "Full" or (plugged and pct >= 97)
+shown = 100 if full else pct
+colour = ACCENT if plugged else (CRIT if pct <= 10 else WARN if pct <= 20 else "#c6d0d9")
+write_icon(shown, plugged)
+
+# Worn batteries: show the real health in the tooltip, not in the panel.
+try:
+    fd = int(read(os.path.join(bat, "charge_full_design")) or read(os.path.join(bat, "energy_full_design")))
+    fn = int(read(os.path.join(bat, "charge_full")) or read(os.path.join(bat, "energy_full")))
+    health = f"\nHealth: {100 * fn // fd}% of design capacity"
+except (ValueError, ZeroDivisionError, TypeError):
+    health = ""
+
+# the reading sits in a three-digit cell against its right edge, so going from
+# 100% to 99% does not drag the clock and everything else sideways
+room = "0" * max(0, 3 - len(str(shown)))
+# genmon turns a plugin with a click command into a button, and the theme draws its
+# own hover box on it; only the veil deskd holds over the panel should show that.
+print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
+print(f"<img>{ICON}</img>")
+print(f'<txt><span font_features="tnum" foreground="{colour}">'
+      f'<span alpha="1">{room}</span>{shown}%</span></txt>')
+print(f"<tool>Battery: {shown}% ({status}){health}</tool>")

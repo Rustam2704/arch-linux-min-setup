@@ -1,0 +1,15 @@
+[Unit]
+# Started after i3 imports the graphical session environment.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+Description=On-screen display for volume, brightness and keyboard layout (setup/lab)
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/osd-daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

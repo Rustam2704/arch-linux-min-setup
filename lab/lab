@@ -9,31 +9,42 @@
 #   lab rollback <exp|all>        undo, newest first
 #
 # Journal format (TSV): timestamp <TAB> experiment <TAB> action <TAB> arg1 <TAB> arg2
-set -u
+set -eu
 LAB_DIR="$(cd "$(dirname "$0")" && pwd)"
 JOURNAL="$LAB_DIR/journal.tsv"
 BACKUPS="$LAB_DIR/backups"
 mkdir -p "$BACKUPS"
+exec 9>"$LAB_DIR/.lock"
+flock 9
 touch "$JOURNAL"
 
 log() { printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$1" "$2" "$3" "${4-}" >> "$JOURNAL"; }
 
 # write to a path, as root when needed, keeping a backup of what was there
 cmd_write() {
-    local exp="$1" path="$2" tmp bak
+    local exp="$1" path="$2" tmp bak stage
     tmp=$(mktemp); cat > "$tmp"
+    if [ -e "$path" ] && cmp -s "$tmp" "$path"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    local elevate=()
+    if [ ! -w "$(dirname "$path")" ] || { [ -e "$path" ] && [ ! -w "$path" ]; }; then
+        elevate=(sudo)
+    fi
+    stage=$("${elevate[@]}" mktemp "$(dirname "$path")/.lab-write.XXXXXX")
     if [ -e "$path" ]; then
-        bak="$BACKUPS/$(echo "$path" | tr '/' '_').$(date +%s).bak"
-        cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; return 1; }
+        bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
+        cp -a "$path" "$bak" || { rm -f "$tmp"; echo "backup failed: $path" >&2; return 1; }
+        "${elevate[@]}" cp --preserve=mode,ownership "$path" "$stage"
         log "$exp" backup "$path" "$bak"
     else
+        "${elevate[@]}" chmod 644 "$stage"
         log "$exp" file "$path"
     fi
-    if [ -w "$(dirname "$path")" ] && { [ ! -e "$path" ] || [ -w "$path" ]; }; then
-        cat "$tmp" > "$path"
-    else
-        sudo cp "$tmp" "$path"
-    fi
+    # Atomic replacement also supports binaries which are currently mapped.
+    "${elevate[@]}" tee "$stage" < "$tmp" > /dev/null
+    "${elevate[@]}" mv -f "$stage" "$path"
     rm -f "$tmp"
     echo "wrote $path"
 }
@@ -56,23 +67,7 @@ cmd_status() {
 }
 
 cmd_rollback() {
-    local want="$1" line ts exp act a1 a2
-    [ -s "$JOURNAL" ] || { echo "nothing to roll back"; return; }
-    local keep=$(mktemp)
-    tac "$JOURNAL" | while IFS=$'\t' read -r ts exp act a1 a2; do
-        if [ "$want" != all ] && [ "$want" != "$exp" ]; then
-            printf '%s\t%s\t%s\t%s\t%s\n' "$ts" "$exp" "$act" "$a1" "$a2" >> "$keep"; continue
-        fi
-        case "$act" in
-            pkg)    echo "removing package $a1";  sudo pacman -Rns --noconfirm "$a1" ;;
-            file)   echo "deleting $a1";          sudo rm -f "$a1" ;;
-            backup) echo "restoring $a1";         sudo cp -a "$a2" "$a1" ;;
-            cmd)    echo "running: $a1";          bash -c "$a1" ;;
-        esac
-    done
-    tac "$keep" > "$JOURNAL" 2>/dev/null || : > "$JOURNAL"
-    rm -f "$keep"
-    echo "rollback of '$want' done"
+    python3 "$LAB_DIR/rollback.py" "$JOURNAL" "$1"
 }
 
 case "${1-}" in

@@ -132,6 +132,15 @@ Only one rofi exists at a time: `~/.local/bin/rofi-toggle <mode>` closes an open
 
 Daemon: `touchegg.service` (system). Client: started by the session script. Config: `~/.config/touchegg/touchegg.conf`.
 
+Update 2026-09-22: four-finger horizontal arrow bindings from round 15 have
+been removed. Two-finger navigation uses the application's native swipe
+handler. The small [Qt scroll-phases plugin](assets/qt-scroll-phases/README.md)
+restores physical begin/end events missing from Qt's X11 integration; it is
+enabled in the session environment and the restarted Telegram process.
+This applies to Qt 6 applications with native swipe support, not every toolkit.
+The user confirmed on 2026-09-22 that a physical two-finger swipe in Telegram
+advances exactly one photo after finger release.
+
 ## Terminal
 **kitty only** — xfce4-terminal is uninstalled. kitty is the Xfce preferred terminal (`~/.config/xfce4/helpers.rc`), so the dock launcher and `Ctrl+Alt+T` open it too.
 In kitty, **Shift+Enter inserts a newline** in Claude Code instead of sending.

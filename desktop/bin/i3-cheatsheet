@@ -1,0 +1,6 @@
+#!/bin/sh
+# Searchable i3 cheat sheet (Super + /). Type to filter, Esc to close.
+pkill -x rofi 2>/dev/null
+rofi -dmenu -i -p "i3 keys" -no-custom -format '' \
+     -theme-str 'window { width: 58%; } listview { lines: 24; } element-text { font: "JetBrainsMono Nerd Font Mono 11"; }' \
+     < "$HOME/.config/i3/cheatsheet.txt" >/dev/null

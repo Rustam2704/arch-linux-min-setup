@@ -1,0 +1,4 @@
+#!/bin/sh
+# light-year: small native month calendar (Google Calendar + Zoom). Brings the
+# window forward if it is already open.
+exec python3 "$HOME/.local/share/light-year/app.py" "$@"

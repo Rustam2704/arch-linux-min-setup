@@ -1,0 +1,6 @@
+#!/bin/sh
+# osd — send a command to the on-screen display daemon (osd.service).
+#   osd vol up|down|mute   osd bright up|down   osd layout next|show
+FIFO="${XDG_RUNTIME_DIR:-/tmp}/osd.fifo"
+[ -p "$FIFO" ] || { systemctl --user start osd.service; sleep 0.3; }
+[ -p "$FIFO" ] && printf '%s\n' "$*" > "$FIFO"

@@ -286,3 +286,52 @@
 2026-09-21T14:51:44+03:00	26-swipe-and-battery	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789991504.bak
 2026-09-21T14:51:44+03:00	26-swipe-and-battery	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.1789991504.bak
 2026-09-21T14:52:06+03:00	26-swipe-and-battery	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789991526.bak
+2026-09-22T00:27:02+03:00	27-native-two-finger-swipe	file	/etc/udev/rules.d/70-qt-scroll-phases.rules	
+2026-09-22T00:27:02+03:00	27-native-two-finger-swipe	cmd	sudo udevadm control --reload-rules; sudo udevadm trigger --action=change --subsystem-match=input; sudo udevadm settle	
+2026-09-22T00:28:18+03:00	27-native-two-finger-swipe	file	/usr/lib/qt6/plugins/generic/libqscrollphases.so	
+2026-09-22T00:28:18+03:00	27-native-two-finger-swipe	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.1790026098.bak
+2026-09-22T00:28:18+03:00	27-native-two-finger-swipe	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.1790026098.bak
+2026-09-22T00:28:18+03:00	27-native-two-finger-swipe	cmd	DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus dbus-update-activation-environment --systemd QT_QPA_GENERIC_PLUGINS=	
+2026-09-22T00:33:19+03:00	27-native-two-finger-swipe	file	/usr/lib/qt6/plugins/generic/libqscrollphases.so.new	
+2026-09-22T00:33:19+03:00	27-native-two-finger-swipe	cmd	sudo cp -- /home/fanatic/ai/claude/setup/lab/backups/qt-scroll-phases.Do7bbz.so /usr/lib/qt6/plugins/generic/libqscrollphases.so.restore && sudo chmod 644 /usr/lib/qt6/plugins/generic/libqscrollphases.so.restore && sudo mv -- /usr/lib/qt6/plugins/generic/libqscrollphases.so.restore /usr/lib/qt6/plugins/generic/libqscrollphases.so	
+2026-09-22T00:35:01+03:00	27-native-two-finger-swipe	cmd	sudo rm -f /etc/udev/rules.d/70-qt-scroll-phases.rules; sudo udevadm control --reload-rules; sudo udevadm trigger --action=change --subsystem-match=input --property-match=ID_INPUT_TOUCHPAD=1; sudo udevadm settle	
+2026-09-22T02:26:52+03:00	28-volume-icon-colors	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-high-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-high-symbolic.svg.1790033212.bak
+2026-09-22T02:26:52+03:00	28-volume-icon-colors	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-low-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-low-symbolic.svg.1790033212.bak
+2026-09-22T02:26:52+03:00	28-volume-icon-colors	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-medium-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-medium-symbolic.svg.1790033212.bak
+2026-09-22T02:26:52+03:00	28-volume-icon-colors	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-muted-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-muted-symbolic.svg.1790033212.bak
+2026-09-22T02:26:52+03:00	28-volume-icon-colors	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/icon-theme.cache	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_icon-theme.cache.1790033212.bak
+2026-09-22T12:54:26+03:00	29-desktop-polish	pkg	xorg-server-xvfb	
+2026-09-22T13:00:02+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/net-menu	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_net-menu.OgAI0Q.bak
+2026-09-22T13:00:02+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.LQYbNw.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.hjidOE.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.9DIZn5.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.3Ogmol.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.S0zKjd.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.auowDD.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	file	/home/fanatic/.local/bin/panel-wifi	
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/power-menu	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_power-menu.hCjMBM.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	file	/home/fanatic/.local/bin/sky-edit	
+2026-09-22T13:00:03+03:00	29-desktop-polish	file	/home/fanatic/.local/bin/sky-stars	
+2026-09-22T13:00:03+03:00	29-desktop-polish	cmd	rmdir -- /home/fanatic/.config/environment.d	
+2026-09-22T13:00:03+03:00	29-desktop-polish	file	/home/fanatic/.config/environment.d/60-sky-editor.conf	
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.vall7C.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1B17Tx.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.config/picom/picom.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_picom.conf.FW5HiP.bak
+2026-09-22T13:00:03+03:00	29-desktop-polish	backup	/home/fanatic/.config/systemd/user/deskd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_deskd.service.fQvZdW.bak
+2026-09-22T13:00:04+03:00	29-desktop-polish	backup	/home/fanatic/.config/systemd/user/osd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_osd.service.P8UU9J.bak
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.config/systemd/user/sky-stars.service	
+2026-09-22T13:00:04+03:00	29-desktop-polish	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.866LNg.bak
+2026-09-22T13:00:04+03:00	29-desktop-polish	backup	/home/fanatic/.local/share/deskd/panels.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_panels.py.UprAom.bak
+2026-09-22T13:00:04+03:00	29-desktop-polish	backup	/home/fanatic/.local/share/light-year/api.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_api.py.YG5LQP.bak
+2026-09-22T13:00:04+03:00	29-desktop-polish	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.Vu5Pdj.bak
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.local/share/light-year/recurrence.py	
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.local/share/light-year/widgets.py	
+2026-09-22T13:00:04+03:00	29-desktop-polish	cmd	rmdir -- /home/fanatic/.local/share/sky-desktop	
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.local/share/sky-desktop/LICENSE-codex.txt	
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.local/share/sky-desktop/sky_theme.py	
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.local/share/sky-desktop/starfield.py	
+2026-09-22T13:00:04+03:00	29-desktop-polish	file	/home/fanatic/.local/share/sky-desktop/theme.json	
+2026-09-22T13:00:14+03:00	29-desktop-polish	cmd	xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -a -t int -s 1 -t int -s 50 -t int -s 57 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 58 -t int -s 59 -t int -s 40 -t int -s 56 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 20 -t int -s 55 -t int -s 8 -t int -s 21 && xfconf-query -c xfce4-panel -p /plugins/plugin-60 -r -R && xfce4-panel -r	
+2026-09-22T13:01:31+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/sky-stars	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-stars.IzW0AK.bak
+2026-09-22T13:01:31+03:00	29-desktop-polish	backup	/home/fanatic/.local/share/sky-desktop/sky_theme.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_sky_theme.py.3e08dY.bak
+2026-09-22T13:07:02+03:00	29-desktop-polish	backup	/home/fanatic/.local/bin/sky-stars	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-stars.HVa7Ml.bak

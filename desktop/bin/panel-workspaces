@@ -1,0 +1,4 @@
+#!/bin/sh
+# Workspaces for the panel (genmon): rendered by deskd on every change (per screen,
+# clickable), this only reads it.
+cat "${XDG_RUNTIME_DIR:-/tmp}/deskd-workspaces.txt" 2>/dev/null || echo "<txt>…</txt>"

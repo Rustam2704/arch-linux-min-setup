@@ -1,0 +1,76 @@
+<touchégg>
+  <settings>
+    <property name="animation_delay">150</property>
+    <property name="action_execute_threshold">20</property>
+    <property name="color">0d8ecb</property>
+    <property name="borderColor">0d8ecb</property>
+  </settings>
+
+  <application name="All">
+    <!-- 3 fingers left/right: previous / next workspace -->
+    <gesture type="SWIPE" fingers="3" direction="LEFT">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>i3-msg -q workspace next_on_output</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <gesture type="SWIPE" fingers="3" direction="RIGHT">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>i3-msg -q workspace prev_on_output</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <!-- 3 fingers up: window switcher; down: app launcher -->
+    <gesture type="SWIPE" fingers="3" direction="UP">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>/home/fanatic/.local/bin/rofi-toggle window</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <gesture type="SWIPE" fingers="3" direction="DOWN">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>/home/fanatic/.local/bin/rofi-toggle drun</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <!-- 4 fingers left/right: one step forward / back inside the program (the arrow
+         keys). Two fingers stay plain scrolling: every program that can scroll
+         sideways already uses them, and a terminal or an editor would take an arrow
+         key as a caret move. Four fingers are claimed by nobody, so this works
+         everywhere without a rule per program. One step per swipe: the action runs
+         on "begin" and does not repeat. -->
+    <gesture type="SWIPE" fingers="4" direction="LEFT">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>xdotool key --clearmodifiers Right</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <gesture type="SWIPE" fingers="4" direction="RIGHT">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>xdotool key --clearmodifiers Left</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <!-- 4 fingers up: maximize (panel stays visible); down: back to where it was (deskd) -->
+    <gesture type="SWIPE" fingers="4" direction="UP">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>/home/fanatic/.local/bin/deskd-ctl maximize-on</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+    <gesture type="SWIPE" fingers="4" direction="DOWN">
+      <action type="RUN_COMMAND">
+        <repeat>false</repeat>
+        <command>/home/fanatic/.local/bin/deskd-ctl restore</command>
+        <on>begin</on>
+      </action>
+    </gesture>
+  </application>
+</touchégg>

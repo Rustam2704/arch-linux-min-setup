@@ -1,0 +1,17 @@
+#!/bin/sh
+# Start Firefox Developer Edition inside a systemd scope with a soft memory limit,
+# so the kernel pushes ITS cold pages to swap instead of squeezing the rest of the system.
+# Soft limit (MemoryHigh): nothing is ever killed, allocation just slows down at the ceiling.
+# Settings live in ~/.config/firefox-memory.conf and are changed with `firefox-mem`.
+BIN=/usr/lib/firefox-developer-edition/firefox
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-memory.conf"
+ENABLED=1; LIMIT=4G
+[ -r "$CONF" ] && . "$CONF"
+
+# Already running (the scope exists): just exec, Firefox hands the URL to the live instance.
+if [ "$ENABLED" != "1" ] || systemctl --user --quiet is-active firefox.scope 2>/dev/null; then
+    exec "$BIN" "$@"
+fi
+exec systemd-run --user --scope --quiet --unit=firefox \
+     -p MemoryHigh="$LIMIT" -p MemorySwapMax=infinity \
+     "$BIN" "$@"

@@ -1,0 +1,42 @@
+#!/bin/sh
+# firefox-mem — Firefox memory settings, applied live: no restart, no "Save".
+#   firefox-mem                  status
+#   firefox-mem on | off         ceiling on/off (off lifts it from the running browser)
+#   firefox-mem set 3G           ceiling (soft MemoryHigh), applied immediately
+#   firefox-mem target 2G        comfortable size: above it, cold memory is swapped
+#                                out early in the background (firefox-memd)
+#   firefox-mem early on|off     background swap-out on/off
+#   firefox-mem reclaim [500M]   push that much cold memory out to swap right now
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-memory.conf"
+ENABLED=1; LIMIT=4G; TARGET=2G; STEP=128M; INTERVAL=5; RECLAIM=1
+[ -r "$CONF" ] && . "$CONF"
+save() {
+    printf 'ENABLED=%s\nLIMIT=%s\nTARGET=%s\nSTEP=%s\nINTERVAL=%s\nRECLAIM=%s\n' \
+        "$ENABLED" "$LIMIT" "$TARGET" "$STEP" "$INTERVAL" "$RECLAIM" > "$CONF"
+}
+scope=/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/app.slice/firefox.scope
+h() { [ -r "$1" ] && numfmt --to=iec --suffix=B "$(cat "$1")" 2>/dev/null || echo n/a; }
+apply() { systemctl --user set-property --runtime firefox.scope MemoryHigh="$1" 2>/dev/null; }
+
+case "${1-status}" in
+  status)
+    echo "ceiling:   $LIMIT ($([ "$ENABLED" = 1 ] && echo on || echo off))"
+    echo "target:    $TARGET (early swap-out $([ "$RECLAIM" = 1 ] && echo on || echo off))"
+    if [ -d "$scope" ]; then
+        echo "in RAM:    $(h $scope/memory.current)"
+        echo "in swap:   $(h $scope/memory.swap.current)"
+        echo "stalls:    $(awk '$1=="high"{print $2}' $scope/memory.events) times throttled at the ceiling (since start)"
+    else
+        echo "state:     Firefox is not running inside the limited scope"
+    fi ;;
+  on)     ENABLED=1; save; apply "$LIMIT"; echo "ceiling on: $LIMIT" ;;
+  off)    ENABLED=0; save; apply infinity; echo "ceiling off" ;;
+  set)    [ -n "${2-}" ] || { echo "usage: firefox-mem set 3G" >&2; exit 1; }
+          LIMIT=$2; ENABLED=1; save; apply "$LIMIT"; echo "ceiling: $LIMIT" ;;
+  target) [ -n "${2-}" ] || { echo "usage: firefox-mem target 2G" >&2; exit 1; }
+          TARGET=$2; save; echo "target: $TARGET" ;;
+  early)  case "${2-}" in on) RECLAIM=1;; off) RECLAIM=0;; *) echo "usage: firefox-mem early on|off" >&2; exit 1;; esac
+          save; echo "early swap-out: ${2}" ;;
+  reclaim) echo "${2:-500M}" > "$scope/memory.reclaim" 2>/dev/null && echo "reclaimed ${2:-500M}" || echo "reclaim not available" ;;
+  *) sed -n '2,10p' "$0" ;;
+esac

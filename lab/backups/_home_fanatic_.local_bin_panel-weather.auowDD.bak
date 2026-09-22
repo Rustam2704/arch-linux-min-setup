@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Weather for the panel (genmon), from Open-Meteo — no account, no key.
+
+Survives being offline: the last reading is kept on disk and shown dimmed with
+its age, instead of the panel going blank or showing an error.
+"""
+import json
+import os
+import time
+import urllib.request
+
+LAT, LON = 50.260106, 28.669628          # Zhytomyr
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "panel-weather.json")
+MAX_AGE = 900                             # refresh at most every 15 minutes
+STALE_AFTER = 3 * 3600                    # dim the reading after 3 hours
+ACCENT = "#48daf9"
+DIM = "#5b6b76"
+
+URL = (f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}"
+       "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m"
+       "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2")
+
+# WMO weather codes -> a readable icon and name
+CODES = {
+    0: ("☀", "clear"), 1: ("🌤", "mainly clear"), 2: ("⛅", "partly cloudy"), 3: ("☁", "overcast"),
+    45: ("🌫", "fog"), 48: ("🌫", "rime fog"),
+    51: ("🌦", "drizzle"), 53: ("🌦", "drizzle"), 55: ("🌦", "heavy drizzle"),
+    61: ("🌧", "rain"), 63: ("🌧", "rain"), 65: ("🌧", "heavy rain"),
+    66: ("🌧", "freezing rain"), 67: ("🌧", "freezing rain"),
+    71: ("🌨", "snow"), 73: ("🌨", "snow"), 75: ("🌨", "heavy snow"), 77: ("🌨", "snow grains"),
+    80: ("🌦", "showers"), 81: ("🌧", "showers"), 82: ("⛈", "violent showers"),
+    85: ("🌨", "snow showers"), 86: ("🌨", "snow showers"),
+    95: ("⛈", "thunderstorm"), 96: ("⛈", "thunderstorm with hail"), 99: ("⛈", "thunderstorm with hail"),
+}
+
+
+def load_cache():
+    try:
+        with open(CACHE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def fetch():
+    with urllib.request.urlopen(URL, timeout=8) as r:
+        data = json.load(r)
+    data["fetched"] = time.time()
+    tmp = CACHE + ".tmp"
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, CACHE)
+    return data
+
+
+cached = load_cache()
+age = time.time() - cached["fetched"] if cached else None
+data, offline = cached, False
+if age is None or age > MAX_AGE:
+    try:
+        data = fetch()
+        age = 0
+    except Exception:
+        offline = True
+
+if not data:
+    print(f'<txt> <span foreground="{DIM}">weather —</span></txt>'
+          f'<tool>No weather data yet: no request has succeeded</tool>')
+    raise SystemExit
+
+cur = data["current"]
+icon, name = CODES.get(int(cur["weather_code"]), ("•", "—"))
+temp = round(cur["temperature_2m"])
+feels = round(cur["apparent_temperature"])
+daily = data.get("daily", {})
+tmin = round(daily.get("temperature_2m_min", [0])[0])
+tmax = round(daily.get("temperature_2m_max", [0])[0])
+
+stale = age is not None and age > STALE_AFTER
+colour = DIM if stale else ACCENT
+# the glyph is sized to sit next to the Wi-Fi and battery icons, not next to the text
+# As big as the panel allows. The screen runs at 144 dpi, so 160% of the panel font
+# is already a 42 px drawing - taller than the Wi-Fi and battery icons - and
+# line_height squeezes the emoji's own line box, which would otherwise be higher
+# than the panel and clip the glyph.
+# genmon turns a plugin with a click command into a button, and the theme draws its
+# own hover box on it; only the veil deskd holds over the panel should show that.
+print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
+print(f'<txt> <span size="160%" line_height="0.6">{icon}</span>'
+      f' <span foreground="{colour}">{temp:+d}°</span></txt>')
+
+if age is None:
+    when = "unknown"
+elif age < 90:
+    when = "just now"
+elif age < 3600:
+    when = f"{int(age // 60)} min ago"
+else:
+    when = f"{int(age // 3600)} h ago"
+
+note = "\n(offline: showing the last known value)" if offline else ""
+print(f"<tool>{name.capitalize()}, {temp:+d}° (feels like {feels:+d}°)\n"
+      f"Today: {tmin:+d}° to {tmax:+d}°\nWind: {cur.get('wind_speed_10m', '?')} km/h, "
+      f"humidity {cur.get('relative_humidity_2m', '?')}%\nUpdated: {when}{note}</tool>")
