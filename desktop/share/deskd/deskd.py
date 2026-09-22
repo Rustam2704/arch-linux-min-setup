@@ -374,7 +374,7 @@ class FireDigits:
             return
         info = self.index[name]
         w, h = info["width"], info["height"]
-        x, y = int(centre_x - w / 2), int(top_y - info["above"])
+        x, y = int(centre_x - info["digit_width"] / 2 - info["hole_x"]), int(top_y - info["above"])
         if label not in self.marks:
             win = self.xs.window(self.xs.root, x, y, w, h, argb=True, override=True, events=X.ExposureMask)
             sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))

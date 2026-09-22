@@ -32,10 +32,13 @@ OUT = os.path.join(ROOT, "fire-digits")
 FRAMES = 15
 TRANSPARENT = 250
 LETTER_TOP = 78                     # first row of the letters; the flames live above
-ABOVE, SIDE, BELOW = 24, 8, 4       # fire around the digit: how far the frame reaches past its ink
+ABOVE, BELOW = 22, 6                # the flame rises ABOVE px over the digit's top (the panel ends there)
+HUG = 16                            # digit width + this = the flame width at the digit (sets the scale)
 AIR = 1.5                           # the cut-out is a little wider than the glyph
 LETTERS = [(17, 71), (98, 114), (142, 176), (202, 232), (260, 287), (313, 364)]
-MARGIN = 6
+# each flame's full width, measured: where its fire really is, split from the
+# neighbour at the column with the least fire, plus 6 px of overlap - nothing clipped
+BANDS = [(0, 89), (77, 137), (125, 190), (184, 247), (240, 304), (300, 389)]
 
 
 def panel_font():
@@ -115,8 +118,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     index = {"font": font, "dpi": res, "frames": FRAMES, "sheets": {}}
     bands = []
-    for k, (lx0, lx1) in enumerate(LETTERS, 1):
-        x0, x1 = max(0, lx0 - MARGIN), min(w - 1, lx1 + MARGIN)
+    for k, (x0, x1) in enumerate(BANDS, 1):
         flame_dir = os.path.join(OUT, "flames", f"flame{k}")
         os.makedirs(flame_dir, exist_ok=True)
         surfaces = []
@@ -130,10 +132,28 @@ def main():
         bw = x1 - x0 + 1
         for d in range(1, 10):
             mask, dw, dh = masks[d]
-            W, H = dw + 2 * SIDE, ABOVE + dh + BELOW
-            # the band's width becomes the frame's width; the letters' top row lands
-            # on the digit's top, so the flames rise from the digit like from a letter
-            scale = W / bw
+            lx0, lx1 = LETTERS[k - 1]
+            # scale: the letter's own neighbourhood (letter +-6 px) becomes digit + HUG
+            # px wide - the proportions of the first test, which read well; the frame
+            # itself spans the whole flame so no tongue is cut
+            scale = (dw + HUG) / (lx1 - lx0 + 1 + 12)
+            W, H = int(bw * scale + 0.5), ABOVE + dh + BELOW
+            hole_x = int(((lx0 + lx1) / 2 - x0) * scale - dw / 2 + 0.5)
+            # below the flame, in the letters' zone, the fire only hugs the digit: the
+            # rest there is shaped like the letter, not like the number
+            hug = cairo.ImageSurface(cairo.FORMAT_A8, W, H)
+            hc = cairo.Context(hug)
+            hc.set_source_rgba(0, 0, 0, 1)
+            hc.rectangle(0, 0, W, ABOVE)
+            hc.fill()
+            hc.translate(hole_x, ABOVE)
+            for width, alpha in ((14, 0.3), (9, 0.6), (5, 1.0)):
+                hc.set_source_rgba(0, 0, 0, alpha)
+                for dx in range(-width // 2, width // 2 + 1, 2):
+                    for dy in range(-width // 2, width // 2 + 1, 2):
+                        if dx * dx + dy * dy <= (width / 2) ** 2:
+                            hc.mask_surface(mask, dx, dy)
+            hug.flush()
             edge = cairo.ImageSurface(cairo.FORMAT_A8, W, H)
             ec = cairo.Context(edge)
             ec.set_source_rgba(0, 0, 0, 1)
@@ -172,15 +192,17 @@ def main():
                 # unbounded in cairo, so the fade is applied as one full-frame mask)
                 ctx.set_operator(cairo.OPERATOR_DEST_IN)
                 ctx.mask_surface(edge, 0, 0)
+                ctx.mask_surface(hug, 0, 0)
                 # the digit is a hole in the fire: the panel's own number shows through
                 ctx.set_operator(cairo.OPERATOR_CLEAR)
-                ctx.translate(SIDE, ABOVE)
+                ctx.translate(hole_x, ABOVE)
                 for dx, dy in ((-AIR, 0), (AIR, 0), (0, -AIR), (0, AIR), (0, 0)):
                     ctx.mask_surface(mask, dx, dy)
                 ctx.restore()
             name = f"flame{k}-digit{d}.png"
             sheet.write_to_png(os.path.join(OUT, name))
-            index["sheets"][name] = {"flame": k, "digit": d, "width": W, "height": H, "above": ABOVE, "side": SIDE}
+            index["sheets"][name] = {"flame": k, "digit": d, "width": W, "height": H, "above": ABOVE,
+                                     "hole_x": hole_x, "digit_width": dw}
             preview_cells.append((k, d, sheet, W, H))
     # preview: rows = flames, columns = digits, frame 0 at 4x
     cw, ch = max(c[3] for c in preview_cells) + 6, max(c[4] for c in preview_cells) + 6
