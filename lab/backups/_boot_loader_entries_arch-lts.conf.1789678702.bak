@@ -1,5 +1,0 @@
-title Arch Linux LTS
-linux /vmlinuz-linux-lts
-initrd /intel-ucode.img
-initrd /initramfs-linux-lts.img
-options root=UUID=21752c44-7097-41cf-8e70-458f93fa9722 rw zswap.enabled=0

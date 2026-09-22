@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=light-year
+GenericName=Calendar
+Comment=Month calendar for Google Calendar with Zoom meetings
+Exec=@HOME@/.local/bin/light-year
+Icon=light-year
+StartupWMClass=light-year
+Categories=Office;Calendar;
+Terminal=false

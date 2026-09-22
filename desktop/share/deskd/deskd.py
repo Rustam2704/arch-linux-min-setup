@@ -1794,15 +1794,15 @@ class Deskd:
         for label, num in items:
             w = by_num.get(num)
             if w and w.get("urgent"):
-                colour, extra = "#e05561", ' weight="bold"'
+                colour, extra = THEME["danger"], ' weight="bold"'
             elif w and w.get("focused"):
-                colour, extra = "#48daf9", ' weight="bold"'
+                colour, extra = THEME["light"], ' weight="bold"'
             elif w and w.get("visible"):
-                colour, extra = "#48daf9", ""
+                colour, extra = THEME["light"], ""
             elif w:
-                colour, extra = "#c6d0d9", ""
+                colour, extra = THEME["text"], ""
             else:
-                colour, extra = "#3f4a52", ""
+                colour, extra = THEME["dim"], ""
             # the workspace in front of you is marked by the pentagram drawn over it
             # (see ActiveMark), and the one under the pointer by the hole in the veil
             segs.append((STRIP_PAD + label + STRIP_PAD,

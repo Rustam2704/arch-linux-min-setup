@@ -1,0 +1,55 @@
+# Packages the declared desktop needs (pacman names). `make packages` lists what is missing.
+# Session
+i3-wm
+picom
+rofi
+kitty
+lightdm                     # autologin straight into the "Xfce + i3" session
+xfce4-panel
+xfce4-settings              # xfsettingsd: theme, fonts, keyboard layouts
+xfce4-power-manager
+thunar
+xfce4-genmon-plugin         # every custom panel indicator
+xfce4-docklike-plugin       # the taskbar
+xfce4-pulseaudio-plugin     # volume icon and media keys
+xfce4-notifyd
+xfce4-taskmanager
+xfconf
+dex                         # ~/.config/autostart
+xorg-xrdb                   # ~/.Xresources (HiDPI)
+xorg-xsetroot
+xorg-xrandr
+xorg-xprop
+# Input
+touchegg                    # gestures (system service + client in the session)
+xkb-switch                  # layout indicator and OSD
+xdotool
+brightnessctl
+wireplumber                 # wpctl for volume
+# Tools our scripts call
+autorandr                   # monitor layouts (deskd)
+maim                        # screenshots (snip)
+slop
+xclip
+libnotify                   # notify-send
+networkmanager              # nmcli
+nm-connection-editor
+iw
+iputils                     # ping (netqd)
+btop                        # Ctrl+Shift+Esc
+ffmpeg                      # i3-peek screen grabs
+# Python
+python
+python-xlib
+python-gobject
+python-cairo
+# Fonts
+inter-font
+ttf-jetbrains-mono-nerd
+ttf-dseg                    # the panel clock
+# Build and test only
+xorg-server-xephyr          # nested X for window tests
+xorg-server-xvfb            # make test (GTK smoke test)
+libevdev                    # assets/qt-scroll-phases
+qt6-base
+cmake

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Xfce + i3
+Comment=Xfce session with i3 as window manager
+Exec=/usr/local/bin/xfce-i3-session
+TryExec=/usr/local/bin/xfce-i3-session
+Type=Application
+DesktopNames=XFCE

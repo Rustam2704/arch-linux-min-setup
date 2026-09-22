@@ -1,11 +1,11 @@
-# i3 config — whitebook · Xfce session · accent #0d8ecb
+# i3 config — whitebook · Xfce session · colours from desktop/share/sky-desktop/theme.json
 set $mod Mod4
-set $accent   #0d8ecb
-set $bg       #000000
-set $inactive #12171a
-set $text     #c6d0d9
-set $dim      #5b6b76
-set $urgent   #e05561
+set $accent   @COLOUR_ACCENT@
+set $bg       @COLOUR_BACKGROUND@
+set $inactive @COLOUR_SURFACE@
+set $text     @COLOUR_TEXT@
+set $dim      @COLOUR_MUTED@
+set $urgent   @COLOUR_DANGER@
 
 font pango:Inter 11
 
@@ -21,9 +21,9 @@ title_align center
 
 #                       border    background  text     indicator  child_border
 # title backgrounds must match TITLE_BG_* in ~/.local/share/deskd/deskd.py
-client.focused          $accent   #12171a     #48daf9  $accent    $accent
-client.focused_inactive #12171a   #0a0e11     $dim     #12171a    $inactive
-client.unfocused        #12171a   #0a0e11     $dim     #12171a    $inactive
+client.focused          $accent   $inactive   @COLOUR_LIGHT@  $accent    $accent
+client.focused_inactive $inactive $bg         $dim     $inactive  $inactive
+client.unfocused        $inactive $bg         $dim     $inactive  $inactive
 client.urgent           $urgent   $urgent     $bg      $urgent    $urgent
 client.background       $bg
 

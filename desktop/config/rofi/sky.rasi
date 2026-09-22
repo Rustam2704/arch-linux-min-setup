@@ -1,0 +1,36 @@
+* {
+  bg:       @COLOUR_BACKGROUND@;
+  bg-alt:   #0d1114;
+  fg:       @COLOUR_TEXT@;
+  fg-dim:   @COLOUR_MUTED@;
+  accent:   @COLOUR_ACCENT@;
+  urgent:   @COLOUR_DANGER@;
+  background-color: @bg;
+  text-color: @fg;
+}
+window {
+  transparency: "real";
+  background-color: @bg;
+  border: 2px;
+  border-color: @accent;
+  border-radius: 8px;
+  width: 42%;
+  padding: 0px;
+}
+mainbox { children: [ inputbar, listview ]; padding: 8px; spacing: 8px; background-color: @bg; }
+inputbar { background-color: @bg-alt; border-radius: 6px; padding: 10px 12px; spacing: 8px; children: [ prompt, entry ]; }
+prompt { background-color: @bg-alt; text-color: @accent; }
+entry { background-color: @bg-alt; placeholder: "search"; placeholder-color: @fg-dim; }
+listview { lines: 9; scrollbar: false; spacing: 2px; background-color: @bg; }
+element { padding: 8px 10px; border-radius: 6px; spacing: 10px; background-color: @bg; text-color: @fg; }
+element normal normal    { background-color: @bg;     text-color: @fg; }
+element normal active    { background-color: @bg;     text-color: @accent; }
+element normal urgent    { background-color: @bg;     text-color: @urgent; }
+element alternate normal { background-color: @bg;     text-color: @fg; }
+element alternate active { background-color: @bg;     text-color: @accent; }
+element alternate urgent { background-color: @bg;     text-color: @urgent; }
+element selected normal  { background-color: @accent; text-color: @COLOUR_BACKGROUND@; }
+element selected active  { background-color: @accent; text-color: @COLOUR_BACKGROUND@; }
+element selected urgent  { background-color: @urgent; text-color: @COLOUR_BACKGROUND@; }
+element-icon { size: 20px; background-color: transparent; }
+element-text { background-color: transparent; text-color: inherit; vertical-align: 0.5; }

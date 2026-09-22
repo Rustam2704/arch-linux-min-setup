@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <g transform="translate(32 32) scale(1.08) translate(-32 -32)">
-  <path fill="#bebebe" d="M6 24h10l13-11v38L16 40H6z"/>
-  <g fill="none" stroke="#bebebe" stroke-width="4" stroke-linecap="round">
-    <path d="M34 25q7 7 0 14"/><path d="M40 19q13 13 0 26"/><path opacity=".18" d="M46 13q19 19 0 38"/>
-  </g>
-  </g>
-</svg>

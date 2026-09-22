@@ -1,12 +1,0 @@
-Mounted '/dev/sda2' at '/run/timeshift/17895/backup'
-------------------------------------------------------------------------------
-Estimating system size...
-Creating new snapshot...(RSYNC)
-Saving to device: /dev/sda2, mounted at path: /run/timeshift/17895/backup
-Syncing files with rsync...
-  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)  0.00% complete (??? remaining)                                                                                Created control file: /run/timeshift/17895/backup/timeshift/snapshots/2026-09-16_02-36-10/info.json
-RSYNC Snapshot saved successfully (35s)
-Tagged snapshot '2026-09-16_02-36-10': ondemand
-------------------------------------------------------------------------------
-Added cron task: /etc/cron.d/timeshift-hourly
-/tmp/timeshift-1kHXkjFw/17895154062879922704: line 10: status: No such file or directory

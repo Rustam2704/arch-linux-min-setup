@@ -23,28 +23,27 @@ from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 import api  # noqa: E402
 from widgets import RecurrencePicker, DayEvents
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import gtk_css
+from sky_theme import css as theme_css
 
 APP_ID = "space.fanatic.lightyear"
-ACCENT = "#48daf9"
 REFRESH_MS = 5 * 60 * 1000
 
 CSS = """
-window, .ly { background-color: #0a0e11; color: #dfe8ee; }
-.ly * { font-family: Inter; }
-.ly-bar { padding: 10px 16px; border-bottom: 1px solid #1e262c; }
+window, .ly { background-color: @COLOUR_BACKGROUND@; color: @COLOUR_FOREGROUND@; }
+.ly * { font-family: @FONT@; }
+.ly-bar { padding: 10px 16px; border-bottom: 1px solid @COLOUR_BORDER@; }
 .ly-title { font-size: 17pt; font-weight: 600; }
-.ly-status { color: #5b6b76; font-size: 9.5pt; }
-.ly-status.error { color: #e05561; }
-.ly button { background: #12171a; color: #dfe8ee; border: 1px solid #1e262c; border-radius: 8px;
+.ly-status { color: @COLOUR_MUTED@; font-size: 9.5pt; }
+.ly-status.error { color: @COLOUR_DANGER@; }
+.ly button { background: @COLOUR_SURFACE@; color: @COLOUR_FOREGROUND@; border: 1px solid @COLOUR_BORDER@; border-radius: 8px;
              padding: 4px 12px; box-shadow: none; text-shadow: none; -gtk-icon-shadow: none; }
-.ly button:hover { border-color: ACCENT; background: #12171a; }
-.ly button.primary { background: ACCENT; color: #05222c; border-color: ACCENT; font-weight: 600; }
-.ly button.danger:hover { border-color: #e05561; color: #e05561; }
-.ly-weekday { color: #5b6b76; font-size: 8.5pt; padding: 6px 8px 4px 8px; }
-.ly-grid { background-color: #1e262c; margin: 0 16px 16px 16px; }
+.ly button:hover { border-color: @COLOUR_LIGHT@; background: @COLOUR_SURFACE@; }
+.ly button.primary { background: @COLOUR_LIGHT@; color: @COLOUR_BACKGROUND@; border-color: @COLOUR_LIGHT@; font-weight: 600; }
+.ly button.danger:hover { border-color: @COLOUR_DANGER@; color: @COLOUR_DANGER@; }
+.ly-weekday { color: @COLOUR_MUTED@; font-size: 8.5pt; padding: 6px 8px 4px 8px; }
+.ly-grid { background-color: @COLOUR_BORDER@; margin: 0 16px 16px 16px; }
 /* columns: Mon/Wed/Fri get 2% white, Saturday and Sunday 2% red */
-.ly-day { background-color: #0a0e11; padding: 4px 6px; }
+.ly-day { background-color: @COLOUR_BACKGROUND@; padding: 4px 6px; }
 .ly-day.tint { background-color: #0f1316; }
 .ly-day.weekend { background-color: #0f0e11; }
 .ly-day.other { background-color: #080b0d; }
@@ -52,48 +51,48 @@ window, .ly { background-color: #0a0e11; color: #dfe8ee; }
 .ly-day.other.weekend { background-color: #0b0b0d; }
 .ly-day.past label { opacity: 0.55; }          /* days gone by are paler */
 .ly-day.drop { background-color: #0f1d24; }
-.ly-num { color: #5b6b76; font-size: 9.5pt; padding: 0 6px; border-radius: 6px; }
-.ly-day.today .ly-num { background-color: ACCENT; color: #05222c; font-weight: 600; }
-.ly-chip { background-color: rgba(72, 218, 249, 0.16); border-left: 3px solid ACCENT;
+.ly-num { color: @COLOUR_MUTED@; font-size: 9.5pt; padding: 0 6px; border-radius: 6px; }
+.ly-day.today .ly-num { background-color: @COLOUR_LIGHT@; color: @COLOUR_BACKGROUND@; font-weight: 600; }
+.ly-chip { background-color: rgba(@RGB_LIGHT@, 0.16); border-left: 3px solid @COLOUR_LIGHT@;
            border-radius: 5px; padding: 2px 5px; margin-top: 3px; }
 /* the event being edited (and the placeholder for a new one) stands out in yellow */
-.ly-chip.editing { background-color: rgba(255, 209, 102, 0.30); border-left-color: #ffd166; }
-.ly-chip.editing label, .ly-chip.editing .time { color: #ffd166; }
-.ly-chip:hover { background-color: rgba(72, 218, 249, 0.28); }
+.ly-chip.editing { background-color: rgba(@RGB_HIGHLIGHT@, 0.30); border-left-color: @COLOUR_HIGHLIGHT@; }
+.ly-chip.editing label, .ly-chip.editing .time { color: @COLOUR_HIGHLIGHT@; }
+.ly-chip:hover { background-color: rgba(@RGB_LIGHT@, 0.28); }
 .ly-chip label { font-size: 9pt; }
-.ly-chip .time { color: ACCENT; font-size: 8.5pt; }
-.ly-more { color: #5b6b76; font-size: 8.5pt; padding: 2px 5px; }
-.ly entry, .ly textview, .ly textview text { background-color: #0a0e11; color: #dfe8ee;
-             border: 1px solid #1e262c; border-radius: 8px; }
-.ly entry:focus { border-color: ACCENT; }
-.ly-label { color: #5b6b76; font-size: 9pt; }
-.ly-error { color: #e05561; font-size: 9pt; }
+.ly-chip .time { color: @COLOUR_LIGHT@; font-size: 8.5pt; }
+.ly-more { color: @COLOUR_MUTED@; font-size: 8.5pt; padding: 2px 5px; }
+.ly entry, .ly textview, .ly textview text { background-color: @COLOUR_BACKGROUND@; color: @COLOUR_FOREGROUND@;
+             border: 1px solid @COLOUR_BORDER@; border-radius: 8px; }
+.ly entry:focus { border-color: @COLOUR_LIGHT@; }
+.ly-label { color: @COLOUR_MUTED@; font-size: 9pt; }
+.ly-error { color: @COLOUR_DANGER@; font-size: 9pt; }
 /* the mini calendar behind the date field */
 .mini { padding: 8px; }
 .mini button.mini-day { padding: 0; min-width: 32px; min-height: 28px; border: none;
-                        background: none; border-radius: 14px; color: #dfe8ee; font-size: 9.5pt; }
-.mini button.mini-day:hover { background-color: rgba(72, 218, 249, 0.22); border: none; }
+                        background: none; border-radius: 14px; color: @COLOUR_FOREGROUND@; font-size: 9.5pt; }
+.mini button.mini-day:hover { background-color: rgba(@RGB_LIGHT@, 0.22); border: none; }
 .mini button.mini-day.other { color: #39434a; }
-.mini button.mini-day.past { color: #5b6b76; }
-.mini button.mini-day.today { background-color: rgba(72, 218, 249, 0.16); color: ACCENT; }
-.mini button.mini-day.selected { background-color: #0d8ecb; color: #04212c; font-weight: 700; }
+.mini button.mini-day.past { color: @COLOUR_MUTED@; }
+.mini button.mini-day.today { background-color: rgba(@RGB_LIGHT@, 0.16); color: @COLOUR_LIGHT@; }
+.mini button.mini-day.selected { background-color: @COLOUR_ACCENT@; color: @COLOUR_BACKGROUND@; font-weight: 700; }
 .mini-head { font-weight: 600; font-size: 10pt; }
 /* drop-down lists live in their own windows and would be white otherwise */
-window.popup, window.background.popup, .ly combobox window { background-color: #0a0e11; }
-treeview.view, menu, popover { background-color: #0a0e11; color: #dfe8ee; }
-treeview.view:hover, menu menuitem:hover { background-color: rgba(72, 218, 249, 0.22); }
-treeview.view:selected, menu menuitem:selected { background-color: #0d8ecb; color: #04212c; }
-menu menuitem { color: #dfe8ee; padding: 3px 8px; }
-scrollbar { background-color: #0a0e11; }
+window.popup, window.background.popup, .ly combobox window { background-color: @COLOUR_BACKGROUND@; }
+treeview.view, menu, popover { background-color: @COLOUR_BACKGROUND@; color: @COLOUR_FOREGROUND@; }
+treeview.view:hover, menu menuitem:hover { background-color: rgba(@RGB_LIGHT@, 0.22); }
+treeview.view:selected, menu menuitem:selected { background-color: @COLOUR_ACCENT@; color: @COLOUR_BACKGROUND@; }
+menu menuitem { color: @COLOUR_FOREGROUND@; padding: 3px 8px; }
+scrollbar { background-color: @COLOUR_BACKGROUND@; }
 /* the list of times below a time field */
-.ly-times, .ly-times list { background-color: #0a0e11; }
-.ly-times row { padding: 3px 10px; color: #dfe8ee; }
-.ly-times row:hover { background-color: rgba(72, 218, 249, 0.22); }
-.ly-times row:selected { background-color: #0d8ecb; color: #04212c; font-weight: 600; }
-.ly-times-frame { background-color: #0a0e11; border: 1px solid #1e262c; }
-.mini-weekday { color: #5b6b76; font-size: 8pt; }
-""".replace("ACCENT", ACCENT)
-CSS = gtk_css(CSS) + "\n.ly button:checked { background: #0d8ecb; color: #000000; }\n.ly button.ly-more { padding: 0 5px; min-height: 0; border: none; font-size: 8.5pt; }"
+.ly-times, .ly-times list { background-color: @COLOUR_BACKGROUND@; }
+.ly-times row { padding: 3px 10px; color: @COLOUR_FOREGROUND@; }
+.ly-times row:hover { background-color: rgba(@RGB_LIGHT@, 0.22); }
+.ly-times row:selected { background-color: @COLOUR_ACCENT@; color: @COLOUR_BACKGROUND@; font-weight: 600; }
+.ly-times-frame { background-color: @COLOUR_BACKGROUND@; border: 1px solid @COLOUR_BORDER@; }
+.mini-weekday { color: @COLOUR_MUTED@; font-size: 8pt; }
+"""
+CSS = theme_css(CSS + "\n.ly button:checked { background: @COLOUR_ACCENT@; color: @COLOUR_BACKGROUND@; }\n.ly button.ly-more { padding: 0 5px; min-height: 0; border: none; font-size: 8.5pt; }")
 
 
 def run_async(work, done):

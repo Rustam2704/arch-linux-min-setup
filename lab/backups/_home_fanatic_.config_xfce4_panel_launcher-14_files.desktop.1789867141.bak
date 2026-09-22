@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Файлы
-Comment=Открывает домашнюю папку сразу, без лишних шагов
-Exec=/home/fanatic/.local/bin/app-focus-or-launch Thunar thunar /home/fanatic
-Icon=system-file-manager
-Terminal=false
-StartupNotify=true

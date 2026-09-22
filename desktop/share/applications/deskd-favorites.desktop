@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Favorites
+Comment=Favorite apps: launch at login, launch now, their workspaces
+Exec=@HOME@/.local/bin/deskd-favorites --at-pointer
+Icon=starred
+Categories=X-Xfce-Toplevel;
+Terminal=false

@@ -1,16 +1,27 @@
 {
+  "_": "Single source of style. Configs use @COLOUR_KEY@ / @RGB_KEY@ / @HEX_KEY@ / @FONT@ tokens, Python reads THEME.",
+
   "background": "#000000",
   "surface": "#12171a",
-  "foreground": "#dfe8ee",
-  "muted": "#5b6b76",
   "border": "#1e262c",
+  "foreground": "#dfe8ee",
+  "text": "#c6d0d9",
+  "muted": "#5b6b76",
+  "dim": "#3f4a52",
+
   "accent": "#0d8ecb",
   "light": "#48daf9",
+
   "warning": "#febc2e",
   "danger": "#ff5f57",
   "success": "#28c840",
+  "highlight": "#ffd166",
+
+  "layouts": {"EN": "#3b7ddd", "RU": "#8f5b2e", "UA": "#ffd447"},
+
   "font": "Inter",
+  "mono_font": "JetBrainsMono Nerd Font",
   "panel_font": "Inter 15",
   "panel_gap": 12,
-  "icons": {"latency": "󰓅", "cpu": "", "memory": "", "swap": "󰋊"}
+  "icons": {"latency": "󰓅", "cpu": "", "memory": "", "swap": "󰋊"}
 }

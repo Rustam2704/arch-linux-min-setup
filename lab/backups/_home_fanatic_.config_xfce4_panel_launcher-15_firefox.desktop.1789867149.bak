@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Firefox
-Comment=Переключает на открытое окно; Ctrl или Shift — новое окно
-Exec=/home/fanatic/.local/bin/app-focus-or-launch firefox-developer-edition /home/fanatic/.local/bin/firefox-limited
-Icon=firefox-developer-edition
-Terminal=false
-StartupNotify=true

@@ -1,6 +1,0 @@
-/* setup/lab experiment 02-clock — sky-blue LCD clock (#48daf9), colour taken from the reference photo */
-#clock-button,
-#clock-button image,
-#clock-button label {
-    color: #48daf9;
-}

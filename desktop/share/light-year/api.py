@@ -1,3 +1,4 @@
+import sys
 """light-year — Google Calendar and Zoom, without a browser.
 
 Only the Python standard library. Credentials and tokens live in
@@ -21,6 +22,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
+from sky_theme import THEME  # noqa: E402
 
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
                           "light-year")
@@ -151,7 +154,7 @@ def google_sign_in(done):
             msg = ("light-year is connected to Google. You can close this tab."
                    if result["code"] else f"Sign-in failed: {result['error'] or 'no code'}")
             body = (f"<!doctype html><meta charset=utf-8><body style='background:#0a0e11;"
-                    f"color:#dfe8ee;font:16px Inter,sans-serif;padding:40px'>{msg}</body>").encode()
+                    f"color:{THEME['foreground']};font:16px {THEME['font']},sans-serif;padding:40px'>{msg}</body>").encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))

@@ -1,0 +1,57 @@
+━━ WINDOWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title bar  🟡 🟢 🔴                    minimize / maximize (panel stays) / close
+Alt + Tab   (Alt + Shift + Tab)       next / previous window on this workspace
+Super + J K L ;                       focus left / down / up / right
+Super + Shift + J K L ;  (or arrows)  move the window in that direction
+Super + ↑                             maximize (the panel stays visible)
+Super + ↓                             restore; if not maximized: minimize
+Super + ← / →                         tile as the left / right half
+Super + F                             maximize on / off (app fullscreen: off)
+Super + Q                             close window
+━━ MOUSE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+drag the gap between windows          resize them (floating: drag any edge)
+double click a title bar              maximize <-> restore
+left drag a title bar                 tiles: rearrange (blue preview); floating: move
+right drag a title bar                pull the window out and move it
+  … and with either button: drop at the top = maximize, left / right edge = half,
+    on a workspace number in a panel = move it there
+right click on a title bar            tile <-> float
+click a number in the panel           go to that workspace (every screen has its panel)
+Super + left-drag                     move a window without a title bar
+Super + right-drag (inside window)    the nearest edge follows the mouse
+━━ RESIZE (keyboard) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Ctrl + ← →   (or J ;)         narrower / wider
+Super + Ctrl + ↑ ↓   (or L K)         shorter / taller
+━━ FLOATING / MINIMIZE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Shift + Space                 float  <->  tile
+Super + Space                         focus: floating windows <-> tiled
+Super + minus                         minimize
+Super + Shift + minus                 bring the last minimized window back
+━━ LAYOUT (where the next window opens) ━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + B / V                         next window opens beside / below
+Super + W / S / G                     tabbed / stacked / side by side
+Super + A                             select the parent container
+━━ WORKSPACES (every screen has its own) ━━━━━━━━━━━━━━━━━━━━━━━━
+Super + 1 … 9                         go to workspace N on this screen
+Super + Shift + 1 … 9                 send the window there
+3 fingers  ← →                        previous / next workspace on this screen
+━━ LAUNCH ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Enter                         terminal (kitty)
+Super + D     /  3 fingers ↓          app launcher
+Super + Tab   /  3 fingers ↑          window switcher
+Super + R                             run a command
+Super + E                             file manager
+Super + C                             light-year calendar
+Super + Shift + S                     screenshot of an area -> clipboard + ~/Pictures/Screenshots
+Print                                 screenshot of this screen -> clipboard + file
+Ctrl + Shift + Esc                    system monitor (btop)
+Apple button -> Favorites             favorite apps, launch at login, workspaces
+4 fingers ↑ / ↓                       maximize / restore
+━━ KEYBOARD LAYOUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Alt + Shift                           English <-> Russian (from Ukrainian: English)
+Ctrl + Shift                          Ukrainian (again: back to the previous one)
+━━ SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Super + Shift + E                     power menu (shut down, reboot, suspend, log out)
+Super + Shift + C                     reload i3 config
+Super + /                             this cheat sheet
+Super + Esc                           leave keyboard pass-through (RustDesk)

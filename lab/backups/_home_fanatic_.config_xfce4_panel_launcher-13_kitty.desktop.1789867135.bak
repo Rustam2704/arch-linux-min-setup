@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Терминал
-Comment=kitty
-Exec=kitty
-Icon=kitty
-Terminal=false
-StartupNotify=true

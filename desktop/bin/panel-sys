@@ -79,7 +79,7 @@ parts = [f'{value(panel_percent(cpu), colour(cpu), 2)}{GAP}{icon("cpu")}',
          f'{value(panel_percent(mem_pct), colour(mem_pct), 2)}{GAP}{icon("memory")}']
 if swap_used > 64:
     swap_txt = str(max(1, round(swap_used / 1024)))
-    parts.append(f'{value(swap_txt, "#c6d0d9", 2)}{GAP}{icon("swap")}')
+    parts.append(f'{value(swap_txt, THEME["text"], 2)}{GAP}{icon("swap")}')
 
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.

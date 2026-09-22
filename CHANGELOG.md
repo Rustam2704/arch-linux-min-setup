@@ -891,3 +891,48 @@ Claude Code хранит расшифровки (и файлы памяти) в 
   `~/.local/share/sky-desktop/` (`subscribe()`/`decode()` для сырого сокета, `Subscription`
   для GLib; GLib импортируется лениво). `deskd` импортирует его оттуда.
 - `lab/lab remove <эксп> <путь>` — удаление файла с бэкапом, откат восстанавливает.
+
+## Раунд 19 (22.09) — проект как законченный продукт
+
+Эксперимент `lab`: **32-project-structure**. Запрос: «чтобы проект был уже законченным
+продуктом, чтобы была система стиля и прочие правильные архитектурные вещи, а не хаос как
+сейчас. Старьё и мусор удалить и сделать добавление фиксов удобным и организованным».
+
+- **Три документа вместо четырнадцати.** `README.md` (что это, структура, команды, как
+  добавить фикс, система стиля, правила, машина), `ARCHITECTURE.md` (сессия, службы, deskd,
+  панель, фон, OSD, сеть, календарь, терминал/жесты/клавиши, принятые решения),
+  `MAINTENANCE.md` (ежедневное, что перезапускать, восстановление на чистой машине, особенности
+  этой машины, если сломалось, известные хвосты). `CHANGELOG.md` остаётся историей,
+  `lab/README.md` сокращён до описания журнала. Удалены `PLAN*.md`, `REQUIREMENTS.md`,
+  `REVIEW*.md` (три), `RICING.md`, `FINDINGS.md`, `BOOT-DELAY.md`, `GOOGLE-CALENDAR.md`,
+  `STATUS.md`, `STATE.md` — их живое содержание перенесено, остальное есть в истории git.
+- **Дерево `desktop/` — полный источник истины.** Добавлены `home/` (→ `~`, `.Xresources`)
+  и `system/` (→ `/`, через sudo: `xfce-i3-session`, `xfce-i3.desktop`), бинарные файлы
+  (иконки light-year и Telegram копируются как есть) и всё, что стояло в системе, но не было
+  объявлено: `touchegg.conf`, `rofi/sky.rasi`, шейдер picom, `cheatsheet.txt`,
+  `deskd/apps.conf`, `firefox-memd.service`, меню Xfce, `mimeapps.list`, ярлыки `.desktop`.
+  70 файлов, `make status` — 0 расхождений.
+- **Система стиля.** `theme.json` — единственное место цветов и шрифтов: добавлены `text`,
+  `dim`, `highlight`, `layouts` (EN/RU/UA), `mono_font`. Конфиги и shell пишут токены
+  `@COLOUR_X@` / `@RGB_X@` / `@HEX_X@` / `@FONT@`, Python читает `THEME`, CSS внутри Python
+  идёт через `sky_theme.css()` с теми же токенами. Скрытая подмена литералов по таблице
+  `PALETTE` из `tools/desktop.py` убрана; `make check` теперь **отказывает** источнику, где
+  цвет темы написан литералом. Переведены: i3, kitty, picom, rofi, touchegg, gtk.css,
+  `panel-layout`, `panel-battery`, `panel-sys`, `osd-daemon`, `deskd` (полоса областей),
+  `deskd-favorites`, `light-year` (`app.py`, `api.py`), `netqd` (цвета маски SVG — `black`/`white`).
+  Побочные унификации: urgent в rofi/i3/kitty `color1` = `danger` (#ff5f57), «выше 100 %» в
+  OSD = `warning`, амбер батареи = `warning`.
+- **Рабочий процесс фикса** — `make check` → `make diff` → `make apply EXP=NN-name`
+  (тест + установка через журнал) → перезапуск по таблице в MAINTENANCE → CHANGELOG.
+  `make packages` сверяет `packages.txt` (48 пакетов, все стоят), `make rollback EXP=…`.
+- **Мусор удалён.** Из репозитория: `tools/panel.py` (одноразовая миграция, выполнена),
+  `tools/session.py` (никем не использовался), `lab/revert-i3-config.py`, `assets/light-year.png`
+  (612 КБ, иконки объявлены), `logs/`, `lab/__pycache__`, 205 `.bak` из индекса git
+  (`lab/backups/` теперь в `.gitignore`, на диске остаются для отката); `lab/browser/` →
+  `assets/browser/`. Из системы: старый веб-календарь (`google-calendar` скрипт, ярлык,
+  профиль Firefox), правило picom для него, `~/.config/autostart/nm-applet.desktop`,
+  `kitty.conf.bak-links`, семь `rc`-файлов и каталог плагинов, которых давно нет на панели,
+  `~/.local/share/Mousepad`, пустой `xfce4-lab-launchers`, `ИНСТРУКЦИЯ.md` календаря
+  (содержание — в ARCHITECTURE/MAINTENANCE).
+- `~/.codex/AGENTS.md`: указатель на новые документы и правило «через `desktop/` +
+  `make apply`, не правкой установленных копий».

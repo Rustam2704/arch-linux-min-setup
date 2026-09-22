@@ -35,14 +35,10 @@ MARGIN_TOP = 56          # one-row 44px panel + gap
 MARGIN_RIGHT = 24
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME
+from sky_theme import THEME, css
 ACCENT = THEME["light"]
-OVER = "#f5a524"         # above 100%
-LAYOUT_COLOURS = {          # one colour per language, the same as in the panel
-    "EN": "#3b7ddd",        # blue, like the flag
-    "RU": "#8f5b2e",        # dark brown
-    "UA": "#ffd447",        # yellow
-}
+OVER = THEME["warning"]     # above 100%
+LAYOUT_COLOURS = THEME["layouts"]   # one colour per language, the same as in the panel
 VOL_STEP = "5%"
 VOL_LIMIT = "1.5"
 PANEL_LAYOUT_PLUGIN = "genmon-55"
@@ -52,30 +48,30 @@ GLYPH = {
     "bright": "",
 }
 
-CSS = ("""
+CSS = css("""
 window { background: transparent; }
 #osd {
-    background-color: rgb(10, 14, 17);
-    border: 1px solid rgba(72, 218, 249, 0.35);
+    background-color: @COLOUR_BACKGROUND@;
+    border: 1px solid rgba(@RGB_LIGHT@, 0.35);
     border-radius: 12px;
     padding: 10px 16px;
 }
-#osd label { color: #dfe8ee; font-family: Inter; font-size: 15px; font-weight: 600;
+#osd label { color: @COLOUR_FOREGROUND@; font-family: @FONT@; font-size: 15px; font-weight: 600;
              font-feature-settings: "tnum"; }
-#osd label.glyph { font-family: "JetBrainsMono Nerd Font"; font-size: 19px; color: ACCENT; }
-#osd label.badge { font-size: 24px; font-weight: 700; color: ACCENT; letter-spacing: 2px; }
-#osd label.value { color: ACCENT; }
-#osd.over label.value, #osd.over label.glyph { color: OVER; }
-#osd.muted label.value, #osd.muted label.glyph { color: #5b6b76; }
-#osd.layout-en { border-color: #3b7ddd; }
-#osd.layout-ru { border-color: #8f5b2e; }
-#osd.layout-ua { border-color: #ffd447; }
+#osd label.glyph { font-family: "@MONO_FONT@"; font-size: 19px; color: @COLOUR_LIGHT@; }
+#osd label.badge { font-size: 24px; font-weight: 700; color: @COLOUR_LIGHT@; letter-spacing: 2px; }
+#osd label.value { color: @COLOUR_LIGHT@; }
+#osd.over label.value, #osd.over label.glyph { color: @COLOUR_WARNING@; }
+#osd.muted label.value, #osd.muted label.glyph { color: @COLOUR_MUTED@; }
+#osd.layout-en { border-color: @COLOUR_LAYOUTS_EN@; }
+#osd.layout-ru { border-color: @COLOUR_LAYOUTS_RU@; }
+#osd.layout-ua { border-color: @COLOUR_LAYOUTS_UA@; }
 progressbar trough { min-height: 6px; min-width: 190px; background-color: rgba(255,255,255,0.14);
                      border: none; border-radius: 3px; }
-progressbar progress { min-height: 6px; background-color: ACCENT; border: none; border-radius: 3px; }
-#osd.over progressbar progress { background-color: OVER; }
-#osd.muted progressbar progress { background-color: #3f4a52; }
-""".replace("ACCENT", ACCENT).replace("OVER", OVER)).encode()
+progressbar progress { min-height: 6px; background-color: @COLOUR_LIGHT@; border: none; border-radius: 3px; }
+#osd.over progressbar progress { background-color: @COLOUR_WARNING@; }
+#osd.muted progressbar progress { background-color: @COLOUR_DIM@; }
+""").encode()
 
 
 def run(*cmd):

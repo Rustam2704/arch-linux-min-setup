@@ -30,6 +30,9 @@ import time
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
+from sky_theme import css as theme_css  # noqa: E402
+
 CONF = os.path.expanduser("~/.config/deskd/apps.conf")
 I3_RULES = os.path.expanduser("~/.config/i3/generated/apps.conf")
 APP_DIRS = [os.path.expanduser("~/.local/share/applications"), "/usr/share/applications"]
@@ -198,20 +201,20 @@ def menu():
     cp = load()
     nested = {"open": 0}          # a context menu or file dialog is up: don't close on focus loss
     css = Gtk.CssProvider()
-    css.load_from_data(b"""
-    .fav { background-color: #0a0e11; color: #dfe8ee; border: 1px solid #1e262c; border-radius: 12px; }
-    .fav * { font-family: Inter; }
-    .fav-title { color: #5b6b76; font-size: 9pt; }
-    .fav button { background: #12171a; color: #dfe8ee; border: 1px solid #1e262c; border-radius: 8px;
+    css.load_from_data(theme_css("""
+    .fav { background-color: @COLOUR_BACKGROUND@; color: @COLOUR_FOREGROUND@; border: 1px solid @COLOUR_BORDER@; border-radius: 12px; }
+    .fav * { font-family: @FONT@; }
+    .fav-title { color: @COLOUR_MUTED@; font-size: 9pt; }
+    .fav button { background: @COLOUR_SURFACE@; color: @COLOUR_FOREGROUND@; border: 1px solid @COLOUR_BORDER@; border-radius: 8px;
                   box-shadow: none; text-shadow: none; padding: 4px 10px; }
-    .fav button:hover { border-color: #48daf9; }
+    .fav button:hover { border-color: @COLOUR_LIGHT@; }
     .fav button.tile { padding: 6px; border-radius: 10px; border-color: transparent; background: transparent; }
-    .fav button.tile:hover { background: #12171a; border-color: #1e262c; }
+    .fav button.tile:hover { background: @COLOUR_SURFACE@; border-color: @COLOUR_BORDER@; }
     .fav button.tile.off { opacity: 0.35; }
-    .fav .ws { color: #48daf9; font-size: 8pt; font-weight: 700; }
+    .fav .ws { color: @COLOUR_LIGHT@; font-size: 8pt; font-weight: 700; }
     .fav .name { font-size: 8.5pt; }
-    .fav button.add { font-size: 16pt; min-width: 64px; min-height: 64px; color: #5b6b76; }
-    """)
+    .fav button.add { font-size: 16pt; min-width: 64px; min-height: 64px; color: @COLOUR_MUTED@; }
+    """).encode())
     Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css,
                                              Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
