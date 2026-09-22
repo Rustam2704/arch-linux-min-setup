@@ -4,3 +4,4 @@ __pycache__/
 logs/
 lab/.lock
 lab/backups/
+external-assets/devilutionx-assets/*.mpq

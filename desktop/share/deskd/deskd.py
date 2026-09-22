@@ -56,7 +56,9 @@ ACCENT = theme_rgb("accent")
 ACCENT_LIGHT = theme_rgb("light")
 BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
-PANEL_WS_COUNT = 5            # workspaces always shown per screen
+PANEL_WS_COUNT = 6            # workspaces always shown per screen (6 while the fire test runs)
+FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit test sheets (Diablo flames)
+FIRE_FPS = 30                 # DevilutionX cycles the logo at 60; half of that for a start
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -347,6 +349,73 @@ class ActiveMark:
             ctx.restore()
         except Exception as e:                       # noqa: BLE001 - the star just stays whole
             log("digit cut-out failed:", e)
+
+
+class FireDigits:
+    """Test: the workspace numbers 1..6 burn with the six flames of the Diablo logo,
+    one flame per number, so they can be compared side by side. Each number gets a
+    small ARGB window over its ink with a black backing; the frames come from the
+    sheets that external-assets/tools/fire-digits.py cut out of ui_art/smlogo.pcx."""
+    def __init__(self, xs):
+        self.xs = xs
+        self.marks = {}          # label -> (window, geom, sheet, frame_h)
+        self.frame = 0
+        self.timer = None
+        try:
+            with open(os.path.join(FIRE_DIR, "index.json")) as f:
+                self.index = json.load(f)["sheets"]
+        except (OSError, ValueError) as e:
+            log("fire sheets missing:", e)
+            self.index = {}
+
+    def place(self, label, centre_x, top_y):
+        name = f"flame{label}-digit{label}.png"
+        if name not in self.index:
+            return
+        info = self.index[name]
+        w, h = info["width"] + 4, info["height"] + 4
+        x, y = int(centre_x - w / 2), int(top_y - 2)
+        if label not in self.marks:
+            win = self.xs.window(self.xs.root, x, y, w, h, argb=True, override=True, events=X.ExposureMask)
+            sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
+            self.marks[label] = [win, None, sheet, info["height"]]
+            win.map()
+        mark = self.marks[label]
+        if mark[1] != (x, y, w, h):
+            mark[0].configure(x=x, y=y, width=w, height=h)
+            mark[1] = (x, y, w, h)
+            self.draw(label)
+        if self.timer is None:
+            self.timer = GLib.timeout_add(1000 // FIRE_FPS, self.tick)
+
+    def draw(self, label):
+        win, geom, sheet, fh = self.marks[label]
+        if not geom:
+            return
+        _, _, w, h = geom
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        ctx = cairo.Context(surface)
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.paint()
+        ctx.rectangle(2, 2, w - 4, h - 4)
+        ctx.clip()
+        ctx.set_source_surface(sheet, 2, 2 - self.frame * fh)
+        ctx.paint()
+        self.xs.paint(win, surface, 32)
+
+    def tick(self):
+        self.frame = (self.frame + 1) % 15
+        for label in list(self.marks):
+            self.draw(label)
+        return True
+
+    def hide_all(self):
+        for win, *_ in self.marks.values():
+            win.unmap()
+        self.marks.clear()
+        if self.timer is not None:
+            GLib.source_remove(self.timer)
+            self.timer = None
 
 
 class PanelDim:
@@ -1935,6 +2004,7 @@ class Deskd:
         workspace itself has finished drawing."""
         if self.ws_mark is None:
             self.ws_mark = ActiveMark(self.xs)
+            self.fire_digits = FireDigits(self.xs)
         if focused is None:
             focused = next((w["num"] for w in self.i3.workspaces() if w.get("focused")), None)
         for pid, out in self.strip_plugins():
@@ -1945,6 +2015,8 @@ class Deskd:
                 continue
             (gx, gy, gw, gh), items, bounds = view
             for (lo, hi), (label, num) in zip(bounds, items):
+                if label in ("1", "2", "3", "4", "5", "6"):
+                    self.fire_digits.place(label, self.digit_centre(label, lo, hi), self.digit_top(label, gy, gh))
                 if num == focused:
                     centre = self.digit_centre(label, lo, hi)
                     width = min(hi - lo, gh * 1.15)
@@ -1969,6 +2041,16 @@ class Deskd:
         layout.set_attributes(attrs)
         layout.set_text(text, -1)
         return Pango, layout
+
+    def digit_top(self, label, gy, gh):
+        """The top of the digit's ink: the strip is one line centred in the plugin."""
+        try:
+            _, layout = self.strip_layout(STRIP_PAD + label + STRIP_PAD)
+            ink, logical = layout.get_pixel_extents()
+            return gy + (gh - logical.height) / 2 + ink.y
+        except Exception as e:                       # noqa: BLE001
+            log("digit top failed:", e)
+            return gy + gh / 2 - 11
 
     def digit_centre(self, label, lo, hi):
         """Where the digit's ink really sits in its cell. The cell is padded evenly, but
