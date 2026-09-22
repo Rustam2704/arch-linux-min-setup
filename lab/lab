@@ -49,6 +49,17 @@ cmd_write() {
     echo "wrote $path"
 }
 
+cmd_remove() {
+    # Delete a file we no longer install; the backup lets rollback bring it back.
+    local exp="$1" path="$2" bak
+    [ -e "$path" ] || return 0
+    bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
+    cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; return 1; }
+    log "$exp" backup "$path" "$bak"
+    if [ -w "$(dirname "$path")" ]; then rm -f "$path"; else sudo rm -f "$path"; fi
+    echo "removed $path"
+}
+
 cmd_pkg() {
     local exp="$1"; shift
     local new=()
@@ -73,6 +84,7 @@ cmd_rollback() {
 case "${1-}" in
     pkg)      shift; cmd_pkg "$@" ;;
     write)    shift; cmd_write "$@" ;;
+    remove)   shift; cmd_remove "$@" ;;
     undo)     shift; cmd_undo "$@" ;;
     status)   cmd_status ;;
     rollback) shift; cmd_rollback "${1:-all}" ;;

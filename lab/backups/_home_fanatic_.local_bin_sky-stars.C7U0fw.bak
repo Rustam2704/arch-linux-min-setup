@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Native desktop background using Astra's original starfield algorithm."""
+import math
+import os
+import sys
+import time
+import cairo
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GLib, Gtk, Pango
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
+from starfield import DOTS, FRAME_MS, brightness, field
+
+
+class Sky(Gtk.Window):
+    def __init__(self):
+        # A desktop window stays below Xfce's dock panel while remaining outside
+        # i3's managed client tree. A popup would cover the panel on X11.
+        super().__init__(title="Sky stars")
+        self.set_type_hint(Gdk.WindowTypeHint.DESKTOP)
+        self.set_decorated(False)
+        self.set_accept_focus(False)
+        self.set_focus_on_map(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_below(True)
+        self.stick()
+        self.set_app_paintable(True)
+        self.started = time.monotonic()
+        self.stars = []
+        self.frame = {}
+        self.screen = self.get_screen()
+        self.connect("draw", self.draw)
+        self.connect("realize", self.realized)
+        self.screen.connect("monitors-changed", self.resize)
+        self.resize()
+        self.show_all()
+        GLib.timeout_add(FRAME_MS, self.tick)
+
+    def realized(self, *_):
+        self.get_window().input_shape_combine_region(cairo.Region(), 0, 0)
+        self.get_window().lower()
+
+    def resize(self, *_):
+        geometry = Gdk.get_default_root_window().get_geometry()
+        width, height = geometry.width, geometry.height
+        self.move(0, 0)
+        self.set_size_request(width, height)
+        # Same point size and font as the console: density follows desktop DPI.
+        layout = self.create_pango_layout("M")
+        layout.set_font_description(Pango.FontDescription("JetBrainsMono Nerd Font Mono 11"))
+        self.cw, self.ch = layout.get_pixel_size()
+        self.ch = round(self.ch * 1.08)
+        self.stars = list(field(math.ceil(width / self.cw), math.ceil(height / self.ch)))
+        self.frame.clear()
+        self.queue_draw()
+
+    def tick(self):
+        elapsed = time.monotonic() - self.started
+        frame = {(x, y): (h, brightness(h, elapsed)) for x, y, h in self.stars}
+        # Damage just the point-sized cells which changed; no fullscreen repaint.
+        for key, value in frame.items():
+            if value[1] or self.frame.get(key, (0, 0))[1]:
+                x, y = key
+                self.queue_draw_area(x * self.cw, y * self.ch, self.cw, self.ch)
+        self.frame = frame
+        return True
+
+    def draw(self, _, ctx):
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.paint()
+        left, top, right, bottom = ctx.clip_extents()
+        radius = max(0.7, self.cw * 0.065)
+        for (x, y), (h, value) in self.frame.items():
+            if not value or not (left - self.cw <= x * self.cw <= right and top - self.ch <= y * self.ch <= bottom):
+                continue
+            col, row = DOTS[h // 161 % 8]
+            px, py = (x + (0.28 if col == 0 else 0.72)) * self.cw, (y + (row + 0.5) / 4) * self.ch
+            ctx.set_source_rgb(198 / 255 * value, 208 / 255 * value, 217 / 255 * value)
+            ctx.arc(px, py, radius, 0, math.tau)
+            ctx.fill()
+        return True
+
+
+GLib.set_prgname("sky-stars")
+Gdk.set_program_class("SkyStars")
+Sky()
+Gtk.main()

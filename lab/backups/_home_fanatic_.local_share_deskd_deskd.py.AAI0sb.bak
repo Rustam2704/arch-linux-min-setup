@@ -28,7 +28,6 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))   # i3ipc, sky_theme
 import gi  # noqa: E402
 from gi.repository import GLib  # noqa: E402
 import cairo  # noqa: E402
@@ -39,6 +38,7 @@ from Xlib.protocol import event as xevent  # noqa: E402
 import i3ipc  # noqa: E402
 import panels  # noqa: E402
 from i3ipc import walk, find  # noqa: E402
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME, rgb as theme_rgb
 
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
