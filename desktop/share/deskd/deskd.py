@@ -57,11 +57,9 @@ ACCENT_LIGHT = theme_rgb("light")
 BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
 PANEL_WS_COUNT = 5            # workspaces always shown per screen
-FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit sheets cut from the Diablo logo
-FIRE_FRAME_MS = 60            # DevilutionX: GetAnimationFrame(frames, 60) = one frame per 60 ms
-FIRE_FLAMES = 6               # the logo's six flames (D i a b l O); digit n burns with flame (n-1) % 6 + 1
+MARK_FILE = os.path.join(RUN, "deskd-mark.json")   # where the active digit is, for sky-stars
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
-SPIN_GAP = 6                  # px between the digit's ink and each spinning pentagram
+POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -357,149 +355,30 @@ class ActiveMark:
             log("digit cut-out failed:", e)
 
 
-class FireDigits:
-    """The number of the workspace in front of you burns with one of the six flames of
-    the Diablo logo (digit n gets flame (n-1) % 6 + 1). The frames were cut once by
-    external-assets/tools/fire-digits.py; here they are uploaded to the X server as
-    pixmaps the first time a digit burns, and every 60 ms is one CopyArea request -
-    the client does no drawing at all. Only the active digit has a window."""
-    def __init__(self, xs):
-        self.xs = xs
-        self.win = xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True)
-        self.win.set_wm_class("deskd", "deskd")     # picom: no shadow, no corners (see picom.conf)
-        self.gc = self.win.create_gc(graphics_exposures=0)   # no NoExpose event per CopyArea
-        # the main menu's spinning pentagram, one each side of the digit, same 60 ms beat
-        self.spins = [xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True) for _ in range(2)]
-        for w in self.spins:
-            w.set_wm_class("deskd", "deskd")
-        self.spin_pixmaps = None
-        self.spin_geoms = [None, None]
-        self.pixmaps = {}        # label -> [pixmap per frame]
-        self.info = {}           # label -> sheet info
-        self.label = None
-        self.geom = None
-        self.frame = 0
-        self.timer = None
-        self.shown = False
-        try:
-            with open(os.path.join(FIRE_DIR, "index.json")) as f:
-                self.index_all = json.load(f)
-                self.index = self.index_all["sheets"]
-        except (OSError, ValueError) as e:
-            log("fire sheets missing:", e)
-            self.index_all, self.index = {}, {}
-
-    def sheet_name(self, label):
-        try:
-            n = int(label)
-        except ValueError:
-            return None
-        return f"flame{(n - 1) % FIRE_FLAMES + 1}-digit{n}.png"
-
-    def load_spin(self):
-        info = self.index_all.get("spin")
-        if not info or self.spin_pixmaps is not None:
-            return bool(info)
-        size = info["size"]
-        sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, "spin.png"))
-        self.spin_pixmaps = []
-        for i in range(info["frames"]):
-            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
-            ctx = cairo.Context(surface)
-            ctx.set_operator(cairo.OPERATOR_SOURCE)
-            ctx.set_source_surface(sheet, 0, -i * size)
-            ctx.rectangle(0, 0, size, size)
-            ctx.fill()
-            surface.flush()
-            pixmap = self.win.create_pixmap(size, size, 32)
-            pixmap.put_image(self.gc, 0, 0, size, size, X.ZPixmap, 32, 0, bytes(surface.get_data()))
-            self.spin_pixmaps.append(pixmap)
-        self.spin_size = size
-        return True
-
-    def load(self, label):
-        """15 pixmaps for this digit, uploaded once; about 9 KB each."""
-        if label in self.pixmaps:
-            return True
-        name = self.sheet_name(label)
-        if name not in self.index:
-            return False
-        info = self.index[name]
-        w, h = info["width"], info["height"]
-        sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
-        frames = []
-        for i in range(15):
-            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
-            ctx = cairo.Context(surface)
-            ctx.set_operator(cairo.OPERATOR_SOURCE)
-            ctx.set_source_surface(sheet, 0, -i * h)
-            ctx.rectangle(0, 0, w, h)
-            ctx.fill()
-            surface.flush()
-            pixmap = self.win.create_pixmap(w, h, 32)
-            pixmap.put_image(self.gc, 0, 0, w, h, X.ZPixmap, 32, 0, bytes(surface.get_data()))
-            frames.append(pixmap)
-        self.pixmaps[label] = frames
-        self.info[label] = info
-        return True
+class MarkFile:
+    """Where the active workspace digit is, written for sky-stars, which animates the
+    fire and the spinning pentagrams around it. The animation used to live here, but
+    deskd stalls for a quarter of a second on every workspace switch (i3 tree, panel
+    windows, Pango, title buttons) and froze it; sky-stars has a loop of its own."""
+    def __init__(self):
+        self.state = None
 
     def show(self, label, centre_x, top_y):
-        if not self.load(label):
-            self.hide()
-            return
-        info = self.info[label]
-        w, h = info["width"], info["height"]
-        geom = (int(centre_x - info["digit_width"] / 2 - info["hole_x"]), int(top_y - info["above"]), w, h)
-        if geom != self.geom:
-            self.win.configure(x=geom[0], y=geom[1], width=w, height=h)
-            self.geom = geom
-        self.label = label
-        if self.load_spin():
-            size = self.spin_size
-            y = int(top_y + info["digit_height"] / 2 - size / 2)
-            for k, x in enumerate((int(centre_x - info["digit_width"] / 2 - SPIN_GAP - size),
-                                   int(centre_x + info["digit_width"] / 2 + SPIN_GAP))):
-                if self.spin_geoms[k] != (x, y):
-                    self.spins[k].configure(x=x, y=y, width=size, height=size)
-                    self.spin_geoms[k] = (x, y)
-        if not self.shown:
-            self.win.map()
-            for w in self.spins:
-                w.map()
-            self.shown = True
-        self.blit()
-        if self.timer is None:
-            self.timer = GLib.timeout_add(FIRE_FRAME_MS, self.tick)
+        self.write({"shown": True, "label": label, "centre_x": round(centre_x, 1), "top_y": round(top_y, 1)})
 
     def hide(self):
-        if self.shown:
-            self.win.unmap()
-            for w in self.spins:
-                w.unmap()
-            self.shown = False
-        if self.timer is not None:
-            GLib.source_remove(self.timer)
-            self.timer = None
+        self.write({"shown": False})
 
-    def blit(self):
-        _, _, w, h = self.geom
-        self.win.copy_area(self.gc, self.pixmaps[self.label][self.frame % 15], 0, 0, w, h, 0, 0)
-        if self.spin_pixmaps:
-            s = self.spin_size
-            for w in self.spins:
-                w.copy_area(self.gc, self.spin_pixmaps[self.frame % 8], 0, 0, s, s, 0, 0)
-
-    def tick(self):
-        self.frame = (self.frame + 1) % 120        # 15 fire frames and 8 spin frames both divide it
-        self.blit()
-        self.xs.d.flush()         # a timer has no event to piggyback on
-        return True
-
-    def raise_above(self):
-        if self.shown:
-            self.win.configure(stack_mode=X.Above)
-            for w in self.spins:
-                w.configure(stack_mode=X.Above)
+    def write(self, state):
+        if state == self.state:
+            return
+        self.state = state
+        try:
+            with open(MARK_FILE + ".tmp", "w") as f:
+                json.dump(state, f)
+            os.replace(MARK_FILE + ".tmp", MARK_FILE)
+        except OSError as e:
+            log("mark file failed:", e)
 
 
 class PanelDim:
@@ -763,8 +642,9 @@ class Deskd:
     def raise_overlays(self):
         """Our own windows over the panel: the pentagram first, then the veil on top of
         it - the mark belongs to the panel and dims with it."""
+        for win in self.sky_marks():                 # sky-stars' fire and pentagrams first
+            win.configure(stack_mode=X.Above)
         if self.ws_mark is not None and self.ws_mark.shown:
-            self.fire_digits.raise_above()           # fire, then the star over it
             self.ws_mark.win.configure(stack_mode=X.Above)
         for veil in self.veils.values():
             veil.raise_above()
@@ -821,6 +701,21 @@ class Deskd:
         for veil in self.veils.values():
             veil.set_hole(hole)
         return None
+
+    def sky_marks(self):
+        """The mark windows sky-stars keeps over the panel (class sky-marks)."""
+        found = []
+        try:
+            for w in self.xs.root.query_tree().children:
+                try:
+                    cls = w.get_wm_class()
+                except error.XError:
+                    continue
+                if cls and cls[0] == "sky-marks":
+                    found.append(w)
+        except error.XError:
+            pass
+        return found
 
     def panel_wrappers(self):
         """[(window, plugin id)] of the panel plugins that run in their own process."""
@@ -1107,6 +1002,25 @@ class Deskd:
         self.docks = found
         return found
 
+    def tooltip_over_menu(self, win):
+        """A panel tooltip appearing while one of our pop-ups (the Wi-Fi or power menu,
+        the calendar) is open would sit on top of it: hide it instead."""
+        try:
+            kind = win.get_full_property(self.xs.d.get_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM)
+            if not kind or self.xs.d.get_atom("_NET_WM_WINDOW_TYPE_TOOLTIP") not in list(kind.value):
+                return False
+            for w in self.xs.root.query_tree().children:
+                try:
+                    cls = w.get_wm_class()
+                    if cls and cls[0] in POPUP_OWNERS and w.get_attributes().map_state == X.IsViewable:
+                        win.unmap()
+                        return True
+                except error.XError:
+                    continue
+        except error.XError:
+            pass
+        return False
+
     def raise_popup(self, win):
         """Put someone else's override-redirect window (a menu, a tooltip, a
         notification, the clock's calendar) on top of the stack when it appears."""
@@ -1312,6 +1226,8 @@ class Deskd:
             # a menu or a popup (the clock's calendar, a plugin's menu) is an
             # override-redirect window: a menu, a notification, the clock's calendar.
             # Keep it above everything, whatever the window below is doing.
+            if self.tooltip_over_menu(e.window):
+                return None
             self.raise_popup(e.window)
         elif t == X.ConfigureNotify:
             # i3 can restore its tiled/floating split after a resize or maximize.
@@ -2091,7 +2007,7 @@ class Deskd:
             veil.set_visible(clear)
             if not clear and self.ws_mark is not None:
                 self.ws_mark.hide()
-                self.fire_digits.hide()
+                self.mark_file.hide()
 
     def sync_active_mark(self, focused=None):
         """Put the pentagram over the number of the workspace in front of you. The
@@ -2099,7 +2015,7 @@ class Deskd:
         workspace itself has finished drawing."""
         if self.ws_mark is None:
             self.ws_mark = ActiveMark(self.xs)
-            self.fire_digits = FireDigits(self.xs)
+            self.mark_file = MarkFile()
         if focused is None:
             focused = next((w["num"] for w in self.i3.workspaces() if w.get("focused")), None)
         for pid, out in self.strip_plugins():
@@ -2113,14 +2029,14 @@ class Deskd:
                 if num == focused:
                     centre = self.digit_centre(label, lo, hi)
                     width = min(hi - lo, gh * 1.15)
-                    self.fire_digits.show(label, centre, self.digit_top(label, gy, gh))
+                    self.mark_file.show(label, centre, self.digit_top(label, gy, gh))
                     if STAR_MARK:
                         self.ws_mark.place(int(centre - width / 2), gy, int(width), gh,
                                            label, self.panel_font(), self.dpi())
                     else:
                         self.ws_mark.hide()
                     return
-        self.fire_digits.hide()
+        self.mark_file.hide()
         self.ws_mark.hide()
 
     def strip_layout(self, text):
@@ -2378,6 +2294,8 @@ class Deskd:
         if not args:
             return
         what = args[0]
+        if what == "overlays":
+            return self.raise_overlays()
         tree = self.i3.tree()
         node, parent = i3ipc.focused(tree)
         cid = node["id"] if node and node.get("window") else None

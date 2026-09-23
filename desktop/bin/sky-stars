@@ -25,6 +25,8 @@ field from OpenAI Codex (Apache-2.0, see LICENSE-codex.txt next to sky_theme.py)
 the periods are snapped to divisors of the loop so the loop is seamless.
 """
 import array
+import cairo
+import json
 import struct
 import math
 import os
@@ -49,6 +51,16 @@ CORE, HALO = 4, 6           # star: a 4 px square with a dim 6 px halo (HiDPI: ~
 PEAK, GLOW = 0.75, 0.25     # brightest core / halo as a share of the theme foreground
 DOTS = ((0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (0, 3), (1, 3))
 ALWAYS = os.environ.get("SKY_STARS_ALWAYS") == "1"   # draw under windows too (for measuring)
+
+# The marks around the active workspace digit: the Diablo logo's fire and the menu's
+# spinning pentagrams. deskd writes where the digit is (MARK_FILE); the frames were cut
+# by external-assets/tools/fire-digits.py and are uploaded to the X server once.
+RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+MARK_FILE = os.path.join(RUN, "deskd-mark.json")
+FIRE_DIR = "@PROJECT@/external-assets/fire-digits"
+MARK_MS = 60                # DevilutionX: one frame per 60 ms, for the fire and the pentagram alike
+FIRE_FLAMES = 6             # digit n burns with flame (n-1) % 6 + 1
+SPIN_GAP = 6                # px between the digit's ink and each pentagram
 
 
 def log(*a):
@@ -87,6 +99,151 @@ def step_of(h, t):
     return max(1, min(STEPS, round(value / 0.55 * STEPS)))
 
 
+class Marks:
+    """Three small ARGB windows over the panel (fire behind the digit, a pentagram each
+    side), fed from server-side pixmaps with one CopyArea per window per frame."""
+    def __init__(self, d, screen, i3):
+        self.d, self.root, self.i3 = d, screen.root, i3
+        depth32 = next(dd for dd in screen.allowed_depths if dd.depth == 32)
+        self.visual = depth32.visuals[0].visual_id
+        self.cmap = self.root.create_colormap(self.visual, X.AllocNone)
+        self.win = self.window()
+        self.spins = [self.window(), self.window()]
+        self.gc = self.win.create_gc(graphics_exposures=0)
+        try:
+            with open(os.path.join(FIRE_DIR, "index.json")) as f:
+                self.index = json.load(f)
+        except (OSError, ValueError) as e:
+            log("mark sheets missing:", e)
+            self.index = {}
+        self.pixmaps = {}            # label -> fire frames
+        self.spin_pixmaps = None
+        self.state = {}
+        self.mtime = None
+        self.frame = 0
+        self.shown = False
+        self.geom = None
+        self.nudges = []             # when to remind deskd to put its veil back on top
+
+    def nudge(self):
+        """deskd restacks: our windows just under its veil. Repeated a few times,
+        because at login deskd may not be listening yet when we first appear."""
+        try:
+            self.i3.tick("deskd overlays")
+        except Exception as e:               # noqa: BLE001
+            log("tick failed:", e)
+
+    def window(self):
+        w = self.root.create_window(0, 0, 1, 1, 0, 32, X.InputOutput, self.visual, colormap=self.cmap,
+                                    border_pixel=0, background_pixel=0, override_redirect=1)
+        w.set_wm_class("sky-marks", "deskd")     # deskd restacks these; picom: no shadow, no corners
+        return w
+
+    def sheet(self, name, count, size_w, size_h):
+        surface = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
+        frames = []
+        for i in range(count):
+            one = cairo.ImageSurface(cairo.FORMAT_ARGB32, size_w, size_h)
+            ctx = cairo.Context(one)
+            ctx.set_operator(cairo.OPERATOR_SOURCE)
+            ctx.set_source_surface(surface, 0, -i * size_h)
+            ctx.rectangle(0, 0, size_w, size_h)
+            ctx.fill()
+            one.flush()
+            pixmap = self.win.create_pixmap(size_w, size_h, 32)
+            pixmap.put_image(self.gc, 0, 0, size_w, size_h, X.ZPixmap, 32, 0, bytes(one.get_data()))
+            frames.append(pixmap)
+        return frames
+
+    def load(self, label):
+        try:
+            n = int(label)
+        except ValueError:
+            return None
+        name = f"flame{(n - 1) % FIRE_FLAMES + 1}-digit{n}.png"
+        info = self.index.get("sheets", {}).get(name)
+        if info is None:
+            return None
+        if label not in self.pixmaps:
+            self.pixmaps[label] = self.sheet(name, self.index.get("frames", 15), info["width"], info["height"])
+        if self.spin_pixmaps is None and "spin" in self.index:
+            sp = self.index["spin"]
+            self.spin_pixmaps = self.sheet("spin.png", sp["frames"], sp["size"], sp["size"])
+        return info
+
+    def poll(self):
+        """Read deskd's file when it changed."""
+        try:
+            mtime = os.stat(MARK_FILE).st_mtime_ns
+        except OSError:
+            return
+        if mtime == self.mtime:
+            return
+        self.mtime = mtime
+        try:
+            with open(MARK_FILE) as f:
+                state = json.load(f)
+        except (OSError, ValueError):
+            return
+        self.apply(state)
+
+    def apply(self, state):
+        if not state.get("shown"):
+            self.hide()
+            return
+        info = self.load(state["label"])
+        if info is None:
+            self.hide()
+            return
+        w, h = info["width"], info["height"]
+        cx, top = state["centre_x"], state["top_y"]
+        geom = (int(cx - info["digit_width"] / 2 - info["hole_x"]), int(top - info["above"]), w, h)
+        if geom != self.geom or state.get("label") != self.state.get("label"):
+            self.win.configure(x=geom[0], y=geom[1], width=w, height=h)
+            if self.spin_pixmaps:
+                size = self.index["spin"]["size"]
+                y = int(top + info["digit_height"] / 2 - size / 2)
+                for k, x in enumerate((int(cx - info["digit_width"] / 2 - SPIN_GAP - size),
+                                       int(cx + info["digit_width"] / 2 + SPIN_GAP))):
+                    self.spins[k].configure(x=x, y=y, width=size, height=size)
+            self.geom = geom
+        self.state = state
+        if not self.shown:
+            for w_ in (self.win, *self.spins):
+                w_.map()
+                w_.configure(stack_mode=X.Above)
+            self.shown = True
+            self.nudge()
+            now = time.monotonic()
+            self.nudges = [now + 2, now + 6, now + 15]
+        self.blit()
+
+    def hide(self):
+        if self.shown:
+            for w in (self.win, *self.spins):
+                w.unmap()
+            self.shown = False
+        self.state = {"shown": False}
+
+    def blit(self):
+        if not self.shown:
+            return
+        _, _, w, h = self.geom
+        frames = self.pixmaps[self.state["label"]]
+        self.win.copy_area(self.gc, frames[self.frame % len(frames)], 0, 0, w, h, 0, 0)
+        if self.spin_pixmaps:
+            size = self.index["spin"]["size"]
+            for sw in self.spins:
+                sw.copy_area(self.gc, self.spin_pixmaps[self.frame % len(self.spin_pixmaps)], 0, 0, size, size, 0, 0)
+
+    def tick(self):
+        self.frame = (self.frame + 1) % 120
+        self.blit()
+        if self.nudges and time.monotonic() >= self.nudges[0]:
+            self.nudges.pop(0)
+            self.nudge()
+
+
 class Sky:
     def __init__(self):
         self.d = display.Display()
@@ -106,6 +263,8 @@ class Sky:
         self.rethink_at = None   # when to recompute the covered set (coalesces i3 events)
         self.any_visible = True
         self.build()
+        self.marks = Marks(self.d, self.screen, self.i3)
+        self.marks.poll()
 
     # ------------------------------------------------------------ window
     def build(self):
@@ -315,6 +474,8 @@ class Sky:
                 self.build()                                   # screen may have changed size
             elif name == "window" and payload.get("change") in ("title", "urgent", "mark"):
                 continue
+            elif name == "workspace":
+                self.marks.poll()
             if self.rethink_at is None:
                 self.rethink_at = time.monotonic() + 0.1       # coalesce bursts
 
@@ -322,19 +483,25 @@ class Sky:
     def run(self):
         xfd, ifd = self.d.fileno(), self.events.fileno()
         last = self.frame_index()
+        next_mark = time.monotonic()
         while True:
             now = time.monotonic()
-            timeout = None
+            timeout = max(0.0, next_mark - now)
             if self.any_visible:
-                timeout = (math.floor(now * 1000 / FRAME_MS) + 1) * FRAME_MS / 1000 - now
+                timeout = min(timeout, (math.floor(now * 1000 / FRAME_MS) + 1) * FRAME_MS / 1000 - now)
             if self.rethink_at is not None:
-                timeout = max(0, min(timeout if timeout is not None else 1e9, self.rethink_at - now))
+                timeout = max(0, min(timeout, self.rethink_at - now))
             readable, _, _ = select.select([xfd, ifd], [], [], timeout)
             if xfd in readable:
                 self.on_x()
             if ifd in readable:
                 self.on_i3()
             now = time.monotonic()
+            if now >= next_mark:
+                self.marks.poll()
+                self.marks.tick()
+                self.d.flush()
+                next_mark = now + (MARK_MS if self.marks.shown else 250) / 1000
             if self.rethink_at is not None and now >= self.rethink_at:
                 self.rethink()
             if self.any_visible:

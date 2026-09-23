@@ -9,7 +9,7 @@ import subprocess
 
 MAGIC = b"i3-ipc"
 HEADER = struct.Struct("=6sII")
-RUN_COMMAND, GET_WORKSPACES, SUBSCRIBE, GET_OUTPUTS, GET_TREE = 0, 1, 2, 3, 4
+RUN_COMMAND, GET_WORKSPACES, SUBSCRIBE, GET_OUTPUTS, GET_TREE, SEND_TICK = 0, 1, 2, 3, 4, 10
 EVENT_NAMES = {0: "workspace", 1: "output", 2: "mode", 3: "window", 5: "binding", 6: "shutdown", 7: "tick"}
 
 
@@ -62,6 +62,10 @@ class I3:
 
     def outputs(self):
         return self._ask(GET_OUTPUTS)
+
+    def tick(self, payload):
+        """A tick event every subscriber sees - how our processes nudge each other."""
+        return self._ask(SEND_TICK, payload)
 
 
 def subscribe(events, path=None):
