@@ -60,6 +60,8 @@ PANEL_WS_COUNT = 5            # workspaces always shown per screen
 FIRE_DIR = "@PROJECT@/external-assets/fire-digits"   # burning-digit sheets cut from the Diablo logo
 FIRE_FRAME_MS = 60            # DevilutionX: GetAnimationFrame(frames, 60) = one frame per 60 ms
 FIRE_FLAMES = 6               # the logo's six flames (D i a b l O); digit n burns with flame (n-1) % 6 + 1
+STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
+SPIN_GAP = 6                  # px between the digit's ink and each spinning pentagram
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -292,6 +294,8 @@ class ActiveMark:
     def hide(self):
         if self.shown:
             self.win.unmap()
+            for w in self.spins:
+                w.unmap()
             self.shown = False
 
     def draw(self):
@@ -364,6 +368,12 @@ class FireDigits:
         self.win = xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True)
         self.win.set_wm_class("deskd", "deskd")     # picom: no shadow, no corners (see picom.conf)
         self.gc = self.win.create_gc(graphics_exposures=0)   # no NoExpose event per CopyArea
+        # the main menu's spinning pentagram, one each side of the digit, same 60 ms beat
+        self.spins = [xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True) for _ in range(2)]
+        for w in self.spins:
+            w.set_wm_class("deskd", "deskd")
+        self.spin_pixmaps = None
+        self.spin_geoms = [None, None]
         self.pixmaps = {}        # label -> [pixmap per frame]
         self.info = {}           # label -> sheet info
         self.label = None
@@ -373,10 +383,11 @@ class FireDigits:
         self.shown = False
         try:
             with open(os.path.join(FIRE_DIR, "index.json")) as f:
-                self.index = json.load(f)["sheets"]
+                self.index_all = json.load(f)
+                self.index = self.index_all["sheets"]
         except (OSError, ValueError) as e:
             log("fire sheets missing:", e)
-            self.index = {}
+            self.index_all, self.index = {}, {}
 
     def sheet_name(self, label):
         try:
@@ -384,6 +395,27 @@ class FireDigits:
         except ValueError:
             return None
         return f"flame{(n - 1) % FIRE_FLAMES + 1}-digit{n}.png"
+
+    def load_spin(self):
+        info = self.index_all.get("spin")
+        if not info or self.spin_pixmaps is not None:
+            return bool(info)
+        size = info["size"]
+        sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, "spin.png"))
+        self.spin_pixmaps = []
+        for i in range(info["frames"]):
+            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+            ctx = cairo.Context(surface)
+            ctx.set_operator(cairo.OPERATOR_SOURCE)
+            ctx.set_source_surface(sheet, 0, -i * size)
+            ctx.rectangle(0, 0, size, size)
+            ctx.fill()
+            surface.flush()
+            pixmap = self.win.create_pixmap(size, size, 32)
+            pixmap.put_image(self.gc, 0, 0, size, size, X.ZPixmap, 32, 0, bytes(surface.get_data()))
+            self.spin_pixmaps.append(pixmap)
+        self.spin_size = size
+        return True
 
     def load(self, label):
         """15 pixmaps for this digit, uploaded once; about 9 KB each."""
@@ -422,8 +454,18 @@ class FireDigits:
             self.win.configure(x=geom[0], y=geom[1], width=w, height=h)
             self.geom = geom
         self.label = label
+        if self.load_spin():
+            size = self.spin_size
+            y = int(top_y + info["digit_height"] / 2 - size / 2)
+            for k, x in enumerate((int(centre_x - info["digit_width"] / 2 - SPIN_GAP - size),
+                                   int(centre_x + info["digit_width"] / 2 + SPIN_GAP))):
+                if self.spin_geoms[k] != (x, y):
+                    self.spins[k].configure(x=x, y=y, width=size, height=size)
+                    self.spin_geoms[k] = (x, y)
         if not self.shown:
             self.win.map()
+            for w in self.spins:
+                w.map()
             self.shown = True
         self.blit()
         if self.timer is None:
@@ -432,6 +474,8 @@ class FireDigits:
     def hide(self):
         if self.shown:
             self.win.unmap()
+            for w in self.spins:
+                w.unmap()
             self.shown = False
         if self.timer is not None:
             GLib.source_remove(self.timer)
@@ -439,10 +483,14 @@ class FireDigits:
 
     def blit(self):
         _, _, w, h = self.geom
-        self.win.copy_area(self.gc, self.pixmaps[self.label][self.frame], 0, 0, w, h, 0, 0)
+        self.win.copy_area(self.gc, self.pixmaps[self.label][self.frame % 15], 0, 0, w, h, 0, 0)
+        if self.spin_pixmaps:
+            s = self.spin_size
+            for w in self.spins:
+                w.copy_area(self.gc, self.spin_pixmaps[self.frame % 8], 0, 0, s, s, 0, 0)
 
     def tick(self):
-        self.frame = (self.frame + 1) % 15
+        self.frame = (self.frame + 1) % 120        # 15 fire frames and 8 spin frames both divide it
         self.blit()
         self.xs.d.flush()         # a timer has no event to piggyback on
         return True
@@ -450,6 +498,8 @@ class FireDigits:
     def raise_above(self):
         if self.shown:
             self.win.configure(stack_mode=X.Above)
+            for w in self.spins:
+                w.configure(stack_mode=X.Above)
 
 
 class PanelDim:
@@ -2064,8 +2114,11 @@ class Deskd:
                     centre = self.digit_centre(label, lo, hi)
                     width = min(hi - lo, gh * 1.15)
                     self.fire_digits.show(label, centre, self.digit_top(label, gy, gh))
-                    self.ws_mark.place(int(centre - width / 2), gy, int(width), gh,
-                                       label, self.panel_font(), self.dpi())
+                    if STAR_MARK:
+                        self.ws_mark.place(int(centre - width / 2), gy, int(width), gh,
+                                           label, self.panel_font(), self.dpi())
+                    else:
+                        self.ws_mark.hide()
                     return
         self.fire_digits.hide()
         self.ws_mark.hide()

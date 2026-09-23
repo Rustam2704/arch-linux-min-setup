@@ -7,6 +7,7 @@ Output (external-assets/fire-digits/):
   flame{k}-digit{d}.png              15 frames stacked vertically: the flame around and above the digit,
                                      the digit itself cut out (a transparent hole - the panel's own digit shows)
   preview.png                        frame 0 of every flame x digit, 4x, for a look
+  spin.png                           the menu's spinning pentagram (ui_art/focus.pcx, 8 frames) at SPIN px
   index.json                         frame size per sheet
 
 The digit shape is the panel's own: the workspace strip font (xfconf plugin-45) at the
@@ -28,6 +29,8 @@ import pcx  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "diablo-spawn/ui_art/smlogo.pcx")
+SPIN_SRC = os.path.join(ROOT, "diablo-spawn/ui_art/focus.pcx")   # 30x30, 8 frames
+SPIN = 26                           # pentagram size on the panel, about the digit's height
 OUT = os.path.join(ROOT, "fire-digits")
 FRAMES = 15
 TRANSPARENT = 250
@@ -231,7 +234,7 @@ def main():
             name = f"flame{k}-digit{d}.png"
             sheet.write_to_png(os.path.join(OUT, name))
             index["sheets"][name] = {"flame": k, "digit": d, "width": W, "height": H, "above": ABOVE,
-                                     "hole_x": hole_x, "digit_width": dw}
+                                     "hole_x": hole_x, "digit_width": dw, "digit_height": dh}
             preview_cells.append((k, d, sheet, W, H))
     # preview: rows = flames, columns = digits, frame 0 at 4x
     cw, ch = max(c[3] for c in preview_cells) + 6, max(c[4] for c in preview_cells) + 6
@@ -251,6 +254,31 @@ def main():
         pc.paint()
         pc.restore()
     prev.write_to_png(os.path.join(OUT, "preview.png"))
+    # the spinning pentagram of the main menu, scaled to the digit
+    sw, sfh, sframes, spal = pcx.frames(SPIN_SRC, 8)
+    sheet = cairo.ImageSurface(cairo.FORMAT_ARGB32, SPIN, SPIN * 8)
+    ctx = cairo.Context(sheet)
+    for i, f in enumerate(sframes):
+        src = cairo.ImageSurface(cairo.FORMAT_ARGB32, sw, sfh)
+        buf, stride = src.get_data(), src.get_stride()
+        for y in range(sfh):
+            for x in range(sw):
+                idx = f[y * sw + x]
+                if idx != TRANSPARENT:
+                    r, g, b = spal[idx]
+                    o = y * stride + x * 4
+                    buf[o:o + 4] = bytes((b, g, r, 255))
+        src.mark_dirty()
+        ctx.save()
+        ctx.translate(0, i * SPIN)
+        ctx.scale(SPIN / sw, SPIN / sfh)
+        pat = cairo.SurfacePattern(src)
+        pat.set_filter(cairo.FILTER_BILINEAR)
+        ctx.set_source(pat)
+        ctx.paint()
+        ctx.restore()
+    sheet.write_to_png(os.path.join(OUT, "spin.png"))
+    index["spin"] = {"size": SPIN, "frames": 8}
     with open(os.path.join(OUT, "index.json"), "w") as f:
         json.dump(index, f, indent=1)
     print(f"{len(bands)} flames, {len(preview_cells)} digit sheets in {OUT}")
