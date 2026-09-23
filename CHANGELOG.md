@@ -1191,3 +1191,11 @@ Claude Code хранит расшифровки (и файлы памяти) в 
 - Колесо над значком — громкость, средняя кнопка — mute: прозрачный слой deskd над плагином
   (genmon получает только левый клик), команды уходят в osd-daemon через его FIFO.
 - Плагин 20 оставлен в xfconf для отката (`lab/lab rollback 44-audio-widget`).
+
+## Пакеты для проекта nutri-website (24.09)
+
+Не настройка рабочего стола, а инструменты разработки, поставленные для
+`~/ai/claude/nutri-website` (статические копии сайтов-образцов): из extra —
+`python-requests`, `python-beautifulsoup4`, `python-lxml` (обход и переписывание HTML/CSS)
+и `geckodriver` (headless-проверки в Firefox Developer Edition через WebDriver).
+Никаких сервисов и конфигов не добавлено; при сносе проекта их можно удалить.
