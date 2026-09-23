@@ -26,6 +26,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 | `config/kitty/kitty.conf` | `kill -USR1` работающим kitty или новое окно |
 | `config/picom/picom.conf`, `config/rofi/*`, `config/touchegg/*` | при следующем запуске программы (`touchegg` — `systemctl restart touchegg` + клиент из сессии) |
 | `share/light-year/*` | закрыть и открыть календарь (`Super+C`) |
+| `config/Thunar/*` | `thunar -q` **до** записи (при выходе Thunar переписывает `accels.scm`), потом `i3-msg 'exec --no-startup-id Thunar --daemon'`; открытые окна Thunar закроются |
 | `config/systemd/user/*` | `systemctl --user daemon-reload && systemctl --user restart <служба>` |
 | `system/*` (сессия) | следующий вход |
 

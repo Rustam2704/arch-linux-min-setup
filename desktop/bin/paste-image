@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Ctrl+V in Thunar, the way Windows Explorer does it: an image on the clipboard
+becomes a PNG in the folder you are looking at, named by the moment of pasting
+("2026-09-24 02-15-33.png"); copied or cut files are pasted as before.
+
+Thunar runs this as the custom action "Paste image" (uca.xml; the accelerator in
+accels.scm gives it Ctrl+V, which takes the key from Thunar's own paste - so the
+file case is handed straight back to Thunar over D-Bus, CopyInto / MoveInto, with
+its usual progress and conflict dialogs). Arguments: %f %d - the first selected
+item and its folder; with nothing selected, %f is the folder itself."""
+import os
+import sys
+import time
+import urllib.parse
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
+
+COPIED = "x-special/gnome-copied-files"
+
+
+def target_folder(argv):
+    """Where to paste: the folder shown in the window, never a selected sub-folder."""
+    f = os.path.abspath(argv[1]) if len(argv) > 1 else os.getcwd()
+    d = os.path.abspath(argv[2]) if len(argv) > 2 else os.path.dirname(f)
+    if not os.path.isdir(f):
+        return d                                        # a file is selected
+    # a folder: the one on show (no selection) or a selected one - the same two
+    # arguments either way; the focused window's title tells them apart
+    # ("<name> - Thunar")
+    title = window_title()
+    return f if title.startswith(os.path.basename(f) + " - ") or not title else d
+
+
+def window_title():
+    """Title of the window with the keyboard focus (Thunar's, when it ran us)."""
+    try:
+        from Xlib import display as xdisplay
+        xd = xdisplay.Display()
+        win = xd.get_input_focus().focus
+        root = xd.screen().root
+        while win and win != root:                      # up to the top-level window
+            name = win.get_full_property(xd.intern_atom("_NET_WM_NAME"), 0) or win.get_full_property(
+                xd.intern_atom("WM_NAME"), 0)
+            if name and name.value:
+                v = name.value
+                return v.decode(errors="replace") if isinstance(v, bytes) else str(v)
+            win = win.query_tree().parent
+    except Exception:                                   # noqa: BLE001 - no X, no title
+        pass
+    return ""
+
+
+def paste_files(clipboard, folder):
+    data = clipboard.wait_for_contents(Gdk.Atom.intern(COPIED, False))
+    if data is None:
+        return False
+    lines = data.get_data().decode(errors="replace").splitlines()
+    if not lines or lines[0] not in ("copy", "cut"):
+        return False
+    uris = [line for line in lines[1:] if line]
+    if not uris:
+        return False
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    method = "MoveInto" if lines[0] == "cut" else "CopyInto"
+    bus.call_sync("org.xfce.FileManager", "/org/xfce/FileManager", "org.xfce.FileManager", method,
+                  GLib.Variant("(sassss)", (folder, uris, folder, "", "")), None,
+                  Gio.DBusCallFlags.NONE, 5000, None)
+    if lines[0] == "cut":                               # like Thunar: a cut is pasted once
+        clipboard.set_text("", -1)
+        clipboard.store()
+    return True
+
+
+def paste_image(clipboard, folder):
+    image = clipboard.wait_for_image()
+    if image is None:
+        return False
+    stamp = time.strftime("%Y-%m-%d %H-%M-%S")
+    path = os.path.join(folder, f"{stamp}.png")
+    n = 2
+    while os.path.exists(path):                         # two pastes within a second
+        path = os.path.join(folder, f"{stamp} ({n}).png")
+        n += 1
+    image.savev(path, "png", [], [])
+    return True
+
+
+def main():
+    folder = target_folder(sys.argv)
+    clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+    ok, targets = clipboard.wait_for_targets()
+    names = {t.name() for t in targets} if ok else set()
+    if COPIED in names:
+        paste_files(clipboard, folder)
+    elif any(n.startswith("image/") for n in names):
+        paste_image(clipboard, folder)
+    return 0                                            # nothing to paste: nothing happens
+
+
+if __name__ == "__main__":
+    sys.exit(main())

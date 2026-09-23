@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+<action>
+	<icon>utilities-terminal</icon>
+	<name>Open Terminal Here</name>
+	<submenu></submenu>
+	<unique-id>1789508366803795-1</unique-id>
+	<command>exo-open --working-directory %f --launch TerminalEmulator</command>
+	<description>Example for a custom action</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+<action>
+	<icon>insert-image</icon>
+	<name>Paste image</name>
+	<submenu></submenu>
+	<unique-id>1758668400000000-2</unique-id>
+	<command>@HOME@/.local/bin/paste-image %f %d</command>
+	<description>Save the image from the clipboard here, named by the current time (Ctrl+V)</description>
+	<range></range>
+	<patterns>*</patterns>
+	<audio-files/>
+	<image-files/>
+	<other-files/>
+	<text-files/>
+	<video-files/>
+	<directories/>
+</action>
+</actions>
