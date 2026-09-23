@@ -149,6 +149,9 @@ bindsym $mod+Shift+minus nop deskd unminimize
 # machine; deskd switches this mode on and off with the focus. Super+Esc leaves it.
 mode "passthrough" {
     bindsym $mod+Escape mode "default"
+    # the title bar must still work with the mouse (mouse bindings are per mode too)
+    bindsym button1 mark --add _deskd_click, nop deskd titlebar 1
+    bindsym button3 mark --add _deskd_click, nop deskd titlebar 3
     # the remote machine gets every other key; moving the window itself must still work
     bindsym $mod+Shift+1 nop deskd move 1
     bindsym $mod+Shift+2 nop deskd move 2
