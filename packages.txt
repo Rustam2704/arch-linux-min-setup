@@ -1,7 +1,7 @@
 # Packages the declared desktop needs (pacman names). `make packages` lists what is missing.
 # Session
 i3-wm
-picom
+xf86-video-intel            # TearFree without a compositor
 rofi
 kitty
 lightdm                     # autologin straight into the "Xfce + i3" session

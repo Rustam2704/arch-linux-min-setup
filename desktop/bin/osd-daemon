@@ -20,6 +20,8 @@ import ctypes
 import os
 import queue
 import re
+import cairo
+import math
 import subprocess
 import threading
 import time
@@ -92,7 +94,12 @@ class Osd(Gtk.Window):
         visual = self.get_screen().get_rgba_visual()
         if visual:
             self.set_visual(visual)
-        self.set_opacity(0.90)  # deprecated in GTK3 docs, still the only way for a whole-window alpha
+        if self.get_screen().is_composited():
+            self.set_opacity(0.90)  # deprecated in GTK3 docs, still the only way for a whole-window alpha
+        else:
+            # no compositor: the corners outside the rounded box would be black
+            # squares, so the window is shaped to the box instead
+            self.connect("size-allocate", self._shape)
 
         self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.box.set_name("osd")
@@ -131,6 +138,20 @@ class Osd(Gtk.Window):
         ctx = self.box.get_style_context()
         for c in ("over", "muted", "layout-en", "layout-ru", "layout-ua"):
             (ctx.add_class if c in classes else ctx.remove_class)(c)
+
+    def _shape(self, widget, alloc):
+        w, h, r = alloc.width, alloc.height, 12
+        mask = cairo.ImageSurface(cairo.FORMAT_A8, max(1, w), max(1, h))
+        c = cairo.Context(mask)
+        c.new_sub_path()
+        c.arc(w - r, r, r, -math.pi / 2, 0)
+        c.arc(w - r, h - r, r, 0, math.pi / 2)
+        c.arc(r, h - r, r, math.pi / 2, math.pi)
+        c.arc(r, r, r, math.pi, 3 * math.pi / 2)
+        c.close_path()
+        c.fill()
+        if self.get_window():
+            self.get_window().shape_combine_region(Gdk.cairo_region_create_from_surface(mask), 0, 0)
 
     def level(self, glyph, percent, muted=False):
         ctx = self.icon.get_style_context()
