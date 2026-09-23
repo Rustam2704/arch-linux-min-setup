@@ -418,3 +418,6 @@
 2026-09-23T11:39:34+03:00	39-back-to-picom	cmd	rmdir -- /home/fanatic/.config/picom/shaders	
 2026-09-23T11:39:34+03:00	39-back-to-picom	file	/home/fanatic/.config/picom/shaders/smart-invert.glsl	
 2026-09-23T11:44:07+03:00	39-back-to-picom	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.zFqs6s.bak
+2026-09-23T15:15:52+03:00	40-restore-polish	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.qjoNrg.bak
+2026-09-23T15:15:52+03:00	40-restore-polish	backup	/home/fanatic/.config/picom/picom.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_picom.conf.3vpC0V.bak
+2026-09-23T15:15:52+03:00	40-restore-polish	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.0nd5JW.bak

@@ -270,6 +270,7 @@ class ActiveMark:
         self.xs = xs
         self.win = xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True,
                              events=X.ExposureMask)
+        self.win.set_wm_class("deskd", "deskd")
         self.geom = None
         self.shown = False
         self.digit = self.font = None
@@ -361,10 +362,7 @@ class FireDigits:
     def __init__(self, xs):
         self.xs = xs
         self.win = xs.window(xs.root, 0, 0, 1, 1, argb=True, override=True)
-        # typed as a dock: picom then draws no shadow and no rounded corners for it,
-        # which otherwise widen the region it recomposites sixteen times a second
-        dock = xs.d.intern_atom("_NET_WM_WINDOW_TYPE_DOCK")
-        self.win.change_property(xs.d.intern_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM, 32, [dock])
+        self.win.set_wm_class("deskd", "deskd")     # picom: no shadow, no corners (see picom.conf)
         self.gc = self.win.create_gc(graphics_exposures=0)   # no NoExpose event per CopyArea
         self.pixmaps = {}        # label -> [pixmap per frame]
         self.info = {}           # label -> sheet info
@@ -470,6 +468,7 @@ class PanelDim:
         x, y, w, h = geom
         self.win = xs.window(xs.root, x, y, w, h, argb=True, override=True,
                              events=X.ExposureMask)
+        self.win.set_wm_class("deskd", "deskd")
         try:
             shape.rectangles(self.win, shape.SO.Set, shape.SK.Input, 0, 0, 0, [])
         except Exception as e:                       # noqa: BLE001 - only the click-through
@@ -1045,6 +1044,9 @@ class Deskd:
         for frame in frames:
             try:                                             # a window can close mid-scan
                 for win in [frame] + frame.query_tree().children:
+                    cls = win.get_wm_class()
+                    if not cls or cls[1] != "Xfce4-panel":   # only the panel, never our own overlays
+                        continue
                     prop = win.get_full_property(kind, Xatom.ATOM)
                     if prop and dock in list(prop.value):
                         g = frame.get_geometry()
@@ -1842,6 +1844,7 @@ class Deskd:
             return
         if not self.preview:
             win = self.xs.window(self.xs.root, 0, 0, 1, 1, argb=True, bg=argb_pixel(ACCENT, 0.22))
+            win.set_wm_class("deskd", "deskd")
             edges = [self.xs.window(win, 0, 0, 1, 1, argb=True, bg=argb_pixel(ACCENT_LIGHT, 0.95))
                      for _ in range(4)]
             for e in edges:
