@@ -39,7 +39,7 @@ from Xlib.protocol import event as xevent  # noqa: E402
 import i3ipc  # noqa: E402
 import panels  # noqa: E402
 from i3ipc import walk, find  # noqa: E402
-from sky_theme import THEME, HOT_FILE, QUIET, shade, rgb as theme_rgb
+from sky_theme import THEME, rgb as theme_rgb
 
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 STATE_FILE = os.path.join(RUN, "deskd-state.json")
@@ -141,9 +141,6 @@ class XServer:
                                     X.InputOutput, X.CopyFromParent,
                                     background_pixel=bg if bg is not None else 0, **kw)
 
-    def hot_name(self):
-        return getattr(self, "_hot", "")
-
     def paint(self, win, surface, depth):
         """Put a cairo ARGB32 surface onto a window, in strips small enough for one request."""
         w, h = surface.get_width(), surface.get_height()
@@ -165,27 +162,6 @@ class XServer:
 
     def flush(self):
         self.d.flush()
-
-
-def alpha_rects(surface, threshold=8):
-    """Rectangles (row runs) of the pixels a cairo ARGB32 surface actually draws.
-    Without a compositor a 32-bit window's alpha is ignored - the transparent parts
-    would come out black - so our overlays are shaped to their drawn pixels."""
-    surface.flush()
-    w, h, stride = surface.get_width(), surface.get_height(), surface.get_stride()
-    data = surface.get_data()
-    rects = []
-    for y in range(h):
-        row = y * stride
-        start = None
-        for x in range(w + 1):
-            on = x < w and data[row + x * 4 + 3] >= threshold
-            if on and start is None:
-                start = x
-            elif not on and start is not None:
-                rects.append((start, y, x - start, 1))
-                start = None
-    return rects
 
 
 def argb_pixel(c, alpha):
@@ -320,7 +296,6 @@ class ActiveMark:
     def draw(self):
         if not self.geom:
             return
-        self.bright = (self.xs.hot_name() == "panel-workspaces")
         _, _, w, h = self.geom
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(1, w), max(1, h))
         ctx = cairo.Context(surface)
@@ -342,11 +317,9 @@ class ActiveMark:
         ctx.close_path()
         ctx.set_line_width(1.6)                  # as thin as the lines in the panel icons
         ctx.set_line_join(cairo.LINE_JOIN_ROUND)
-        orange = MARK_ORANGE if getattr(self, "bright", False) else tuple(int(c * QUIET) for c in MARK_ORANGE)
-        ctx.set_source_rgba(*rgb(orange))
+        ctx.set_source_rgba(*rgb(MARK_ORANGE))
         ctx.stroke()
         self.cut_out_digit(ctx, w, h)
-        shape.rectangles(self.win, shape.SO.Set, shape.SK.Bounding, 0, 0, 0, alpha_rects(surface))
         self.xs.paint(self.win, surface, 32)
 
     def cut_out_digit(self, ctx, w, h):
@@ -424,8 +397,6 @@ class FireDigits:
         info = self.index[name]
         w, h = info["width"], info["height"]
         sheet = cairo.ImageSurface.create_from_png(os.path.join(FIRE_DIR, name))
-        union = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)      # everything any frame draws
-        uc = cairo.Context(union)
         frames = []
         for i in range(15):
             surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
@@ -435,13 +406,11 @@ class FireDigits:
             ctx.rectangle(0, 0, w, h)
             ctx.fill()
             surface.flush()
-            uc.set_source_surface(surface, 0, 0)
-            uc.paint()
             pixmap = self.win.create_pixmap(w, h, 32)
             pixmap.put_image(self.gc, 0, 0, w, h, X.ZPixmap, 32, 0, bytes(surface.get_data()))
             frames.append(pixmap)
         self.pixmaps[label] = frames
-        self.info[label] = dict(info, shape=alpha_rects(union))
+        self.info[label] = info
         return True
 
     def show(self, label, centre_x, top_y):
@@ -451,11 +420,8 @@ class FireDigits:
         info = self.info[label]
         w, h = info["width"], info["height"]
         geom = (int(centre_x - info["digit_width"] / 2 - info["hole_x"]), int(top_y - info["above"]), w, h)
-        if geom != self.geom or label != self.label:
+        if geom != self.geom:
             self.win.configure(x=geom[0], y=geom[1], width=w, height=h)
-            # the window is shaped to the fire (the digit's hole stays open); a frame
-            # with less fire shows black there, which on the black panel is nothing
-            shape.rectangles(self.win, shape.SO.Set, shape.SK.Bounding, 0, 0, 0, info["shape"])
             self.geom = geom
         self.label = label
         if not self.shown:
@@ -486,6 +452,77 @@ class FireDigits:
     def raise_above(self):
         if self.shown:
             self.win.configure(stack_mode=X.Above)
+
+
+class PanelDim:
+    """The panel sits under a thin dark veil, with a hole where the pointer is. That
+    is how the volume icon behaves on its own - quiet until you point at it - and
+    the only way to give every plugin the same behaviour: their drawings belong to
+    the panel, and nothing outside it can repaint them brighter.
+
+    One window per panel, click-through (empty input shape), so the panel keeps
+    every click and the hole simply follows the pointer."""
+    SHADE = 0.38
+
+    def __init__(self, xs, geom):
+        self.xs = xs
+        self.geom = geom
+        x, y, w, h = geom
+        self.win = xs.window(xs.root, x, y, w, h, argb=True, override=True,
+                             events=X.ExposureMask)
+        try:
+            shape.rectangles(self.win, shape.SO.Set, shape.SK.Input, 0, 0, 0, [])
+        except Exception as e:                       # noqa: BLE001 - only the click-through
+            log("panel veil is not click-through:", e)
+        self.hole = None
+        self.shown = True
+        self.win.map()
+        self.draw()
+
+    def matches(self, geom):
+        return self.geom == geom
+
+    def set_visible(self, visible):
+        """A window covering the screen (a photo, a video, anything full-screen) must
+        not have our veil or anything else of ours on top of it."""
+        if visible == self.shown:
+            return
+        self.shown = visible
+        if visible:
+            self.win.map()
+            self.draw()
+        else:
+            self.win.unmap()
+
+    def set_hole(self, hole):
+        if hole != self.hole:
+            self.hole = hole
+            self.draw()
+
+    def raise_above(self):
+        self.win.configure(stack_mode=X.Above)
+
+    def draw(self):
+        x0, y0, w, h = self.geom
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(1, w), max(1, h))
+        ctx = cairo.Context(surface)
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        ctx.set_source_rgba(0, 0, 0, self.SHADE)
+        ctx.paint()
+        if self.hole:
+            hx, hy, hw, hh = self.hole
+            ctx.set_operator(cairo.OPERATOR_CLEAR)
+            radius, inset = 7, 2
+            x, y = hx - x0 + inset, hy - y0 + inset
+            right, bottom = x + hw - 2 * inset, y + hh - 2 * inset
+            ctx.new_sub_path()
+            ctx.arc(right - radius, y + radius, radius, -1.5708, 0)
+            ctx.arc(right - radius, bottom - radius, radius, 0, 1.5708)
+            ctx.arc(x + radius, bottom - radius, radius, 1.5708, 3.1416)
+            ctx.arc(x + radius, y + radius, radius, 3.1416, 4.7124)
+            ctx.close_path()
+            ctx.fill()
+        self.xs.paint(self.win, surface, 32)
 
 
 class Monitors:
@@ -595,8 +632,9 @@ class Deskd:
         self.click_layers = {}      # plugin id -> click window over the strip
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
-        self.hot = ""               # the panel plugin script under the pointer
-        self.hot_by_win = {}        # panel window id -> that plugin's script name
+        self.veils = {}             # dock frame id -> the dimming veil over that panel
+        self.panel_items = []       # (rectangle, plugin id) of everything on the panel
+        self.panel_windows = set()  # panel windows we watch the pointer on
         self.click_by_win = {}
         self.items_by_output = {}   # output -> ([(label, ws)], segments)
         self.bounds_cache = {}
@@ -647,52 +685,89 @@ class Deskd:
             spawn(["xfce4-panel", f"--plugin-event=genmon-{cache[command]}:refresh:bool:true"])
 
     def watch_panel_items(self):
-        """After the panel (re)started: follow the pointer over its plugins, so each
-        one can draw itself bright while it is pointed at and quiet otherwise (the
-        scripts read the hot plugin's name from HOT_FILE), and put our overlays back
-        on top of it."""
-        commands = {}
-        for key, value in panels.read_all().items():
-            if key.endswith("/command"):
-                commands[key.split("/")[2].split("-")[1]] = os.path.basename(value.strip())
-        self.hot_by_win = {}
-        mask = X.EnterWindowMask | X.LeaveWindowMask
-        for win, pid in self.panel_wrappers():
-            name = commands.get(str(pid), f"plugin-{pid}")
+        """Follow the pointer across the panel and work out what it is over. Pointer
+        events are not exclusive, so watching the panel's own window takes nothing
+        away from it, and it is the only way to see the plugins that have no window
+        of their own - the clock, the volume, the shutdown button."""
+        self.panel_items = self.panel_regions()
+        mask = X.PointerMotionMask | X.EnterWindowMask | X.LeaveWindowMask
+        watch = []
+        for frame, geom in self.dock_frames():
+            watch += frame.query_tree().children
+            veil = self.veils.get(frame.id)
+            if veil is None or not veil.matches(geom):
+                self.veils[frame.id] = PanelDim(self.xs, geom)
+        watch += [win for win, _ in self.panel_wrappers()]
+        for win in watch:
             try:
-                for w in (win, win.query_tree().parent):
-                    self.hot_by_win[w.id] = name
-                    w.change_attributes(event_mask=mask)
+                win.change_attributes(event_mask=mask)
+                self.panel_windows.add(win.id)
             except error.XError:
                 pass
         self.raise_overlays()
         return True
 
-    def set_hot(self, name):
-        """The plugin under the pointer changed: tell the scripts, redraw both."""
-        if name == self.hot:
-            return
-        before, self.hot = self.hot, name
-        self.xs._hot = name
-        try:
-            with open(HOT_FILE + ".tmp", "w") as f:
-                f.write(name)
-            os.replace(HOT_FILE + ".tmp", HOT_FILE)
-        except OSError as e:
-            log("hot file failed:", e)
-        for plugin in (before, name):
-            if plugin == "panel-workspaces":
-                self.render_workspaces(self.i3.workspaces())
-                if self.ws_mark is not None:
-                    self.ws_mark.draw()
-            elif plugin.startswith("panel-"):
-                self.refresh_plugin(plugin)
-
     def raise_overlays(self):
-        """Our own windows over the panel: the fire, then the star over it."""
+        """Our own windows over the panel: the pentagram first, then the veil on top of
+        it - the mark belongs to the panel and dims with it."""
         if self.ws_mark is not None and self.ws_mark.shown:
-            self.fire_digits.raise_above()
+            self.fire_digits.raise_above()           # fire, then the star over it
             self.ws_mark.win.configure(stack_mode=X.Above)
+        for veil in self.veils.values():
+            veil.raise_above()
+
+    def panel_regions(self):
+        """[(x, y, w, h)] of everything the pointer can light up on the panel: the
+        plugins that run in their own process, and the gaps between them, which is
+        where the panel's own plugins sit. The workspace strip is left out - there
+        the number under the pointer lights up on its own."""
+        regions = []
+        try:
+            strips = {pid for pid, _ in self.strip_plugins()}
+            for pid, out in self.strip_plugins():        # one number at a time
+                view = self.strip_view(pid, out)
+                if not view:
+                    continue
+                (_, gy, _, gh), items, bounds = view
+                for (lo, hi), _ in zip(bounds, items):
+                    regions.append((int(lo), gy, int(hi - lo), gh))
+            for frame, (dx, dy, dw, dh) in self.dock_frames():
+                boxes = []
+                for win, pid in self.panel_wrappers():
+                    g = win.get_geometry()
+                    t = win.translate_coords(self.xs.root, 0, 0)
+                    box = (-t.x, -t.y, g.width, g.height)
+                    if not (dx <= box[0] < dx + dw):
+                        continue
+                    boxes.append((box, pid))
+                boxes.sort(key=lambda b: b[0][0])
+                regions += [box for box, pid in boxes if pid not in strips]
+                edges = [dx] + [x for (x, _, w, _), _ in boxes for x in (x, x + w)] + [dx + dw]
+                for left, right in zip(edges[::2], edges[1::2]):
+                    width = right - left
+                    if width < 24:
+                        continue
+                    # the last gap holds the clock and the square shutdown button
+                    if width > dh * 1.6:
+                        regions.append((left, dy, int(width - dh), dh))
+                        regions.append((int(right - dh), dy, int(dh), dh))
+                    else:
+                        regions.append((left, dy, int(width), dh))
+        except error.XError as e:
+            log("panel regions failed:", e)
+        return regions
+
+    def panel_pointer(self, x, y):
+        """Open the hole in the veil over whatever the pointer is on."""
+        hole = None
+        for rect in self.panel_items:
+            rx, ry, rw, rh = rect
+            if rx <= x < rx + rw and ry <= y < ry + rh:
+                hole = rect
+                break
+        for veil in self.veils.values():
+            veil.set_hole(hole)
+        return None
 
     def panel_wrappers(self):
         """[(window, plugin id)] of the panel plugins that run in their own process."""
@@ -723,7 +798,8 @@ class Deskd:
 
     def recheck_strips(self):
         self.strip_plugins(fresh=True)
-        self.watch_panel_items()     # the panel may have restarted with new windows
+        self.panel_windows = set()  # the panel may have restarted with new windows
+        self.watch_panel_items()
         self.__dict__.pop("_panel_font", None)     # the panel may have been restyled
         self.place_ws_clicks()
         return True
@@ -1152,22 +1228,24 @@ class Deskd:
                 return self.strip_event(self.strips.get(self.strip_by_win[wid]), e)
             if wid in self.handle_by_win:
                 return self.handle_event(self.handle_by_win[wid], e)
+            if wid in self.panel_windows:
+                if t == X.LeaveNotify:
+                    if e.detail == X.NotifyInferior:    # only stepped into a child
+                        return None
+                    return self.panel_pointer(-1, -1)
+                if t in (X.MotionNotify, X.EnterNotify):
+                    return self.panel_pointer(e.root_x, e.root_y)
+                return None
             if self.ws_mark is not None and wid == self.ws_mark.win.id:
                 return self.ws_mark.draw()
             if wid in self.click_by_win:
+                # the strip's click layer covers the panel, so the pointer is followed
+                # here as well - otherwise the veil would never see the numbers
                 if t == X.ButtonPress:
                     return self.ws_clicked(e)
-                if t == X.EnterNotify:
-                    return self.set_hot("panel-workspaces")
-                if t == X.LeaveNotify and e.detail != X.NotifyInferior:
-                    return self.set_hot("")
-                return None
-            if wid in self.hot_by_win:
-                if t == X.EnterNotify:
-                    return self.set_hot(self.hot_by_win[wid])
-                if t == X.LeaveNotify and e.detail != X.NotifyInferior:
-                    return self.set_hot("")
-                return None
+                if t == X.LeaveNotify:
+                    return self.panel_pointer(-1, -1)
+                return self.panel_pointer(e.root_x, e.root_y)
         elif t == X.ClientMessage:
             self.client_message(e)
         elif self.monitors.is_randr(e):
@@ -1768,11 +1846,8 @@ class Deskd:
         x, y, w, h = rect
         p, b = self.preview, 3
         p["win"].configure(x=x, y=y, width=w, height=h, stack_mode=X.Above)
-        ring = [(0, 0, w, b), (0, h - b, w, b), (0, 0, b, h), (w - b, 0, b, h)]
-        for e, g in zip(p["edges"], ring):
+        for e, g in zip(p["edges"], [(0, 0, w, b), (0, h - b, w, b), (0, 0, b, h), (w - b, 0, b, h)]):
             e.configure(x=g[0], y=g[1], width=max(1, g[2]), height=max(1, g[3]))
-        # only the ring exists: without a compositor the fill would be solid
-        shape.rectangles(p["win"], shape.SO.Set, shape.SK.Bounding, 0, 0, 0, ring)
         p["win"].map()
         p["win"].configure(stack_mode=X.Above)
 
@@ -1839,9 +1914,7 @@ class Deskd:
             else:
                 colour, extra = THEME["dim"], ""
             # the workspace in front of you is marked by the pentagram drawn over it
-            # (see ActiveMark); the whole strip is quiet unless the pointer is on it
-            if self.hot != "panel-workspaces":
-                colour = shade(colour)
+            # (see ActiveMark), and the one under the pointer by the hole in the veil
             segs.append((STRIP_PAD + label + STRIP_PAD,
                          f'<span foreground="{colour}"{extra}>{STRIP_PAD}{label}{STRIP_PAD}</span>'))
         return segs
@@ -1947,16 +2020,21 @@ class Deskd:
 
     def hide_over_fullscreen(self, workspaces):
         """A full-screen window (a photo in Telegram, a video, a game) covers the panel
-        as well, and our mark and fire would still be sitting on top of it."""
+        as well, and our veil and mark would still be sitting on top of it."""
         outputs = {w["name"]: w["output"] for w in workspaces}
         self.busy_outputs = {outputs.get(ws.get("name")) for ws in self.visible_workspaces(workspaces)
                              if any(n.get("fullscreen_mode") and n.get("window") for n, _ in walk(ws))}
-        if self.busy_outputs and self.ws_mark is not None:
-            for frame, geom in self.dock_frames():
-                out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + geom[3] // 2)
-                if (out or {}).get("name") in self.busy_outputs:
-                    self.ws_mark.hide()
-                    self.fire_digits.hide()
+        busy = self.busy_outputs
+        for frame, geom in self.dock_frames():
+            veil = self.veils.get(frame.id)
+            if veil is None:
+                continue
+            out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + geom[3] // 2)
+            clear = (out or {}).get("name") not in busy
+            veil.set_visible(clear)
+            if not clear and self.ws_mark is not None:
+                self.ws_mark.hide()
+                self.fire_digits.hide()
 
     def sync_active_mark(self, focused=None):
         """Put the pentagram over the number of the workspace in front of you. The

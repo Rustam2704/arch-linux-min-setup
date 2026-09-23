@@ -24,8 +24,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 | `bin/panel-*` | ничего: genmon перечитывает скрипт при следующем запуске команды |
 | `config/gtk-3.0/gtk.css` | GTK читает при старте программы: панель — `xfce4-panel -r` (через i3 при пересоздании) |
 | `config/kitty/kitty.conf` | `kill -USR1` работающим kitty или новое окно |
-| `config/rofi/*`, `config/touchegg/*` | при следующем запуске программы (`touchegg` — `systemctl restart touchegg` + клиент из сессии) |
-| `system/etc/X11/xorg.conf.d/*` | следующий вход (перезапуск X); если X не стартует — `Ctrl+Alt+F2`, `sudo rm /etc/X11/xorg.conf.d/20-intel.conf` |
+| `config/picom/picom.conf`, `config/rofi/*`, `config/touchegg/*` | при следующем запуске программы (`touchegg` — `systemctl restart touchegg` + клиент из сессии) |
 | `share/light-year/*` | закрыть и открыть календарь (`Super+C`) |
 | `config/systemd/user/*` | `systemctl --user daemon-reload && systemctl --user restart <служба>` |
 | `system/*` (сессия) | следующий вход |

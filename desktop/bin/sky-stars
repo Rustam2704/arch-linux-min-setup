@@ -13,9 +13,11 @@ How it stays cheap
   * No GTK: python-xlib only, a select() loop over the X socket and the i3 socket.
 
 Why a window and not the root pixmap
-  An override-redirect window of type DESKTOP at the bottom of the stack works the
-  same with and without a compositor (a compositor would only see root-pixmap
-  changes through the _XROOTPMAP_ID property, i.e. a full-screen redraw per frame).
+  Under picom the root window itself is never shown - the compositor paints its
+  own copy of the root pixmap and only re-reads it when the _XROOTPMAP_ID property
+  changes, which would mean a full-screen recomposite for every frame. An
+  override-redirect window of type DESKTOP at the bottom of the stack gets exact
+  damage tracking instead: picom recomposites only the changed star rectangles.
   i3 ignores override-redirect windows, so no frame, no title, every workspace.
 
 The star field itself (hash, density, phase, brightness curve) is Astra's sparkle

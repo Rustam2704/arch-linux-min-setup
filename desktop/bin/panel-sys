@@ -10,7 +10,7 @@ import os
 STATE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "panel-sys.state")
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME, GAP, icon, wrap
+from sky_theme import THEME, GAP, icon
 
 ACCENT = THEME["light"]
 DIM = THEME["muted"]
@@ -85,6 +85,6 @@ if swap_used > 64:
 # own hover box on it; only the veil deskd holds over the panel should show that.
 print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
 # a space on both sides: the gap to the separator matches the one the weather glyph keeps
-print("<txt>" + wrap("panel-sys", '<span font_features="tnum"> ' + "  ".join(parts) + " </span>") + "</txt>")
+print('<txt><span font_features="tnum"> ' + "  ".join(parts) + " </span></txt>")
 print(f"<tool>CPU: {cpu}%\nMemory: {mem_used} of {mem_total} MB ({mem_pct}%)\n"
       f"Swap: {swap_used} MB (on SSD)</tool>")

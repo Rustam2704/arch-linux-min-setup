@@ -4,9 +4,4 @@
 # hover box on it. Only the veil deskd holds over the panel should show that, so the
 # button's own background is taken away.
 echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>'
-# quiet unless the pointer is on this indicator (deskd writes the hot plugin's name)
-if [ "$(cat "${XDG_RUNTIME_DIR:-/tmp}/panel-hot" 2>/dev/null)" = panel-net ]; then
-    cat "${XDG_RUNTIME_DIR:-/tmp}/netq.txt" 2>/dev/null || echo "<txt>…</txt>"
-else
-    sed -e 's|<txt>|<txt><span alpha="62%">|' -e 's|</txt>|</span></txt>|' "${XDG_RUNTIME_DIR:-/tmp}/netq.txt" 2>/dev/null || echo "<txt>…</txt>"
-fi
+cat "${XDG_RUNTIME_DIR:-/tmp}/netq.txt" 2>/dev/null || echo "<txt>…</txt>"

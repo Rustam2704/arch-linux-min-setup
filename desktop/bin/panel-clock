@@ -5,7 +5,6 @@
 set -- $(date '+%H %M %s %A %d %B %Y')
 if [ $(( $3 % 2 )) -eq 0 ]; then colon=':'; else colon='<span alpha="1">:</span>'; fi
 printf '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>\n'
-if [ "$(cat "${XDG_RUNTIME_DIR:-/tmp}/panel-hot" 2>/dev/null)" = panel-clock ]; then dim=''; else dim=' alpha="62%"'; fi
-printf '<txt><span foreground="@COLOUR_LIGHT@"%s>%s%s%s</span></txt>\n' "$dim" "$1" "$colon" "$2"
+printf '<txt><span foreground="@COLOUR_LIGHT@">%s%s%s</span></txt>\n' "$1" "$colon" "$2"
 printf '<txtclick>@HOME@/.local/bin/panel-calendar</txtclick>\n'
 printf '<tool>%s %s %s %s</tool>\n' "$4" "$5" "$6" "$7"

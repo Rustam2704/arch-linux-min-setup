@@ -15,9 +15,7 @@ esac
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.
 echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>'
-# quiet unless the pointer is on this indicator (deskd writes the hot plugin's name)
-if [ "$(cat "${XDG_RUNTIME_DIR:-/tmp}/panel-hot" 2>/dev/null)" = panel-layout ]; then dim=''; else dim=' alpha="62%"'; fi
-echo "<txt><span font=\"JetBrainsMono Nerd Font Mono 17\" weight=\"bold\" foreground=\"$COLOUR\"$dim>$name</span></txt>"
+echo "<txt><span font=\"JetBrainsMono Nerd Font Mono 17\" weight=\"bold\" foreground=\"$COLOUR\">$name</span></txt>"
 echo "<txtclick>$HOME/.local/bin/osd layout next</txtclick>"
 echo "<tool>Keyboard layout: $name
 Alt+Shift: English / Russian

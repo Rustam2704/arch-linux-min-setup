@@ -16,15 +16,7 @@ import os
 
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME, quiet, shade
-QUIET = quiet("panel-battery")
-
-
-def tone(colour):
-    """The colour as drawn: dimmed unless the pointer is on the indicator."""
-    return shade(colour) if QUIET else colour
-
-
+from sky_theme import THEME
 ACCENT = THEME["light"]
 WARN = THEME["warning"]
 CRIT = THEME["danger"]
@@ -47,14 +39,14 @@ def write_icon(pct, plugged):
     """The case, the segments lit from the bottom, and the bolt when plugged in.
     Every state uses the same canvas, so nothing beside it shifts."""
     lit = max(1, min(4, round(pct / 25))) if pct > 0 else 0
-    case = (f'<g fill="none" stroke="{tone(THEME["text"])}" stroke-width="1.8" stroke-linejoin="round">'
+    case = (f'<g fill="none" stroke="{THEME["text"]}" stroke-width="1.8" stroke-linejoin="round">'
             '<rect x="2" y="4" width="16" height="22" rx="2"/><path d="M7 2h6v2"/></g>')
     bars = ""
     for index, (colour, y) in enumerate(SEGMENTS):
         on = index >= len(SEGMENTS) - lit
         bars += (f'<rect x="5" y="{y}" width="10" height="3" rx=".7" '
-                 f'fill="{tone(colour if on else DEAD)}"/>')
-    bolt = (f'<path d="M22 4 14 17h5l-2 10 11-16h-6z" fill="{tone(WARN)}" stroke="{THEME["background"]}" '
+                 f'fill="{colour if on else DEAD}"/>')
+    bolt = (f'<path d="M22 4 14 17h5l-2 10 11-16h-6z" fill="{WARN}" stroke="{THEME["background"]}" '
             'stroke-width="1.25" stroke-linejoin="round"/>') if plugged else ""
     # the viewBox starts left of the drawing: that empty strip is the gap to the
     # separator, the same one the weather glyph gets from its leading space
@@ -92,7 +84,7 @@ adapter = next(iter(sorted(glob.glob("/sys/class/power_supply/A[CD]*/online"))),
 plugged = read(adapter, "") == "1" if adapter else status != "Discharging"
 full = status == "Full" or (plugged and pct >= 97)
 shown = 100 if full else pct
-colour = tone(ACCENT if plugged else (CRIT if pct <= 10 else WARN if pct <= 20 else THEME["text"]))
+colour = ACCENT if plugged else (CRIT if pct <= 10 else WARN if pct <= 20 else THEME["text"])
 write_icon(shown, plugged)
 
 # Worn batteries: show the real health in the tooltip, not in the panel.

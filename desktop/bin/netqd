@@ -30,7 +30,7 @@ INTERNET = "1.1.1.1"
 WINDOW = 10                     # seconds for the median and the loss
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME, icon, shade
+from sky_theme import THEME, icon
 ACCENT, WARN, CRIT, DIM, TEXT = (THEME[k] for k in ("light", "warning", "danger", "muted", "foreground"))
 GAP = '<span size="50%"> </span>'      # half a space: a word and its number belong together
 NERD = "JetBrainsMono Nerd Font Propo"
@@ -77,38 +77,32 @@ def write_wifi_icon(signal, dbm):
                 f'fill="none" stroke="black" stroke-width="0.7"/>')
 
     lit_radius = radius * lit / steps
+    body = sector(radius, "#21343d") + sector(lit_radius, ACCENT)
+    body += "".join(divider(radius * k / steps) for k in range(1, steps))
     label = "---" if dbm is None else str(dbm)
     text = (f'<text x="{cx}" y="14" text-anchor="middle" font-family="Inter" '
             f'font-size="13" font-weight="700" letter-spacing="0.1"')
-
-    def drawing(accent, unlit):
-        body = sector(radius, unlit) + sector(lit_radius, accent)
-        body += "".join(divider(radius * k / steps) for k in range(1, steps))
-        return f"""<svg xmlns="http://www.w3.org/2000/svg" width="56" height="35" viewBox="0 0 56 35">
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="56" height="35" viewBox="0 0 56 35">
   <mask id="unlit" maskUnits="userSpaceOnUse" x="0" y="0" width="56" height="35">
     <rect width="56" height="35" fill="white"/>{sector(lit_radius, "black")}
   </mask>
   {body}
   {text} fill="black">{label}</text>
-  {text} fill="{accent}" mask="url(#unlit)">{label}</text>
+  {text} fill="{ACCENT}" mask="url(#unlit)">{label}</text>
 </svg>"""
-    # two files: the fan at full brightness and the quiet one the panel shows when
-    # the pointer is elsewhere (panel-wifi picks by the hot-plugin file)
-    for path, svg in ((WIFI_ICON, drawing(ACCENT, "#21343d")),
-                      (WIFI_ICON.replace(".svg", "-quiet.svg"), drawing(shade(ACCENT), shade("#21343d")))):
+    try:
+        old = ""
         try:
-            old = ""
-            try:
-                with open(path) as stream:
-                    old = stream.read()
-            except OSError:
-                pass
-            if old != svg:
-                with open(path + ".tmp", "w") as stream:
-                    stream.write(svg)
-                os.replace(path + ".tmp", path)
+            with open(WIFI_ICON) as stream:
+                old = stream.read()
         except OSError:
             pass
+        if old != svg:
+            with open(WIFI_ICON + ".tmp", "w") as stream:
+                stream.write(svg)
+            os.replace(WIFI_ICON + ".tmp", WIFI_ICON)
+    except OSError:
+        pass
 
 
 class Link:

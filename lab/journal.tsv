@@ -413,25 +413,3 @@
 2026-09-23T01:54:36+03:00	36-diablo-fire	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.zGZMoH.bak
 2026-09-23T02:05:04+03:00	36-diablo-fire	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.tzgsq2.bak
 2026-09-23T02:06:14+03:00	36-diablo-fire	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.hGlflv.bak
-2026-09-23T11:07:09+03:00	37-no-picom	backup	/home/fanatic/.config/picom/picom.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_picom.conf.XWyc5m.bak
-2026-09-23T11:07:09+03:00	37-no-picom	backup	/home/fanatic/.config/picom/shaders/smart-invert.glsl	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_shaders_smart-invert.glsl.aArrqm.bak
-2026-09-23T11:07:09+03:00	37-no-picom	cmd	pacman -S --noconfirm picom	
-2026-09-23T11:07:23+03:00	37-no-picom	pkg	xf86-video-intel	
-2026-09-23T11:07:23+03:00	37-no-picom	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.9gkG6W.bak
-2026-09-23T11:07:23+03:00	37-no-picom	backup	/home/fanatic/.local/bin/sky-stars	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-stars.jP5W2s.bak
-2026-09-23T11:07:23+03:00	37-no-picom	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.AWnPzF.bak
-2026-09-23T11:07:23+03:00	37-no-picom	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.CV8ygu.bak
-2026-09-23T11:07:23+03:00	37-no-picom	file	/etc/X11/xorg.conf.d/20-intel.conf	
-2026-09-23T11:07:23+03:00	37-no-picom	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.HlJDMl.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1EufIX.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.MS8gh2.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-clock	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-clock.QZfrwd.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.EaZyX4.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-net	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-net.mIBA1x.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.CTICMP.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.2Wd5bx.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.A4WNcf.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/bin/panel-wifi	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-wifi.ZE9YED.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.RZQYcV.bak
-2026-09-23T11:29:04+03:00	38-quiet-panel	backup	/home/fanatic/.local/share/sky-desktop/sky_theme.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_sky_theme.py.qWvR0d.bak
-2026-09-23T11:29:50+03:00	38-quiet-panel	cmd	xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -s 0 && xfconf-query -c xfce4-panel -p /panels/panel-1/background-rgba -r	

@@ -22,7 +22,8 @@ xfce4-panel &                                   # panel, systray, clock, volume,
 Thunar --daemon &
 touchegg &                                      # gesture client (daemon is a system service)
 
-# no compositor: windows draw straight to the screen (TearFree is the driver's job)
+# desktop niceties
+picom --config "$HOME/.config/picom/picom.conf" &
 dex -a -s "$HOME/.config/autostart" >/dev/null 2>&1 &
 
 exec i3

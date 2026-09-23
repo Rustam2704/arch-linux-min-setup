@@ -16,9 +16,9 @@
 desktop/                 объявленное состояние системы (источник истины)
   bin/                   → ~/.local/bin        скрипты панели, deskd-ctl, osd, netqd, sky-stars, light-year …
   share/                 → ~/.local/share      deskd/, light-year/, sky-desktop/ (общая библиотека + theme.json), иконки
-  config/                → ~/.config           i3, kitty, rofi, touchegg, gtk-3.0, systemd/user, deskd/apps.conf …
+  config/                → ~/.config           i3, kitty, picom, rofi, touchegg, gtk-3.0, systemd/user, deskd/apps.conf …
   home/                  → ~                   .Xresources
-  system/                → /                   /usr/local/bin/xfce-i3-session, /usr/share/xsessions/xfce-i3.desktop, /etc/X11/xorg.conf.d
+  system/                → /                   /usr/local/bin/xfce-i3-session, /usr/share/xsessions/xfce-i3.desktop
 tools/desktop.py         check · build · diff · apply · status · packages
 tests/                   unit-тесты календаря и GTK smoke-тест (xvfb)
 assets/                  исходники, которые не ставятся как есть: плагин Qt scroll-phases, иконки, userscripts
