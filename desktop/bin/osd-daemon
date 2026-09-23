@@ -17,6 +17,7 @@ Layouts (Windows-style, switched on key RELEASE so Ctrl+Shift+V etc. keep workin
 The current layout name is written to $XDG_RUNTIME_DIR/kbd-layout for the panel.
 """
 import ctypes
+import json
 import os
 import queue
 import re
@@ -259,6 +260,58 @@ def layout_names():
     return [{"us": "EN", "gb": "EN"}.get(n, n.upper()) for n in names] or ["EN"]
 
 
+class Sound:
+    """One short sound, decoded once, played through libpulse-simple (PipeWire's
+    Pulse server) without any helper process: open a stream, write the samples,
+    drain, close - the card is free to sleep again in between."""
+    def __init__(self, path):
+        import wave
+        self.pcm = b""
+        try:
+            with wave.open(path, "rb") as w:
+                assert w.getsampwidth() == 2
+                self.rate, self.channels = w.getframerate(), w.getnchannels()
+                self.pcm = w.readframes(w.getnframes())
+        except (OSError, wave.Error, AssertionError) as e:
+            print("osd: sound not loaded:", path, e, flush=True)
+        self.lib = None
+        self.lock = threading.Lock()
+
+    def play(self):
+        if self.pcm:
+            threading.Thread(target=self._play, daemon=True).start()
+
+    def _play(self):
+        with self.lock:                          # one at a time; a burst just queues
+            try:
+                if self.lib is None:
+                    self.lib = ctypes.CDLL("libpulse-simple.so.0")
+                    self.lib.pa_simple_new.restype = ctypes.c_void_p
+                    self.lib.pa_simple_new.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int,
+                                                       ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p,
+                                                       ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+                    for fn in ("pa_simple_write", "pa_simple_drain"):
+                        getattr(self.lib, fn).argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p][:4 if fn == "pa_simple_write" else 2]
+                    self.lib.pa_simple_free.argtypes = [ctypes.c_void_p]
+
+                class Spec(ctypes.Structure):
+                    _fields_ = [("format", ctypes.c_int), ("rate", ctypes.c_uint32), ("channels", ctypes.c_uint8)]
+                spec = Spec(3, self.rate, self.channels)       # 3 = PA_SAMPLE_S16LE
+                err = ctypes.c_int(0)
+                stream = self.lib.pa_simple_new(None, b"sky-desktop", 1, None, b"key",   # 1 = playback
+                                                ctypes.byref(spec), None, None, ctypes.byref(err))
+                if not stream:
+                    return
+                self.lib.pa_simple_write(stream, self.pcm, len(self.pcm), ctypes.byref(err))
+                self.lib.pa_simple_drain(stream, ctypes.byref(err))
+                self.lib.pa_simple_free(stream)
+            except Exception as e:                     # noqa: BLE001 - a sound is never worth a crash
+                print("osd: sound failed:", e, flush=True)
+
+
+ACCEPT = Sound(os.path.expanduser("~/.local/share/sky-desktop/sounds/accept.wav"))
+
+
 class Layouts:
     def __init__(self, osd):
         self.osd = osd
@@ -345,7 +398,24 @@ class Layouts:
             for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym)):
                 cats[kc] = cat
 
-        state = {"down": {}, "dirty": False}
+        state = {"down": {}, "dirty": False, "enter_up": 0.0}
+        enter = {kc for sym in ("Return", "KP_Enter") for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym))}
+        digits = {}
+        for n, sym in enumerate(("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), 1):
+            for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym)):
+                digits.setdefault(kc, n)
+
+        def move_under_grab(n):
+            """RustDesk grabs the whole keyboard, so i3 never sees Super+Shift+digit there;
+            XRecord still does. Only when i3 is in its passthrough mode (RustDesk focused),
+            otherwise i3's own binding already did the job."""
+            try:
+                mode = json.loads(subprocess.run(["i3-msg", "-t", "get_binding_state"], capture_output=True,
+                                                 text=True, timeout=2).stdout).get("name")
+                if mode == "passthrough":
+                    subprocess.run(["i3-msg", "-t", "send_tick", f"deskd move {n}"], capture_output=True, timeout=2)
+            except Exception as e:                     # noqa: BLE001
+                print("osd: move under grab failed:", e, flush=True)
 
         def handler(reply):
             data = reply.data
@@ -357,11 +427,19 @@ class Layouts:
                 kc = ev.detail
                 cat = cats.get(kc)
                 if ev.type == X.KeyPress:
+                    if kc in enter:
+                        # autorepeat shows as release/press pairs a few ms apart: one sound per real press
+                        if time.monotonic() - state["enter_up"] > 0.08:
+                            ACCEPT.play()
+                    elif kc in digits and set(state["down"].values()) == {"super", "shift"}:
+                        threading.Thread(target=move_under_grab, args=(digits[kc],), daemon=True).start()
                     if cat:
                         state["down"][kc] = cat
                     else:
                         state["dirty"] = True
                 elif ev.type == X.KeyRelease:
+                    if kc in enter:
+                        state["enter_up"] = time.monotonic()
                     if cat and kc in state["down"]:
                         held = set(state["down"].values())
                         if not state["dirty"]:
