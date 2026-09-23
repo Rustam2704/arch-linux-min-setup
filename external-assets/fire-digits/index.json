@@ -1,547 +1,547 @@
 {
- "font": "Inter 15",
+ "font": "Diablo 18",
  "dpi": 144.0,
  "frames": 15,
  "sheets": {
   "flame1-digit1.png": {
    "flame": 1,
    "digit": 1,
-   "width": 43,
-   "height": 50,
+   "width": 32,
+   "height": 51,
    "above": 22,
-   "hole_x": 11,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 10,
+   "digit_width": 8,
+   "digit_height": 23
   },
   "flame1-digit2.png": {
    "flame": 1,
    "digit": 2,
    "width": 44,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 11,
    "digit_width": 17,
-   "digit_height": 22
+   "digit_height": 23
   },
   "flame1-digit3.png": {
    "flame": 1,
    "digit": 3,
-   "width": 44,
-   "height": 50,
+   "width": 43,
+   "height": 52,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame1-digit4.png": {
    "flame": 1,
    "digit": 4,
-   "width": 47,
-   "height": 50,
+   "width": 44,
+   "height": 49,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 19,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 21
   },
   "flame1-digit5.png": {
    "flame": 1,
    "digit": 5,
-   "width": 44,
-   "height": 50,
+   "width": 43,
+   "height": 53,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 25
   },
   "flame1-digit6.png": {
    "flame": 1,
    "digit": 6,
-   "width": 46,
-   "height": 50,
+   "width": 43,
+   "height": 52,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame1-digit7.png": {
    "flame": 1,
    "digit": 7,
-   "width": 43,
-   "height": 50,
+   "width": 44,
+   "height": 51,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 16,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame1-digit8.png": {
    "flame": 1,
    "digit": 8,
-   "width": 46,
-   "height": 50,
+   "width": 40,
+   "height": 52,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 14,
+   "digit_height": 24
   },
   "flame1-digit9.png": {
    "flame": 1,
    "digit": 9,
-   "width": 46,
-   "height": 50,
+   "width": 44,
+   "height": 51,
    "above": 22,
    "hole_x": 11,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame2-digit1.png": {
    "flame": 2,
    "digit": 1,
-   "width": 52,
-   "height": 50,
+   "width": 50,
+   "height": 51,
    "above": 22,
-   "hole_x": 21,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 24,
+   "digit_width": 8,
+   "digit_height": 23
   },
   "flame2-digit2.png": {
    "flame": 2,
    "digit": 2,
    "width": 52,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 21,
    "digit_width": 17,
-   "digit_height": 22
+   "digit_height": 23
   },
   "flame2-digit3.png": {
    "flame": 2,
    "digit": 3,
    "width": 52,
-   "height": 50,
+   "height": 52,
    "above": 22,
    "hole_x": 21,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame2-digit4.png": {
    "flame": 2,
    "digit": 4,
    "width": 52,
-   "height": 50,
+   "height": 49,
    "above": 22,
-   "hole_x": 20,
-   "digit_width": 19,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 17,
+   "digit_height": 21
   },
   "flame2-digit5.png": {
    "flame": 2,
    "digit": 5,
    "width": 52,
-   "height": 50,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 25
   },
   "flame2-digit6.png": {
    "flame": 2,
    "digit": 6,
    "width": 52,
-   "height": 50,
+   "height": 52,
    "above": 22,
-   "hole_x": 20,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame2-digit7.png": {
    "flame": 2,
    "digit": 7,
    "width": 52,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 21,
-   "digit_width": 16,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame2-digit8.png": {
    "flame": 2,
    "digit": 8,
    "width": 52,
-   "height": 50,
+   "height": 52,
    "above": 22,
-   "hole_x": 20,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 22,
+   "digit_width": 14,
+   "digit_height": 24
   },
   "flame2-digit9.png": {
    "flame": 2,
    "digit": 9,
    "width": 52,
-   "height": 50,
+   "height": 51,
    "above": 22,
-   "hole_x": 20,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame3-digit1.png": {
    "flame": 3,
    "digit": 1,
-   "width": 45,
-   "height": 50,
+   "width": 34,
+   "height": 51,
    "above": 22,
-   "hole_x": 13,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 12,
+   "digit_width": 8,
+   "digit_height": 23
   },
   "flame3-digit2.png": {
    "flame": 3,
    "digit": 2,
    "width": 46,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 13,
    "digit_width": 17,
-   "digit_height": 22
+   "digit_height": 23
   },
   "flame3-digit3.png": {
    "flame": 3,
    "digit": 3,
-   "width": 46,
-   "height": 50,
+   "width": 45,
+   "height": 52,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame3-digit4.png": {
    "flame": 3,
    "digit": 4,
-   "width": 49,
-   "height": 50,
+   "width": 46,
+   "height": 49,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 19,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 21
   },
   "flame3-digit5.png": {
    "flame": 3,
    "digit": 5,
-   "width": 46,
-   "height": 50,
+   "width": 45,
+   "height": 53,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 25
   },
   "flame3-digit6.png": {
    "flame": 3,
    "digit": 6,
-   "width": 48,
-   "height": 50,
+   "width": 45,
+   "height": 52,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame3-digit7.png": {
    "flame": 3,
    "digit": 7,
-   "width": 45,
-   "height": 50,
+   "width": 46,
+   "height": 51,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 16,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame3-digit8.png": {
    "flame": 3,
    "digit": 8,
-   "width": 48,
-   "height": 50,
+   "width": 42,
+   "height": 52,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 14,
+   "digit_height": 24
   },
   "flame3-digit9.png": {
    "flame": 3,
    "digit": 9,
-   "width": 48,
-   "height": 50,
+   "width": 46,
+   "height": 51,
    "above": 22,
    "hole_x": 13,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame4-digit1.png": {
    "flame": 4,
    "digit": 1,
-   "width": 48,
-   "height": 50,
+   "width": 36,
+   "height": 51,
    "above": 22,
-   "hole_x": 22,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 19,
+   "digit_width": 8,
+   "digit_height": 23
   },
   "flame4-digit2.png": {
    "flame": 4,
    "digit": 2,
    "width": 49,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 23,
    "digit_width": 17,
-   "digit_height": 22
+   "digit_height": 23
   },
   "flame4-digit3.png": {
    "flame": 4,
    "digit": 3,
-   "width": 49,
-   "height": 50,
+   "width": 48,
+   "height": 52,
    "above": 22,
-   "hole_x": 23,
-   "digit_width": 17,
-   "digit_height": 22
+   "hole_x": 22,
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame4-digit4.png": {
    "flame": 4,
    "digit": 4,
-   "width": 52,
-   "height": 50,
+   "width": 49,
+   "height": 49,
    "above": 22,
-   "hole_x": 24,
-   "digit_width": 19,
-   "digit_height": 22
+   "hole_x": 23,
+   "digit_width": 17,
+   "digit_height": 21
   },
   "flame4-digit5.png": {
    "flame": 4,
    "digit": 5,
-   "width": 49,
-   "height": 50,
+   "width": 48,
+   "height": 53,
    "above": 22,
-   "hole_x": 23,
-   "digit_width": 17,
-   "digit_height": 22
+   "hole_x": 22,
+   "digit_width": 16,
+   "digit_height": 25
   },
   "flame4-digit6.png": {
    "flame": 4,
    "digit": 6,
-   "width": 51,
-   "height": 50,
+   "width": 48,
+   "height": 52,
    "above": 22,
-   "hole_x": 23,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 22,
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame4-digit7.png": {
    "flame": 4,
    "digit": 7,
-   "width": 48,
-   "height": 50,
+   "width": 49,
+   "height": 51,
    "above": 22,
-   "hole_x": 22,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 23,
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame4-digit8.png": {
    "flame": 4,
    "digit": 8,
-   "width": 51,
-   "height": 50,
+   "width": 45,
+   "height": 52,
    "above": 22,
-   "hole_x": 23,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 14,
+   "digit_height": 24
   },
   "flame4-digit9.png": {
    "flame": 4,
    "digit": 9,
-   "width": 51,
-   "height": 50,
+   "width": 49,
+   "height": 51,
    "above": 22,
    "hole_x": 23,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame5-digit1.png": {
    "flame": 5,
    "digit": 1,
-   "width": 52,
-   "height": 50,
+   "width": 39,
+   "height": 51,
    "above": 22,
-   "hole_x": 14,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 13,
+   "digit_width": 8,
+   "digit_height": 23
   },
   "flame5-digit2.png": {
    "flame": 5,
    "digit": 2,
    "width": 54,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 15,
    "digit_width": 17,
-   "digit_height": 22
+   "digit_height": 23
   },
   "flame5-digit3.png": {
    "flame": 5,
    "digit": 3,
-   "width": 54,
-   "height": 50,
+   "width": 52,
+   "height": 52,
    "above": 22,
-   "hole_x": 15,
-   "digit_width": 17,
-   "digit_height": 22
+   "hole_x": 14,
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame5-digit4.png": {
    "flame": 5,
    "digit": 4,
-   "width": 55,
-   "height": 50,
+   "width": 54,
+   "height": 49,
    "above": 22,
-   "hole_x": 14,
-   "digit_width": 19,
-   "digit_height": 22
+   "hole_x": 15,
+   "digit_width": 17,
+   "digit_height": 21
   },
   "flame5-digit5.png": {
    "flame": 5,
    "digit": 5,
-   "width": 54,
-   "height": 50,
+   "width": 52,
+   "height": 53,
    "above": 22,
-   "hole_x": 15,
-   "digit_width": 17,
-   "digit_height": 22
+   "hole_x": 14,
+   "digit_width": 16,
+   "digit_height": 25
   },
   "flame5-digit6.png": {
    "flame": 5,
    "digit": 6,
-   "width": 55,
-   "height": 50,
+   "width": 52,
+   "height": 52,
    "above": 22,
-   "hole_x": 15,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 14,
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame5-digit7.png": {
    "flame": 5,
    "digit": 7,
-   "width": 52,
-   "height": 50,
+   "width": 54,
+   "height": 51,
    "above": 22,
-   "hole_x": 14,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 15,
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame5-digit8.png": {
    "flame": 5,
    "digit": 8,
-   "width": 55,
-   "height": 50,
+   "width": 49,
+   "height": 52,
    "above": 22,
-   "hole_x": 15,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 14,
+   "digit_width": 14,
+   "digit_height": 24
   },
   "flame5-digit9.png": {
    "flame": 5,
    "digit": 9,
-   "width": 55,
-   "height": 50,
+   "width": 54,
+   "height": 51,
    "above": 22,
    "hole_x": 15,
-   "digit_width": 18,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame6-digit1.png": {
    "flame": 6,
    "digit": 1,
-   "width": 45,
-   "height": 50,
+   "width": 34,
+   "height": 51,
    "above": 22,
-   "hole_x": 21,
-   "digit_width": 16,
-   "digit_height": 22
+   "hole_x": 18,
+   "digit_width": 8,
+   "digit_height": 23
   },
   "flame6-digit2.png": {
    "flame": 6,
    "digit": 2,
    "width": 46,
-   "height": 50,
+   "height": 51,
    "above": 22,
    "hole_x": 21,
    "digit_width": 17,
-   "digit_height": 22
+   "digit_height": 23
   },
   "flame6-digit3.png": {
    "flame": 6,
    "digit": 3,
-   "width": 46,
-   "height": 50,
+   "width": 45,
+   "height": 52,
    "above": 22,
    "hole_x": 21,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame6-digit4.png": {
    "flame": 6,
    "digit": 4,
-   "width": 49,
-   "height": 50,
+   "width": 46,
+   "height": 49,
    "above": 22,
-   "hole_x": 22,
-   "digit_width": 19,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 17,
+   "digit_height": 21
   },
   "flame6-digit5.png": {
    "flame": 6,
    "digit": 5,
-   "width": 46,
-   "height": 50,
+   "width": 45,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
-   "digit_width": 17,
-   "digit_height": 22
+   "digit_width": 16,
+   "digit_height": 25
   },
   "flame6-digit6.png": {
    "flame": 6,
    "digit": 6,
-   "width": 48,
-   "height": 50,
+   "width": 45,
+   "height": 52,
    "above": 22,
-   "hole_x": 22,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 16,
+   "digit_height": 24
   },
   "flame6-digit7.png": {
    "flame": 6,
    "digit": 7,
-   "width": 45,
-   "height": 50,
+   "width": 46,
+   "height": 51,
    "above": 22,
    "hole_x": 21,
-   "digit_width": 16,
-   "digit_height": 22
+   "digit_width": 17,
+   "digit_height": 23
   },
   "flame6-digit8.png": {
    "flame": 6,
    "digit": 8,
-   "width": 48,
-   "height": 50,
+   "width": 42,
+   "height": 52,
    "above": 22,
-   "hole_x": 22,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 20,
+   "digit_width": 14,
+   "digit_height": 24
   },
   "flame6-digit9.png": {
    "flame": 6,
    "digit": 9,
-   "width": 48,
-   "height": 50,
+   "width": 46,
+   "height": 51,
    "above": 22,
-   "hole_x": 22,
-   "digit_width": 18,
-   "digit_height": 22
+   "hole_x": 21,
+   "digit_width": 17,
+   "digit_height": 23
   }
  },
  "spin": {

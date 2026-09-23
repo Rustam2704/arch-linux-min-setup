@@ -66,7 +66,7 @@ make rollback EXP=33-name  # откат эксперимента
 | `accent` `light` | `#0d8ecb` `#48daf9` | структурный акцент (рамки, курсор, rofi) и светящиеся индикаторы (панель, часы, календарь) |
 | `warning` `danger` `success` `highlight` | `#febc2e` `#ff5f57` `#28c840` `#ffd166` | состояния; те же три цвета у кнопок в шапке окна |
 | `layouts` | EN `#3b7ddd` · RU `#8f5b2e` · UA `#ffd447` | индикатор раскладки и OSD |
-| `font` `mono_font` `panel_font` | Inter · JetBrainsMono Nerd Font · Diablo 15 | `panel_font` — шрифт индикаторов панели (кроме часов), тот же в xfconf у genmon-плагинов |
+| `font` `mono_font` `panel_font` | Inter · JetBrainsMono Nerd Font · Diablo 18 | `panel_font` — шрифт индикаторов панели (кроме часов), тот же в xfconf у genmon-плагинов |
 
 Конфиги и shell пишут `@COLOUR_ACCENT@`, `@RGB_LIGHT@` (для `rgba(@RGB_LIGHT@, 0.2)`),
 `@HEX_ACCENT@` (без решётки, touchegg), `@FONT@`, `@MONO_FONT@`. Python читает `THEME[...]`

@@ -1914,11 +1914,12 @@ class Deskd:
         segs = []
         for label, num in items:
             w = by_num.get(num)
-            # the workspace in front of you is red like a close button; one that has
+            # the workspace in front of you is black: its shape is the hole in the fire
+            # sky-stars draws over it, as the letters of the game's logo; one that has
             # just received a window (i3 "urgent") is the accent - the window itself is
             # not marked, only the strip
             if w and w.get("focused"):
-                colour, extra = THEME["danger"], ' weight="bold"'
+                colour, extra = THEME["background"], ' weight="bold"'
             elif w and w.get("urgent"):
                 colour, extra = THEME["accent"], ' weight="bold"'
             elif w and w.get("visible"):

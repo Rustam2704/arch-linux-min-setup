@@ -251,6 +251,54 @@ class Xkb:
             self.x.XFlush(self.dpy)
 
 
+class Chords:
+    """The modifier chords, Windows-style: Alt+Shift or Ctrl+Shift fires when one of
+    its keys is released and nothing else was pressed since the chord began. Pure
+    state, fed by the XRecord watcher, so the sequences can be tested without a
+    keyboard (tests/test_chords.py)."""
+    def __init__(self, cats, held=lambda: None):
+        self.cats = cats            # keycode -> "shift" / "alt" / "ctrl" / "super" / "altgr"
+        self.down = {}              # keycode -> category of every modifier now held
+        self.dirty = False          # something else was pressed during this chord
+        self.held = held            # () -> keycodes really down (XQueryKeymap), or None
+
+    def press(self, kc):
+        cat = self.cats.get(kc)
+        if cat is None:
+            self.dirty = True
+            return
+        real = self.held()
+        if real is not None:        # a release the watcher never saw (suspend, VT switch,
+            for k in list(self.down):   # a grab): forget it, or no chord ever matches again
+                if k not in real:
+                    del self.down[k]
+        if not self.down:
+            # a new chord starts clean: a letter still held from typing (fast typing
+            # overlaps keys) must not spoil the Alt+Shift right after it
+            self.dirty = False
+        self.down[kc] = cat
+
+    def button(self):
+        self.dirty = True
+
+    def release(self, kc):
+        """The chord that completes with this release, or None."""
+        combo = None
+        if kc in self.down:
+            held = set(self.down.values())
+            if not self.dirty:
+                if held == {"alt", "shift"}:
+                    combo = "alt_shift"
+                elif held == {"ctrl", "shift"}:
+                    combo = "ctrl_shift"
+                if combo:
+                    self.dirty = True       # the other key's release must not fire it again
+            del self.down[kc]
+        if not self.down:
+            self.dirty = False
+        return combo
+
+
 def layout_names():
     """['EN', 'RU', 'UA'] in XKB group order, from the live keymap."""
     names = []
@@ -507,7 +555,11 @@ class Layouts:
             for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym)):
                 cats[kc] = cat
 
-        state = {"down": {}, "dirty": False, "enter_up": 0.0}
+        def really_down():
+            keys = local.query_keymap()
+            return {kc for kc in range(256) if keys[kc >> 3] & (1 << (kc & 7))}
+        chords = Chords(cats, really_down)
+        state = {"key_up": -1000}
         enter = {kc for sym in ("Return", "KP_Enter") for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym))}
         arrows = {kc for sym in ("Left", "Right", "Up", "Down", "KP_Left", "KP_Right", "KP_Up", "KP_Down")
                   for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym))}
@@ -517,34 +569,24 @@ class Layouts:
             while len(data):
                 ev, data = rq.EventField(None).parse_binary_value(data, rec.display, None, None)
                 if ev.type in (X.ButtonPress,):
-                    state["dirty"] = True
+                    chords.button()
                     continue
                 kc = ev.detail
-                cat = cats.get(kc)
                 if ev.type == X.KeyPress:
                     if kc in keyed:
-                        # autorepeat shows as release/press pairs a few ms apart: one sound per real press
-                        if time.monotonic() - state["enter_up"] > 0.08 and keysound_on():
+                        # autorepeat is a release/press pair stamped with the same server
+                        # time; a real tap, however fast, has tens of ms between them
+                        if ev.time - state["key_up"] > 8 and keysound_on():
                             SOUNDS.play("accept" if kc in enter else "move")
-                    if cat:
-                        state["down"][kc] = cat
-                    else:
-                        state["dirty"] = True
+                    chords.press(kc)
                 elif ev.type == X.KeyRelease:
                     if kc in keyed:
-                        state["enter_up"] = time.monotonic()
-                    if cat and kc in state["down"]:
-                        held = set(state["down"].values())
-                        if not state["dirty"]:
-                            if held == {"alt", "shift"}:
-                                self.alt_shift()
-                                state["dirty"] = True
-                            elif held == {"ctrl", "shift"}:
-                                self.ctrl_shift()
-                                state["dirty"] = True
-                        del state["down"][kc]
-                    if not state["down"]:
-                        state["dirty"] = False
+                        state["key_up"] = ev.time
+                    combo = chords.release(kc)
+                    if combo == "alt_shift":
+                        self.alt_shift()
+                    elif combo == "ctrl_shift":
+                        self.ctrl_shift()
 
         ctx = rec.record_create_context(0, [record.AllClients], [{
             "core_requests": (0, 0), "core_replies": (0, 0),
