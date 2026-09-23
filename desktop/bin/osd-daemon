@@ -260,31 +260,36 @@ def layout_names():
     return [{"us": "EN", "gb": "EN"}.get(n, n.upper()) for n in names] or ["EN"]
 
 
-class Sound:
-    """One short sound, decoded once, played through libpulse-simple (PipeWire's
-    Pulse server) without any helper process: open a stream, write the samples,
-    drain, close - the card is free to sleep again in between."""
-    def __init__(self, path):
+class Sounds:
+    """A few short sounds, decoded once, played through libpulse-simple (PipeWire's
+    Pulse server) without any helper process. One stream serves a whole burst of
+    presses: written in 40 ms chunks, so a new press (of any of the sounds) flushes
+    what is queued and starts over within 40 ms; the stream closes after the last
+    chunk drained, and the card is free to sleep again."""
+    def __init__(self, files):
         import wave
-        self.pcm = b""
-        try:
-            with wave.open(path, "rb") as w:
-                assert w.getsampwidth() == 2
-                self.rate, self.channels = w.getframerate(), w.getnchannels()
-                self.pcm = w.readframes(w.getnframes())
-        except (OSError, wave.Error, AssertionError) as e:
-            print("osd: sound not loaded:", path, e, flush=True)
+        self.pcm = {}
+        self.rate = self.channels = None
+        for name, path in files.items():
+            try:
+                with wave.open(path, "rb") as w:
+                    assert w.getsampwidth() == 2
+                    if self.rate is None:
+                        self.rate, self.channels = w.getframerate(), w.getnchannels()
+                    assert (w.getframerate(), w.getnchannels()) == (self.rate, self.channels)
+                    self.pcm[name] = w.readframes(w.getnframes())
+            except (OSError, wave.Error, AssertionError) as e:
+                print("osd: sound not loaded:", path, e, flush=True)
         self.pa = None
         self.lock = threading.Lock()
         self.thread = None
-        self.restart = False
+        self.next = None
 
-    def play(self):
-        """Start the sound; a press while it plays restarts it from the beginning."""
-        if not self.pcm:
+    def play(self, name):
+        if name not in self.pcm:
             return
         with self.lock:
-            self.restart = True
+            self.next = name
             if self.thread is None or not self.thread.is_alive():
                 self.thread = threading.Thread(target=self._run, daemon=True)
                 self.thread.start()
@@ -304,8 +309,6 @@ class Sound:
         return self.pa
 
     def _run(self):
-        """One stream for the whole burst: written in 40 ms chunks, so a restart (flush,
-        back to the first chunk) lands within 40 ms; closed after the last chunk drained."""
         try:
             lib = self._lib()
 
@@ -318,17 +321,16 @@ class Sound:
             if not stream:
                 return
             chunk = int(self.rate * self.channels * 2 * 0.04)
-            pos = 0
+            pcm, pos = b"", 0
             while True:
                 with self.lock:
-                    if self.restart:
-                        self.restart = False
-                        if pos:
-                            lib.pa_simple_flush(stream, ctypes.byref(err))
-                        pos = 0
-                if pos >= len(self.pcm):
+                    if self.next is not None:
+                        pcm, pos = self.pcm[self.next], 0
+                        self.next = None
+                        lib.pa_simple_flush(stream, ctypes.byref(err))
+                if pos >= len(pcm):
                     break
-                lib.pa_simple_write(stream, self.pcm[pos:pos + chunk], min(chunk, len(self.pcm) - pos), ctypes.byref(err))
+                lib.pa_simple_write(stream, pcm[pos:pos + chunk], min(chunk, len(pcm) - pos), ctypes.byref(err))
                 pos += chunk
             lib.pa_simple_drain(stream, ctypes.byref(err))
             lib.pa_simple_free(stream)
@@ -336,7 +338,7 @@ class Sound:
             print("osd: sound failed:", e, flush=True)
 
 
-ACCEPT = Sound(os.path.expanduser("~/.local/share/sky-desktop/sounds/accept.wav"))
+SOUNDS = Sounds({name: os.path.expanduser(f"~/.local/share/sky-desktop/sounds/{name}.wav") for name in ("accept", "move")})
 KEYSOUND = os.path.expanduser("~/.config/sky-desktop/keysound")   # "off" silences Enter (audio-menu)
 AUDIO_STATE = os.path.join(RUN, "audio.json")
 
@@ -396,8 +398,8 @@ def watch_audio():
             return
         pid = plugin_id()
         if pid:
-            subprocess.Popen(["xfce4-panel", f"--plugin-event=genmon-{pid}:refresh:bool:true"],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            threading.Thread(target=run, daemon=True, args=(          # waited for: no zombies
+                "xfce4-panel", f"--plugin-event=genmon-{pid}:refresh:bool:true")).start()
 
     publish()
     while True:
@@ -507,6 +509,9 @@ class Layouts:
 
         state = {"down": {}, "dirty": False, "enter_up": 0.0}
         enter = {kc for sym in ("Return", "KP_Enter") for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym))}
+        arrows = {kc for sym in ("Left", "Right", "Up", "Down", "KP_Left", "KP_Right", "KP_Up", "KP_Down")
+                  for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym))}
+        keyed = enter | arrows
         def handler(reply):
             data = reply.data
             while len(data):
@@ -517,16 +522,16 @@ class Layouts:
                 kc = ev.detail
                 cat = cats.get(kc)
                 if ev.type == X.KeyPress:
-                    if kc in enter:
+                    if kc in keyed:
                         # autorepeat shows as release/press pairs a few ms apart: one sound per real press
                         if time.monotonic() - state["enter_up"] > 0.08 and keysound_on():
-                            ACCEPT.play()
+                            SOUNDS.play("accept" if kc in enter else "move")
                     if cat:
                         state["down"][kc] = cat
                     else:
                         state["dirty"] = True
                 elif ev.type == X.KeyRelease:
-                    if kc in enter:
+                    if kc in keyed:
                         state["enter_up"] = time.monotonic()
                     if cat and kc in state["down"]:
                         held = set(state["down"].values())
