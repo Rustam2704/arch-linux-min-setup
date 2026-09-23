@@ -692,11 +692,15 @@ class Deskd:
         self.panel_items = self.panel_regions()
         mask = X.PointerMotionMask | X.EnterWindowMask | X.LeaveWindowMask
         watch = []
+        frames = {}
         for frame, geom in self.dock_frames():
+            frames[frame.id] = geom
             watch += frame.query_tree().children
             veil = self.veils.get(frame.id)
             if veil is None or not veil.matches(geom):
                 self.veils[frame.id] = PanelDim(self.xs, geom)
+        for fid in [f for f in self.veils if f not in frames]:   # the panel restarted: its old
+            self.veils.pop(fid).set_visible(False)                # frame is gone, so is its veil
         watch += [win for win, _ in self.panel_wrappers()]
         for win in watch:
             try:
