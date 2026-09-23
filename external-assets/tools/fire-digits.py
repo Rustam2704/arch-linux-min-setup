@@ -30,7 +30,7 @@ import pcx  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "diablo-spawn/ui_art/smlogo.pcx")
 SPIN_SRC = os.path.join(ROOT, "diablo-spawn/ui_art/focus.pcx")   # 30x30, 8 frames
-SPIN = 26                           # pentagram size on the panel, about the digit's height
+SPIN = 21                           # pentagram size on the panel, about the digit's height
 OUT = os.path.join(ROOT, "fire-digits")
 FRAMES = 15
 TRANSPARENT = 250
