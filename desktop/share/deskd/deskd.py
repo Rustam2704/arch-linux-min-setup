@@ -39,7 +39,7 @@ from Xlib.protocol import event as xevent  # noqa: E402
 import i3ipc  # noqa: E402
 import panels  # noqa: E402
 from i3ipc import walk, find  # noqa: E402
-from sky_theme import THEME, rgb as theme_rgb
+from sky_theme import THEME, HOT_FILE, QUIET, shade, rgb as theme_rgb
 
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 STATE_FILE = os.path.join(RUN, "deskd-state.json")
@@ -140,6 +140,9 @@ class XServer:
         return parent.create_window(x, y, max(1, w), max(1, h), 0, X.CopyFromParent,
                                     X.InputOutput, X.CopyFromParent,
                                     background_pixel=bg if bg is not None else 0, **kw)
+
+    def hot_name(self):
+        return getattr(self, "_hot", "")
 
     def paint(self, win, surface, depth):
         """Put a cairo ARGB32 surface onto a window, in strips small enough for one request."""
@@ -317,6 +320,7 @@ class ActiveMark:
     def draw(self):
         if not self.geom:
             return
+        self.bright = (self.xs.hot_name() == "panel-workspaces")
         _, _, w, h = self.geom
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(1, w), max(1, h))
         ctx = cairo.Context(surface)
@@ -338,7 +342,8 @@ class ActiveMark:
         ctx.close_path()
         ctx.set_line_width(1.6)                  # as thin as the lines in the panel icons
         ctx.set_line_join(cairo.LINE_JOIN_ROUND)
-        ctx.set_source_rgba(*rgb(MARK_ORANGE))
+        orange = MARK_ORANGE if getattr(self, "bright", False) else tuple(int(c * QUIET) for c in MARK_ORANGE)
+        ctx.set_source_rgba(*rgb(orange))
         ctx.stroke()
         self.cut_out_digit(ctx, w, h)
         shape.rectangles(self.win, shape.SO.Set, shape.SK.Bounding, 0, 0, 0, alpha_rects(surface))
@@ -590,6 +595,8 @@ class Deskd:
         self.click_layers = {}      # plugin id -> click window over the strip
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
+        self.hot = ""               # the panel plugin script under the pointer
+        self.hot_by_win = {}        # panel window id -> that plugin's script name
         self.click_by_win = {}
         self.items_by_output = {}   # output -> ([(label, ws)], segments)
         self.bounds_cache = {}
@@ -640,9 +647,46 @@ class Deskd:
             spawn(["xfce4-panel", f"--plugin-event=genmon-{cache[command]}:refresh:bool:true"])
 
     def watch_panel_items(self):
-        """After the panel (re)started: our overlays go back on top of it."""
+        """After the panel (re)started: follow the pointer over its plugins, so each
+        one can draw itself bright while it is pointed at and quiet otherwise (the
+        scripts read the hot plugin's name from HOT_FILE), and put our overlays back
+        on top of it."""
+        commands = {}
+        for key, value in panels.read_all().items():
+            if key.endswith("/command"):
+                commands[key.split("/")[2].split("-")[1]] = os.path.basename(value.strip())
+        self.hot_by_win = {}
+        mask = X.EnterWindowMask | X.LeaveWindowMask
+        for win, pid in self.panel_wrappers():
+            name = commands.get(str(pid), f"plugin-{pid}")
+            try:
+                for w in (win, win.query_tree().parent):
+                    self.hot_by_win[w.id] = name
+                    w.change_attributes(event_mask=mask)
+            except error.XError:
+                pass
         self.raise_overlays()
         return True
+
+    def set_hot(self, name):
+        """The plugin under the pointer changed: tell the scripts, redraw both."""
+        if name == self.hot:
+            return
+        before, self.hot = self.hot, name
+        self.xs._hot = name
+        try:
+            with open(HOT_FILE + ".tmp", "w") as f:
+                f.write(name)
+            os.replace(HOT_FILE + ".tmp", HOT_FILE)
+        except OSError as e:
+            log("hot file failed:", e)
+        for plugin in (before, name):
+            if plugin == "panel-workspaces":
+                self.render_workspaces(self.i3.workspaces())
+                if self.ws_mark is not None:
+                    self.ws_mark.draw()
+            elif plugin.startswith("panel-"):
+                self.refresh_plugin(plugin)
 
     def raise_overlays(self):
         """Our own windows over the panel: the fire, then the star over it."""
@@ -1113,6 +1157,16 @@ class Deskd:
             if wid in self.click_by_win:
                 if t == X.ButtonPress:
                     return self.ws_clicked(e)
+                if t == X.EnterNotify:
+                    return self.set_hot("panel-workspaces")
+                if t == X.LeaveNotify and e.detail != X.NotifyInferior:
+                    return self.set_hot("")
+                return None
+            if wid in self.hot_by_win:
+                if t == X.EnterNotify:
+                    return self.set_hot(self.hot_by_win[wid])
+                if t == X.LeaveNotify and e.detail != X.NotifyInferior:
+                    return self.set_hot("")
                 return None
         elif t == X.ClientMessage:
             self.client_message(e)
@@ -1785,7 +1839,9 @@ class Deskd:
             else:
                 colour, extra = THEME["dim"], ""
             # the workspace in front of you is marked by the pentagram drawn over it
-            # (see ActiveMark)
+            # (see ActiveMark); the whole strip is quiet unless the pointer is on it
+            if self.hot != "panel-workspaces":
+                colour = shade(colour)
             segs.append((STRIP_PAD + label + STRIP_PAD,
                          f'<span foreground="{colour}"{extra}>{STRIP_PAD}{label}{STRIP_PAD}</span>'))
         return segs

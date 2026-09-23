@@ -4,11 +4,14 @@ import os
 import sys
 from pathlib import Path
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME
+from sky_theme import THEME, quiet
 
 print('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
       f'button {{ padding: 0 {THEME["panel_gap"]}px; }}</css>')
 try:
-    print((Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "netq-wifi.txt").read_text())
+    out = (Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "netq-wifi.txt").read_text()
+    if quiet("panel-wifi"):
+        out = out.replace("panel-wifi.svg", "panel-wifi-quiet.svg")     # netqd writes both
+    print(out)
 except OSError:
     print(f'<txt>Wi-Fi</txt><txtclick>{Path.home()}/.local/bin/net-menu --wifi</txtclick>')

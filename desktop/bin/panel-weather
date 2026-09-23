@@ -15,7 +15,7 @@ MAX_AGE = 900                             # refresh at most every 15 minutes
 STALE_AFTER = 3 * 3600                    # dim the reading after 3 hours
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME
+from sky_theme import THEME, wrap
 ACCENT = THEME["light"]
 DIM = THEME["muted"]
 
@@ -90,8 +90,8 @@ colour = DIM if stale else ACCENT
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.
 print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
-print(f'<txt> <span size="160%" line_height="0.6">{icon}</span>'
-      f' <span foreground="{colour}">{temp:+d}°</span></txt>')
+print("<txt>" + wrap("panel-weather", f' <span size="160%" line_height="0.6">{icon}</span>'
+                                       f' <span foreground="{colour}">{temp:+d}°</span>') + "</txt>")
 
 if age is None:
     when = "unknown"

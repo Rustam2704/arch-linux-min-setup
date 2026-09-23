@@ -1,0 +1,1 @@
+95:        self.set_opacity(0.90)  # deprecated in GTK3 docs, still the only way for a whole-window alpha
