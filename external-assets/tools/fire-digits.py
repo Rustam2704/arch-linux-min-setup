@@ -225,11 +225,17 @@ def main():
                 ctx.set_operator(cairo.OPERATOR_DEST_IN)
                 ctx.mask_surface(edge, 0, 0)
                 ctx.mask_surface(hug, 0, 0)
-                # the digit is a hole in the fire: the panel's own number shows through
+                # the digit is a hole in the fire, and the hole is filled black: the
+                # number under it is black too (deskd paints the active one so), but the
+                # panel repaints tens of ms after the fire has moved - this way the digit
+                # is black the moment the fire lands on it
                 ctx.set_operator(cairo.OPERATOR_CLEAR)
                 ctx.translate(hole_x, ABOVE)
                 for dx, dy in ((-AIR, 0), (AIR, 0), (0, -AIR), (0, AIR), (0, 0)):
                     ctx.mask_surface(mask, dx, dy)
+                ctx.set_operator(cairo.OPERATOR_OVER)
+                ctx.set_source_rgb(0, 0, 0)
+                ctx.mask_surface(mask, 0, 0)
                 ctx.restore()
             name = f"flame{k}-digit{d}.png"
             sheet.write_to_png(os.path.join(OUT, name))

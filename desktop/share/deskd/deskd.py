@@ -28,7 +28,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))   # i3ipc, sky_theme
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))   # i3ipc, sky_theme, xfpanel
 import gi  # noqa: E402
 from gi.repository import GLib  # noqa: E402
 import cairo  # noqa: E402
@@ -37,6 +37,7 @@ from Xlib.ext import shape  # noqa: E402
 from Xlib.protocol import event as xevent  # noqa: E402
 
 import i3ipc  # noqa: E402
+import xfpanel  # noqa: E402
 import panels  # noqa: E402
 from i3ipc import walk, find  # noqa: E402
 from sky_theme import THEME, rgb as theme_rgb
@@ -360,7 +361,8 @@ class MarkFile:
     fire and the spinning pentagrams around it. The animation used to live here, but
     deskd stalls for a quarter of a second on every workspace switch (i3 tree, panel
     windows, Pango, title buttons) and froze it; sky-stars has a loop of its own."""
-    def __init__(self):
+    def __init__(self, i3):
+        self.i3 = i3
         self.state = None
 
     def show(self, label, centre_x, top_y):
@@ -379,6 +381,11 @@ class MarkFile:
             os.replace(MARK_FILE + ".tmp", MARK_FILE)
         except OSError as e:
             log("mark file failed:", e)
+            return
+        try:
+            self.i3.tick("sky-stars mark")   # sky-stars reads the file on this, not on its next 60 ms poll
+        except Exception as e:             # noqa: BLE001
+            log("mark tick failed:", e)
 
 
 class PanelDim:
@@ -611,7 +618,7 @@ class Deskd:
                 if key.endswith("/command") and os.path.basename(value.strip()) == command:
                     cache[command] = key.split("/")[2].split("-")[1]
         if command in cache:
-            spawn(["xfce4-panel", f"--plugin-event=genmon-{cache[command]}:refresh:bool:true"])
+            xfpanel.plugin_event(f"genmon-{cache[command]}")
 
     def place_audio_layer(self):
         """genmon gets left clicks only; the wheel and the middle button over the sound
@@ -874,7 +881,14 @@ class Deskd:
         elif name == "workspace":
             current = (ev.get("current") or {}).get("num")
             if current is not None:
-                self.sync_active_mark(current)      # the mark leads, the strip follows
+                try:
+                    # the strip and the mark together, right now: the full refresh that
+                    # follows (tree, title buttons, handles) can take 100 ms on a busy
+                    # workspace, and the digit would turn black after the fire arrived
+                    self.render_workspaces(self.i3.workspaces())
+                except Exception as e:           # noqa: BLE001 - the refresh will redo it
+                    log("strip render failed:", e)
+                self.sync_active_mark(current)
                 self.pump()
         elif name == "output":
             GLib.timeout_add(700, self.outputs_changed)
@@ -1955,7 +1969,8 @@ class Deskd:
                 os.replace(path + ".tmp", path)
             for pid, out in self.strip_plugins():
                 if self.strip_output(out) == o["name"]:
-                    spawn(["xfce4-panel", f"--plugin-event=genmon-{pid}:refresh:bool:true"])
+                    xfpanel.plugin_event(f"genmon-{pid}")      # D-Bus, not a process: the digit
+                    # must turn black together with the fire that sky-stars moves onto it
             self.bounds_cache.clear()
         GLib.timeout_add(400, self.place_ws_clicks)
 
@@ -2057,7 +2072,7 @@ class Deskd:
         workspace itself has finished drawing."""
         if self.ws_mark is None:
             self.ws_mark = ActiveMark(self.xs)
-            self.mark_file = MarkFile()
+            self.mark_file = MarkFile(self.i3)
         if focused is None:
             focused = next((w["num"] for w in self.i3.workspaces() if w.get("focused")), None)
         for pid, out in self.strip_plugins():

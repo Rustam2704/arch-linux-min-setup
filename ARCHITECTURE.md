@@ -72,6 +72,8 @@ Python + python-xlib + GTK, живёт на событиях i3 IPC (`window`, `
 `audio-menu`; колесо и средняя кнопка — слой deskd; состояние пишет osd-daemon из `pactl subscribe`) ·
 `55` раскладка · `61` часы (`panel-clock`) · `21` выключение. Индикаторы — genmon-скрипты `desktop/bin/panel-*`
 (протокол `<img>`/`<txt>`/`<css>`/`<txtclick>`), значения читают файлы `netqd` и deskd.
+Перерисовать плагин просят по D-Bus (`xfpanel.plugin_event`, `org.xfce.Panel.PluginEvent`),
+не процессом `xfce4-panel --plugin-event` (~130 мс на запуск).
 
 Что легко сломать:
 - **Шрифт genmon читается только при старте плагина**, а при выходе панель **записывает свои

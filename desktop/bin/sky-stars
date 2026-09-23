@@ -250,7 +250,7 @@ class Sky:
         self.screen = self.d.screen()
         self.root = self.screen.root
         self.i3 = i3ipc.I3()
-        self.events = i3ipc.subscribe(["window", "workspace", "output"])
+        self.events = i3ipc.subscribe(["window", "workspace", "output", "tick"])
         self.events.setblocking(False)
         self.buf = b""
         self.atoms = {n: self.d.intern_atom(n) for n in (
@@ -473,6 +473,10 @@ class Sky:
             if name == "output":
                 self.build()                                   # screen may have changed size
             elif name == "window" and payload.get("change") in ("title", "urgent", "mark"):
+                continue
+            elif name == "tick" and payload.get("payload") == "sky-stars mark":
+                self.marks.poll()          # deskd has just written where the digit is
+                self.d.flush()
                 continue
             elif name == "workspace":
                 self.marks.poll()

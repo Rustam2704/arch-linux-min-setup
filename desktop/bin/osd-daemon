@@ -37,7 +37,8 @@ MARGIN_TOP = 56          # one-row 44px panel + gap
 MARGIN_RIGHT = 24
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME, css
+from sky_theme import THEME, css  # noqa: E402
+import xfpanel  # noqa: E402
 ACCENT = THEME["light"]
 OVER = THEME["warning"]     # above 100%
 LAYOUT_COLOURS = THEME["layouts"]   # one colour per language, the same as in the panel
@@ -330,7 +331,7 @@ class Sounds:
                 print("osd: sound not loaded:", path, e, flush=True)
         self.pa = None
         self.lock = threading.Lock()
-        self.thread = None
+        self.running = False        # a burst thread owns the stream (set and cleared under the lock)
         self.next = None
 
     def play(self, name):
@@ -338,9 +339,9 @@ class Sounds:
             return
         with self.lock:
             self.next = name
-            if self.thread is None or not self.thread.is_alive():
-                self.thread = threading.Thread(target=self._run, daemon=True)
-                self.thread.start()
+            if not self.running:
+                self.running = True
+                threading.Thread(target=self._run, daemon=True).start()
 
     def _lib(self):
         if self.pa is None:
@@ -363,12 +364,18 @@ class Sounds:
             class Spec(ctypes.Structure):
                 _fields_ = [("format", ctypes.c_int), ("rate", ctypes.c_uint32), ("channels", ctypes.c_uint8)]
             spec = Spec(3, self.rate, self.channels)       # 3 = PA_SAMPLE_S16LE
+            chunk = int(self.rate * self.channels * 2 * 0.04)
+
+            class Attr(ctypes.Structure):
+                _fields_ = [(n, ctypes.c_uint32) for n in ("maxlength", "tlength", "prebuf", "minreq", "fragsize")]
+            # a two-chunk buffer, no prebuffering: the sound starts on the first write and
+            # a restart (flush) is heard within one chunk, not after a default-sized queue
+            attr = Attr(0xFFFFFFFF, chunk * 2, 0, 0xFFFFFFFF, 0xFFFFFFFF)
             err = ctypes.c_int(0)
             stream = lib.pa_simple_new(None, b"sky-desktop", 1, None, b"key",   # 1 = playback
-                                       ctypes.byref(spec), None, None, ctypes.byref(err))
+                                       ctypes.byref(spec), None, ctypes.byref(attr), ctypes.byref(err))
             if not stream:
                 return
-            chunk = int(self.rate * self.channels * 2 * 0.04)
             pcm, pos = b"", 0
             while True:
                 with self.lock:
@@ -377,13 +384,20 @@ class Sounds:
                         self.next = None
                         lib.pa_simple_flush(stream, ctypes.byref(err))
                 if pos >= len(pcm):
-                    break
+                    lib.pa_simple_drain(stream, ctypes.byref(err))
+                    with self.lock:                # a press during the drain: play on
+                        if self.next is None:
+                            self.running = False
+                            break
+                    continue
                 lib.pa_simple_write(stream, pcm[pos:pos + chunk], min(chunk, len(pcm) - pos), ctypes.byref(err))
                 pos += chunk
-            lib.pa_simple_drain(stream, ctypes.byref(err))
             lib.pa_simple_free(stream)
         except Exception as e:                     # noqa: BLE001 - a sound is never worth a crash
             print("osd: sound failed:", e, flush=True)
+        finally:
+            with self.lock:
+                self.running = False
 
 
 SOUNDS = Sounds({name: os.path.expanduser(f"~/.local/share/sky-desktop/sounds/{name}.wav") for name in ("accept", "move")})
@@ -446,8 +460,7 @@ def watch_audio():
             return
         pid = plugin_id()
         if pid:
-            threading.Thread(target=run, daemon=True, args=(          # waited for: no zombies
-                "xfce4-panel", f"--plugin-event=genmon-{pid}:refresh:bool:true")).start()
+            xfpanel.plugin_event(f"genmon-{pid}")
 
     publish()
     while True:
@@ -490,8 +503,7 @@ class Layouts:
             os.replace(LAYOUT_FILE + ".tmp", LAYOUT_FILE)
         except OSError:
             pass
-        threading.Thread(target=run, daemon=True, args=(
-            "xfce4-panel", f"--plugin-event={PANEL_LAYOUT_PLUGIN}:refresh:bool:true")).start()
+        xfpanel.plugin_event(PANEL_LAYOUT_PLUGIN)
         if show:
             GLib.idle_add(self.osd.badge, name)
 
