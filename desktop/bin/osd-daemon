@@ -337,6 +337,86 @@ class Sound:
 
 
 ACCEPT = Sound(os.path.expanduser("~/.local/share/sky-desktop/sounds/accept.wav"))
+KEYSOUND = os.path.expanduser("~/.config/sky-desktop/keysound")   # "off" silences Enter (audio-menu)
+AUDIO_STATE = os.path.join(RUN, "audio.json")
+
+
+def keysound_on():
+    try:
+        with open(KEYSOUND) as f:
+            return f.read().strip() != "off"
+    except OSError:
+        return True
+
+
+def watch_audio():
+    """`pactl subscribe` says when a volume, a mute or a recording changes; the state
+    goes to AUDIO_STATE for panel-audio, which is then asked to redraw. No polling."""
+    def pactl(*a):
+        try:
+            return subprocess.run(["pactl", *a], capture_output=True, text=True, timeout=3).stdout
+        except OSError:
+            return ""
+
+    def percent(out):
+        m = re.search(r"(\d+)%", out)
+        return int(m.group(1)) if m else 0
+
+    plugin = {"id": None}
+
+    def plugin_id():
+        if plugin["id"] is None:
+            try:
+                out = subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-l", "-v"], capture_output=True, text=True).stdout
+                for line in out.splitlines():
+                    key, _, value = line.partition(" ")
+                    if key.endswith("/command") and value.strip().endswith("panel-audio"):
+                        plugin["id"] = key.split("/")[2].split("-")[1]
+            except OSError:
+                pass
+        return plugin["id"]
+
+    last = None
+
+    def publish():
+        nonlocal last
+        state = {"volume": percent(pactl("get-sink-volume", "@DEFAULT_SINK@")),
+                 "muted": "yes" in pactl("get-sink-mute", "@DEFAULT_SINK@"),
+                 "mic": percent(pactl("get-source-volume", "@DEFAULT_SOURCE@")),
+                 "mic_muted": "yes" in pactl("get-source-mute", "@DEFAULT_SOURCE@"),
+                 "recording": bool(pactl("list", "source-outputs", "short").strip())}
+        if state == last:
+            return
+        last = state
+        try:
+            with open(AUDIO_STATE + ".tmp", "w") as f:
+                json.dump(state, f)
+            os.replace(AUDIO_STATE + ".tmp", AUDIO_STATE)
+        except OSError:
+            return
+        pid = plugin_id()
+        if pid:
+            subprocess.Popen(["xfce4-panel", f"--plugin-event=genmon-{pid}:refresh:bool:true"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    publish()
+    while True:
+        try:
+            proc = subprocess.Popen(["pactl", "subscribe"], stdout=subprocess.PIPE, text=True)
+            pending = False
+            for line in proc.stdout:
+                if not any(k in line for k in ("on sink", "on source", "on source-output", "on server")):
+                    continue
+                # events come in bursts: settle for 150 ms, then read once
+                pending = True
+                while pending:
+                    proc.stdout.flush()
+                    time.sleep(0.15)
+                    pending = False
+                publish()
+        except OSError as e:
+            print("osd: pactl subscribe failed:", e, flush=True)
+        time.sleep(5)                       # the sound server restarted: try again
 
 
 class Layouts:
@@ -439,7 +519,7 @@ class Layouts:
                 if ev.type == X.KeyPress:
                     if kc in enter:
                         # autorepeat shows as release/press pairs a few ms apart: one sound per real press
-                        if time.monotonic() - state["enter_up"] > 0.08:
+                        if time.monotonic() - state["enter_up"] > 0.08 and keysound_on():
                             ACCEPT.play()
                     if cat:
                         state["down"][kc] = cat
@@ -502,7 +582,7 @@ def main():
                 for line in f:
                     jobs.put(line.strip())
 
-    for target in (worker, fifo_reader, layouts.watch_external, layouts.watch_keys):
+    for target in (worker, fifo_reader, layouts.watch_external, layouts.watch_keys, watch_audio):
         threading.Thread(target=target, daemon=True).start()
     Gtk.main()
 

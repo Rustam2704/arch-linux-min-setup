@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Panel sound indicator (genmon): the speaker with its three arcs, and a red
+microphone beside it while something records. The state comes from
+$XDG_RUNTIME_DIR/audio.json, which osd-daemon keeps fresh from `pactl subscribe`
+and pokes this plugin after every change - so the script itself never asks the
+sound server. Click: audio-menu (sliders, mute, key sounds, mixer); the scroll
+wheel and the middle button are handled by deskd's layer over this plugin."""
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
+from sky_theme import THEME  # noqa: E402
+
+RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+STATE = os.path.join(RUN, "audio.json")
+ICON = os.path.join(RUN, "panel-audio.svg")
+DIM = ".14"
+
+
+def query():
+    """Fallback when osd-daemon has not written the state yet."""
+    def run(*a):
+        try:
+            return subprocess.run(["pactl", *a], capture_output=True, text=True, timeout=3).stdout
+        except OSError:
+            return ""
+    import re
+    vol = re.search(r"(\d+)%", run("get-sink-volume", "@DEFAULT_SINK@"))
+    mic = re.search(r"(\d+)%", run("get-source-volume", "@DEFAULT_SOURCE@"))
+    return {"volume": int(vol.group(1)) if vol else 0, "muted": "yes" in run("get-sink-mute", "@DEFAULT_SINK@"),
+            "mic": int(mic.group(1)) if mic else 0, "mic_muted": "yes" in run("get-source-mute", "@DEFAULT_SOURCE@"),
+            "recording": bool(run("list", "source-outputs", "short").strip())}
+
+
+try:
+    with open(STATE) as f:
+        state = json.load(f)
+except (OSError, ValueError):
+    state = query()
+
+vol, muted = state["volume"], state["muted"]
+lit = 0 if muted else (1 if vol <= 33 else 2 if vol <= 66 else 3)
+arcs = [("M34 26q6 6 0 12", THEME["warning"]), ("M41 20q12 12 0 24", THEME["success"]),
+        ("M48 14q18 18 0 36", THEME["light"])]
+horn = THEME["muted"] if muted else THEME["danger"]
+# the speaker is the same drawing as the icon theme's, moved to the right half of
+# the canvas; the left slot holds the microphone while recording and stays empty
+# otherwise, so nothing beside the indicator ever shifts
+body = f'<path fill="none" stroke="{horn}" stroke-width="2.6" d="M7 24h9l12-10v36L16 40H7z"/>'
+for i, (d, colour) in enumerate(arcs):
+    extra = "" if i < lit else f' opacity="{DIM}"'
+    body += f'<path fill="none" stroke="{colour}" stroke-width="4" d="{d}"{extra}/>'
+if muted:
+    body += f'<path fill="none" stroke="{THEME["danger"]}" stroke-width="4" d="m36 24 16 16m0-16L36 40"/>'
+mic = ""
+if state.get("recording"):
+    colour = THEME["muted"] if state.get("mic_muted") else THEME["danger"]
+    mic = (f'<g fill="none" stroke="{colour}" stroke-linecap="round" stroke-linejoin="round" transform="translate(-19 -12)">'
+           '<rect x="26" y="14" width="12" height="22" rx="6" stroke-width="2.6"/>'
+           '<path d="M21 29v1a11 11 0 0 0 22 0v-1" stroke-width="4"/><path d="M32 41v6M25 47h14" stroke-width="4"/></g>')
+svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="94" height="38" viewBox="0 0 94 38">'
+       f'{mic}<g stroke-linecap="round" stroke-linejoin="round" transform="translate(27 -12)">{body}</g></svg>')
+try:
+    old = open(ICON).read() if os.path.exists(ICON) else ""
+    if old != svg:
+        with open(ICON + ".tmp", "w") as f:
+            f.write(svg)
+        os.replace(ICON + ".tmp", ICON)
+except OSError:
+    pass
+
+tip = f"Volume: {'muted' if muted else f'{vol}%'}\nMicrophone: {'muted' if state.get('mic_muted') else f'{state.get('mic', 0)}%'}"
+if state.get("recording"):
+    tip += "\nRecording now"
+tip += "\nClick: sound menu · scroll: volume · middle: mute"
+print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
+print(f"<img>{ICON}</img>")
+print(f"<click>{os.path.expanduser('~/.local/bin/audio-menu')}</click>")
+print(f"<tool>{tip}</tool>")

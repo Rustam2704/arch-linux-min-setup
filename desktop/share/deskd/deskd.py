@@ -560,6 +560,7 @@ class Deskd:
         self.click_layers = {}      # plugin id -> click window over the strip
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
+        self.audio_layer = None     # InputOnly window over panel-audio: wheel = volume, middle = mute
         self.veils = {}             # dock frame id -> the dimming veil over that panel
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
         self.panel_windows = set()  # panel windows we watch the pointer on
@@ -612,6 +613,41 @@ class Deskd:
         if command in cache:
             spawn(["xfce4-panel", f"--plugin-event=genmon-{cache[command]}:refresh:bool:true"])
 
+    def place_audio_layer(self):
+        """genmon gets left clicks only; the wheel and the middle button over the sound
+        indicator go through a transparent window of ours (the plugin sits under it)."""
+        commands = {}
+        for key, value in panels.read_all().items():
+            if key.endswith("/command") and os.path.basename(value.strip()) == "panel-audio":
+                commands[key.split("/")[2].split("-")[1]] = value
+        if not commands:
+            return
+        pid = int(next(iter(commands)))
+        geom = self.plugin_geometry(pid)
+        if not geom:
+            return
+        if self.audio_layer is None:
+            win = self.xs.window(self.xs.root, *geom, input_only=True,
+                                 events=X.ButtonPressMask, cursor=self.xs.cursors["hand"])
+            self.audio_layer = win
+        self.audio_layer.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
+        self.audio_layer.map()
+
+    def audio_click(self, e):
+        if e.detail in (4, 5):
+            self.osd(f"vol {'up' if e.detail == 4 else 'down'}")
+        elif e.detail == 2:
+            self.osd("vol mute")
+        elif e.detail == 1:
+            spawn([os.path.expanduser("~/.local/bin/audio-menu")])
+
+    def osd(self, line):
+        try:
+            with open(os.path.join(RUN, "osd.fifo"), "w") as f:
+                f.write(line + "\n")
+        except OSError as e:
+            log("osd fifo:", e)
+
     def watch_panel_items(self):
         """Follow the pointer across the panel and work out what it is over. Pointer
         events are not exclusive, so watching the panel's own window takes nothing
@@ -636,6 +672,7 @@ class Deskd:
                 self.panel_windows.add(win.id)
             except error.XError:
                 pass
+        self.place_audio_layer()
         self.raise_overlays()
         return True
 
@@ -1205,6 +1242,10 @@ class Deskd:
                     return self.panel_pointer(-1, -1)
                 if t in (X.MotionNotify, X.EnterNotify):
                     return self.panel_pointer(e.root_x, e.root_y)
+                return None
+            if self.audio_layer is not None and wid == self.audio_layer.id:
+                if t == X.ButtonPress:
+                    return self.audio_click(e)
                 return None
             if self.ws_mark is not None and wid == self.ws_mark.win.id:
                 return self.ws_mark.draw()
