@@ -58,7 +58,7 @@ ACCENT_LIGHT = theme_rgb("light")
 BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 DANGER = theme_rgb("danger")             # drop targets on the workspace strip
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
-PANEL_WS_COUNT = 5            # workspaces always shown per screen
+PANEL_WS_COUNT = 6            # workspaces always shown per screen
 MARK_FILE = os.path.join(RUN, "deskd-mark.json")   # where the active digit is, for sky-stars
 # windows closed the moment they appear: (class, title). Sublime Text ignores
 # "update_check": false for an unregistered copy and nags on every start.
@@ -83,7 +83,8 @@ MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
 STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both sides of each workspace number
-STRIP_TAIL = "\u2007"          # one more at the end: genmon centres the strip, so this
+STRIP_END = "\u200a"           # hair space after the last number: the standard 15 px to the line
+STRIP_TAIL = ""                # (a trailing spacer used to push the numbers left; the end pad does that now)
                               # shifts the numbers left, away from the separator next to them
 
 
@@ -2016,6 +2017,9 @@ class Deskd:
             # (see ActiveMark), and the one under the pointer by the hole in the veil
             segs.append((STRIP_PAD + label + STRIP_PAD,
                          f'<span foreground="{colour}"{extra}>{STRIP_PAD}{label}{STRIP_PAD}</span>'))
+        if segs:                                     # the last cell ends in the thin end pad
+            plain, markup = segs[-1]
+            segs[-1] = (plain[:-1] + STRIP_END, markup.replace(STRIP_PAD + "</span>", STRIP_END + "</span>"))
         return segs
 
     def render_workspaces(self, workspaces):
@@ -2264,17 +2268,19 @@ class Deskd:
             c.set_source_rgba(0, 0, 0, 0)              # see-through: the numbers stay the panel's
             c.paint()
             c.set_operator(cairo.OPERATOR_OVER)
-            # a red frame around each workspace, in the palette; the one under the
-            # pointer fills with the same red at 20 %
+            # a red square, in the palette, centred on each number's ink (the cells are
+            # wider than the numbers and a glyph is not centred in its advance); the
+            # one under the pointer fills with the same red at 20 %
+            side = h - 14
             for (lo, hi), (label, num) in zip(bounds, items):
-                x0, cw = lo - gx, hi - lo
+                x0 = round(self.digit_centre(label, lo, hi) - gx - side / 2) + 0.5
                 if num == hot:
                     c.set_source_rgba(*rgb(DANGER, 0.2))
-                    c.rectangle(x0 + 3, 5, cw - 6, h - 10)
+                    c.rectangle(x0, 7.5, side, side)
                     c.fill()
                 c.set_source_rgba(*rgb(DANGER, 0.9))
-                c.set_line_width(2)
-                c.rectangle(x0 + 3, 5, cw - 6, h - 10)
+                c.set_line_width(1)
+                c.rectangle(x0, 7.5, side, side)
                 c.stroke()
             s.flush()
             self.xs.paint(t["win"], s, 32)

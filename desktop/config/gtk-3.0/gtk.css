@@ -25,7 +25,7 @@ calendar:selected {
 /* The tray's "show hidden items" arrow (Zoom's icon is hidden: its window is in the
    dock). It cannot be removed, so it is invisible, and the tray sits between the
    workspace strip and the separator line, where its 18 px vanish into the gap. */
-#systray-6 button:not(#sn-button) { opacity: 0; }
+#systray-6 button:not(#sn-button) { opacity: 0; min-width: 0; min-height: 0; padding: 0; margin: 0; }
 
 /* Dock (docklike): its box keeps 6 px between buttons; the button padding makes the
    standard 15 px between icons, like everywhere else on the panel. */
