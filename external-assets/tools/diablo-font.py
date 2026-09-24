@@ -4,7 +4,7 @@
 Each glyph is a 32x31 cell in the sprite sheet, one per byte value (Latin-1);
 font30.bin holds two header bytes and then the advance of every character. The
 letter's body is the light pixels (the dark outline around it is dropped: the
-panel colours the text itself), and every lit pixel becomes a square contour, so at
+panel colours the text itself), and the lit pixels become one outline (their union, no seams), so at
 15 pt on the 144 dpi panel (a 30 px em) the font lands pixel for pixel as in the
 game. Digits get tabular alternates under the `tnum` feature, the way the panel
 asks for them: same advance, ink centred.
@@ -36,29 +36,40 @@ CODES = [*range(32, 127), 176]   # the ASCII cells and the degree sign; the rest
                                  # not Latin-1 (Pango falls back to the UI font for those characters)
 
 
-def rectangles(rows):
-    """Maximal rectangles of lit pixels: runs per row, merged with equal runs below."""
-    runs = {}
-    for y, row in enumerate(rows):
-        x = 0
-        while x < len(row):
-            if row[x]:
-                x0 = x
-                while x < len(row) and row[x]:
-                    x += 1
-                runs.setdefault((x0, x), []).append(y)
+def contours(rows):
+    """Closed outlines of the lit pixels as one union: every pixel contributes its four
+    edges, edges shared by two lit pixels cancel, the rest are chained into loops.
+    (Separate rectangles per row touched along shared edges, and at any size that
+    is not a whole multiple of the pixel the antialiasing of the two abutting shapes
+    left a light seam - the "horizontal lines" through the letters at 18 pt.)"""
+    lit = {(x, y) for y, row in enumerate(rows) for x, on in enumerate(row) if on}
+    edges = {}
+    for x, y in lit:
+        # directed edges, outline running clockwise in a y-down grid
+        for a, b in (((x, y), (x + 1, y)), ((x + 1, y), (x + 1, y + 1)),
+                     ((x + 1, y + 1), (x, y + 1)), ((x, y + 1), (x, y))):
+            if (b, a) in edges:
+                del edges[(b, a)]          # the neighbour's opposite edge: interior
             else:
-                x += 1
-    rects = []
-    for (x0, x1), ys in runs.items():
-        start = prev = ys[0]
-        for y in ys[1:] + [None]:
-            if y != prev + 1:
-                rects.append((x0, start, x1, prev + 1))
-                if y is not None:
-                    start = y
-            prev = y if y is not None else prev
-    return rects
+                edges[(a, b)] = True
+    nxt = {}
+    for a, b in edges:
+        nxt.setdefault(a, []).append(b)
+    loops = []
+    while nxt:
+        start = next(iter(nxt))
+        loop, cur = [start], start
+        while True:
+            outs = nxt[cur]
+            b = outs.pop()
+            if not outs:
+                del nxt[cur]
+            if b == start:
+                break
+            loop.append(b)
+            cur = b
+        loops.append(loop)
+    return loops
 
 
 def main():
@@ -81,12 +92,11 @@ def main():
             continue
         name = f"uni{code:04X}"
         pen = TTGlyphPen(None)
-        for x0, y0, x1, y1 in rectangles(rows):
-            top, bottom = (BASELINE - y0) * U, (BASELINE - y1) * U
-            pen.moveTo((x0 * U, bottom))
-            pen.lineTo((x0 * U, top))
-            pen.lineTo((x1 * U, top))
-            pen.lineTo((x1 * U, bottom))
+        for loop in contours(rows):
+            pts = [(x * U, (BASELINE - y) * U) for x, y in loop]
+            pen.moveTo(pts[0])
+            for pt in pts[1:]:
+                pen.lineTo(pt)
             pen.closePath()
         glyphs[name] = pen.glyph()
         adv = (widths[code] or (8 if code == 32 else 10)) + SPACING

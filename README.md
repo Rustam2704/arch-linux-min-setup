@@ -20,6 +20,7 @@ desktop/                 объявленное состояние систем�
   home/                  → ~                   .Xresources
   system/                → /                   /usr/local/bin/xfce-i3-session, /usr/share/xsessions/xfce-i3.desktop
   xfconf/                → xfconf-query        свойства xfconf (раскладка панели), ставятся живьём, откат по свойству
+  config/xfce4/panel/    → ~/.config/xfce4/panel   docklike-57.rc: закреплённые в доке (док сам переписывает при перестановке)
 tools/desktop.py         check · build · diff · apply · status · packages (файлы дерева и свойства xfconf)
 tests/                   unit-тесты календаря и GTK smoke-тест (xvfb)
 assets/                  исходники, которые не ставятся как есть: плагин Qt scroll-phases, иконки, userscripts

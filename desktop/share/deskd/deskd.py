@@ -56,6 +56,7 @@ TITLE_BG_OTHER = theme_rgb("background")
 ACCENT = theme_rgb("accent")
 ACCENT_LIGHT = theme_rgb("light")
 BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
+DANGER = theme_rgb("danger")             # drop targets on the workspace strip
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
 PANEL_WS_COUNT = 5            # workspaces always shown per screen
 MARK_FILE = os.path.join(RUN, "deskd-mark.json")   # where the active digit is, for sky-stars
@@ -2225,20 +2226,21 @@ class Deskd:
                 t["surface"] = s
             c = cairo.Context(s)
             c.set_operator(cairo.OPERATOR_SOURCE)      # the strip is reused, so overwrite
-            c.set_source_rgba(0.04, 0.06, 0.07, 0.96)
+            c.set_source_rgba(0, 0, 0, 0)              # see-through: the numbers stay the panel's
             c.paint()
             c.set_operator(cairo.OPERATOR_OVER)
-            c.select_font_face("Inter", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-            c.set_font_size(h * 0.42)
+            # a red frame around each workspace, in the palette; the one under the
+            # pointer fills with the same red at 20 %
             for (lo, hi), (label, num) in zip(bounds, items):
                 x0, cw = lo - gx, hi - lo
-                c.set_source_rgba(*rgb(ACCENT, 0.9 if num == hot else 0.18))
-                c.rectangle(x0 + 2, 4, cw - 4, h - 8)
-                c.fill()
-                c.set_source_rgba(*(rgb((255, 255, 255)) if num == hot else rgb(ACCENT_LIGHT)))
-                ext = c.text_extents(label)
-                c.move_to(x0 + cw / 2 - ext.width / 2 - ext.x_bearing, h / 2 - ext.height / 2 - ext.y_bearing)
-                c.show_text(label)
+                if num == hot:
+                    c.set_source_rgba(*rgb(DANGER, 0.2))
+                    c.rectangle(x0 + 3, 5, cw - 6, h - 10)
+                    c.fill()
+                c.set_source_rgba(*rgb(DANGER, 0.9))
+                c.set_line_width(2)
+                c.rectangle(x0 + 3, 5, cw - 6, h - 10)
+                c.stroke()
             s.flush()
             self.xs.paint(t["win"], s, 32)
 
