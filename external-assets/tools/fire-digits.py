@@ -187,7 +187,9 @@ def main():
             hc.rectangle(0, ABOVE, W, 7)
             hc.fill()
             hc.translate(hole_x, ABOVE)
-            for width, alpha in ((14, 0.3), (9, 0.6), (5, 1.0)):
+            # a wide halo: in the game the fire fills the letters and curls round them
+            # (the O's flame wraps its right side), and that is what the user wants kept
+            for width, alpha in ((40, 0.3), (28, 0.6), (16, 1.0)):
                 hc.set_source_rgba(0, 0, 0, alpha)
                 for dx in range(-width // 2, width // 2 + 1, 2):
                     for dy in range(-width // 2, width // 2 + 1, 2):

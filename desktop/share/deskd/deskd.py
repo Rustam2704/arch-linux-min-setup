@@ -87,8 +87,8 @@ STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both si
 STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with the tray's invisible
                               # 18 px next to it, 15 px from the sixth number's pentagram to the line
 STRIP_TAIL = ""                # (a trailing spacer used to push the numbers left; the end pad does that now)
-STRIP_SHIFT = 16               # px the numbers sit below the panel's centre: room above for the
-                              # whole flame of the game's logo (padding-top 2x this on the plugin)
+STRIP_SHIFT = 0                # px the numbers sit below the panel's centre (0: centred; the flame
+                              # sheets rise past the top of the screen and that part is simply unseen)
                               # shifts the numbers left, away from the separator next to them
 
 
