@@ -27,11 +27,11 @@
    "flame": 1,
    "digit": 3,
    "width": 43,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 11,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame1-digit4.png": {
    "flame": 1,
@@ -57,11 +57,11 @@
    "flame": 1,
    "digit": 6,
    "width": 43,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 11,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame1-digit7.png": {
    "flame": 1,
@@ -77,11 +77,11 @@
    "flame": 1,
    "digit": 8,
    "width": 40,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 11,
    "digit_width": 14,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame1-digit9.png": {
    "flame": 1,
@@ -117,11 +117,11 @@
    "flame": 2,
    "digit": 3,
    "width": 52,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame2-digit4.png": {
    "flame": 2,
@@ -147,11 +147,11 @@
    "flame": 2,
    "digit": 6,
    "width": 52,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame2-digit7.png": {
    "flame": 2,
@@ -167,11 +167,11 @@
    "flame": 2,
    "digit": 8,
    "width": 52,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 22,
    "digit_width": 14,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame2-digit9.png": {
    "flame": 2,
@@ -207,11 +207,11 @@
    "flame": 3,
    "digit": 3,
    "width": 45,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 13,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame3-digit4.png": {
    "flame": 3,
@@ -237,11 +237,11 @@
    "flame": 3,
    "digit": 6,
    "width": 45,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 13,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame3-digit7.png": {
    "flame": 3,
@@ -257,11 +257,11 @@
    "flame": 3,
    "digit": 8,
    "width": 42,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 13,
    "digit_width": 14,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame3-digit9.png": {
    "flame": 3,
@@ -297,11 +297,11 @@
    "flame": 4,
    "digit": 3,
    "width": 48,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 22,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame4-digit4.png": {
    "flame": 4,
@@ -327,11 +327,11 @@
    "flame": 4,
    "digit": 6,
    "width": 48,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 22,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame4-digit7.png": {
    "flame": 4,
@@ -347,11 +347,11 @@
    "flame": 4,
    "digit": 8,
    "width": 45,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
    "digit_width": 14,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame4-digit9.png": {
    "flame": 4,
@@ -387,11 +387,11 @@
    "flame": 5,
    "digit": 3,
    "width": 52,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 14,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame5-digit4.png": {
    "flame": 5,
@@ -417,11 +417,11 @@
    "flame": 5,
    "digit": 6,
    "width": 52,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 14,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame5-digit7.png": {
    "flame": 5,
@@ -437,11 +437,11 @@
    "flame": 5,
    "digit": 8,
    "width": 49,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 14,
    "digit_width": 14,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame5-digit9.png": {
    "flame": 5,
@@ -477,11 +477,11 @@
    "flame": 6,
    "digit": 3,
    "width": 45,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame6-digit4.png": {
    "flame": 6,
@@ -507,11 +507,11 @@
    "flame": 6,
    "digit": 6,
    "width": 45,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 21,
    "digit_width": 16,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame6-digit7.png": {
    "flame": 6,
@@ -527,11 +527,11 @@
    "flame": 6,
    "digit": 8,
    "width": 42,
-   "height": 52,
+   "height": 53,
    "above": 22,
    "hole_x": 20,
    "digit_width": 14,
-   "digit_height": 24
+   "digit_height": 25
   },
   "flame6-digit9.png": {
    "flame": 6,

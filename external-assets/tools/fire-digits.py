@@ -41,6 +41,7 @@ LETTER_TOP = 78                     # first row of the letters; the flames live 
 ABOVE, BELOW = 22, 6                # the flame rises ABOVE px over the digit's top (the panel ends there)
 HUG = 16                            # digit width + this = the flame width at the digit (sets the scale)
 AIR = 1.5                           # the cut-out is a little wider than the glyph
+SIDE_FADE = 8                       # px of fade at each side of a sheet
 LETTERS = [(17, 71), (98, 114), (142, 176), (202, 232), (260, 287), (313, 364)]
 # each flame's full width, measured: where its fire really is, split from the
 # neighbour at the column with the least fire, plus 6 px of overlap - nothing clipped
@@ -201,12 +202,14 @@ def main():
             ec.set_source(fade)
             ec.rectangle(0, H - 8, W, 8)
             ec.fill()
-            for x0, x1 in ((0, 3), (W, W - 3)):
+            # the sides fade over 8 px: the logo's last flame runs into the image's
+            # right edge, and a 3 px fade still read as a cut at the sixth number
+            for x0, x1 in ((0, SIDE_FADE), (W, W - SIDE_FADE)):
                 fade = cairo.LinearGradient(x0, 0, x1, 0)
                 fade.add_color_stop_rgba(0, 0, 0, 0, 0)
                 fade.add_color_stop_rgba(1, 0, 0, 0, 1)
                 ec.set_source(fade)
-                ec.rectangle(min(x0, x1), 0, 3, H - 8)
+                ec.rectangle(min(x0, x1), 0, SIDE_FADE, H - 8)
                 ec.fill()
             edge.flush()
             sheet = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H * FRAMES)

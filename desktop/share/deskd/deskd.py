@@ -66,6 +66,7 @@ DISMISS = {("Sublime_text", "Update - Sublime Text")}
 # window classes kept out of the dock (_NET_WM_STATE_SKIP_TASKBAR, which docklike
 # honours and i3 4.25 leaves alone): Telegram has its own panel indicator instead
 NO_DOCK = {"TelegramDesktop"}
+TARGET_MARGIN = 40            # px the drop-target overlay extends past the workspace strip
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
 POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
@@ -2239,7 +2240,9 @@ class Deskd:
             if not view:
                 continue
             (x, y, w, h), _, _ = view
-            win = self.xs.window(self.xs.root, x, y, w, h, argb=True)
+            # wider than the strip by a margin each side: the frames are centred on the
+            # numbers and the outer ones reach past the strip's edges
+            win = self.xs.window(self.xs.root, x - TARGET_MARGIN, y, w + 2 * TARGET_MARGIN, h, argb=True)
             win.map()
             win.configure(stack_mode=X.Above)
             self.targets[pid] = {"win": win, "out": out, "surface": None}
@@ -2260,6 +2263,7 @@ class Deskd:
             if not view:
                 continue
             (gx, _, w, h), items, bounds = view
+            gx, w = gx - TARGET_MARGIN, w + 2 * TARGET_MARGIN
             s = t.get("surface")
             if s is None or s.get_width() != w or s.get_height() != h:
                 s = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
