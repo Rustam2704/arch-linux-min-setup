@@ -9,6 +9,10 @@ export DESKTOP_SESSION=xfce-i3
 # Restore physical touchpad scroll phases for Qt applications on X11.
 export QT_QPA_GENERIC_PLUGINS="${QT_QPA_GENERIC_PLUGINS:+$QT_QPA_GENERIC_PLUGINS,}scrollphases"
 
+# The dock right-to-left (new programs at its left edge): a GTK module that acts only
+# inside the panel wrapper hosting docklike - see assets/dock-rtl/README.md.
+export GTK_MODULES="${GTK_MODULES:+$GTK_MODULES:}$HOME/.local/share/sky-desktop/libdock-rtl.so"
+
 # HiDPI: 2560x1600 on 13" — 1.5x
 xrdb -merge "$HOME/.Xresources" 2>/dev/null
 

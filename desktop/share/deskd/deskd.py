@@ -83,7 +83,8 @@ MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
 STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both sides of each workspace number
-STRIP_END = "\u200a"           # hair space after the last number: the standard 15 px to the line
+STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with the tray's invisible
+                              # 18 px next to it, 15 px from the sixth number's pentagram to the line
 STRIP_TAIL = ""                # (a trailing spacer used to push the numbers left; the end pad does that now)
                               # shifts the numbers left, away from the separator next to them
 
@@ -2268,19 +2269,21 @@ class Deskd:
             c.set_source_rgba(0, 0, 0, 0)              # see-through: the numbers stay the panel's
             c.paint()
             c.set_operator(cairo.OPERATOR_OVER)
-            # a red square, in the palette, centred on each number's ink (the cells are
-            # wider than the numbers and a glyph is not centred in its advance); the
-            # one under the pointer fills with the same red at 20 %
-            side = h - 14
+            # a red frame, in the palette, centred on each number's ink (the cells are
+            # wider than the numbers and a glyph is not centred in its advance), as wide
+            # as a cell less a 6 px gap - the space between the numbers is a target too;
+            # the one under the pointer fills with the same red at 20 %
+            wide = max(hi - lo for lo, hi in bounds) - 6 if bounds else 0
+            tall = h - 14
             for (lo, hi), (label, num) in zip(bounds, items):
-                x0 = round(self.digit_centre(label, lo, hi) - gx - side / 2) + 0.5
+                x0 = round(self.digit_centre(label, lo, hi) - gx - wide / 2) + 0.5
                 if num == hot:
                     c.set_source_rgba(*rgb(DANGER, 0.2))
-                    c.rectangle(x0, 7.5, side, side)
+                    c.rectangle(x0, 7.5, wide, tall)
                     c.fill()
                 c.set_source_rgba(*rgb(DANGER, 0.9))
                 c.set_line_width(1)
-                c.rectangle(x0, 7.5, side, side)
+                c.rectangle(x0, 7.5, wide, tall)
                 c.stroke()
             s.flush()
             self.xs.paint(t["win"], s, 32)

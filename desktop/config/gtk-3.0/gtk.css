@@ -30,4 +30,4 @@ calendar:selected {
 /* Dock (docklike): its box keeps 6 px between buttons; the button padding makes the
    standard 15 px between icons, like everywhere else on the panel. */
 #docklike-plugin button { padding: 0 1px 0 2px; }
-#docklike-plugin { padding-right: 6px; }   /* the dock ends at the workspace strip: 15 px to the flame over its first number */
+#docklike-plugin { padding-right: 9px; }   /* the dock ends at the workspace strip: 15 px to the flame over its first number */

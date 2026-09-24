@@ -23,7 +23,7 @@ desktop/                 объявленное состояние систем�
   config/xfce4/panel/    → ~/.config/xfce4/panel   docklike-57.rc: закреплённые в доке (док сам переписывает при перестановке)
 tools/desktop.py         check · build · diff · apply · status · packages (файлы дерева и свойства xfconf)
 tests/                   unit-тесты календаря и GTK smoke-тест (xvfb)
-assets/                  исходники, которые не ставятся как есть: плагин Qt scroll-phases, иконки, userscripts
+assets/                  исходники, которые не ставятся как есть: плагин Qt scroll-phases, GTK-модуль dock-rtl, иконки, userscripts
 lab/                     журнал изменений системы (lab, rollback.py, journal.tsv); backups/ вне git
 packages.txt             пакеты, которые нужны дереву
 ```

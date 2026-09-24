@@ -14,10 +14,10 @@
       <property name="nrows" type="uint" value="1"/>
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
-        <value type="int" value="6"/>
         <value type="int" value="50"/>
         <value type="int" value="57"/>
         <value type="int" value="45"/>
+        <value type="int" value="6"/>
         <value type="int" value="52"/>
         <value type="int" value="40"/>
         <value type="int" value="60"/>
