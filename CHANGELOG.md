@@ -1309,3 +1309,11 @@ Claude Code хранит расшифровки (и файлы памяти) в 
 `python-requests`, `python-beautifulsoup4`, `python-lxml` (обход и переписывание HTML/CSS)
 и `geckodriver` (headless-проверки в Firefox Developer Edition через WebDriver).
 Никаких сервисов и конфигов не добавлено; при сносе проекта их можно удалить.
+
+## Пакеты для проекта nutri-website, часть 2 (24.09)
+
+Опять инструменты разработки, не рабочий стол: из extra — `github-cli`, `npm`, `rclone`
+(в итоге не пригодился, можно удалить), `python-pillow`, `python-fonttools`, `python-brotli`;
+через npm в `~/.local` (prefix переключён на `~/.local`) — `wrangler`; Playwright положил
+headless Chromium в `~/.cache/ms-playwright` (~200 МБ) для проверок design-sync.
+`gh` залогинен токеном пользователя (`~/.config/gh/hosts.yml`), wrangler — OAuth в `~/.config/.wrangler/`.
