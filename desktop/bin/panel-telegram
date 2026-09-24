@@ -45,5 +45,8 @@ print(f"<img>{os.path.join(ICONS, icon)}</img>")
 if text:
     print(f"<txt>{text} </txt>")
 print(f"<tool>{tip}</tool>")
-# clicking the indicator behaves like clicking Telegram's tray icon
-print(f"<txtclick>{os.path.expanduser('~/.local/bin/telegram-toggle')}</txtclick>")
+# clicking the indicator behaves like clicking Telegram's tray icon: <click> is the
+# image (genmon's only click target when there is no text), <txtclick> the count
+toggle = os.path.expanduser("~/.local/bin/telegram-toggle")
+print(f"<click>{toggle}</click>")
+print(f"<txtclick>{toggle}</txtclick>")
