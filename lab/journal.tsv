@@ -465,3 +465,8 @@
 2026-09-24T02:47:18+03:00	46-paste-image	file	/home/fanatic/.local/bin/paste-image	
 2026-09-24T02:47:18+03:00	46-paste-image	backup	/home/fanatic/.config/Thunar/accels.scm	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_Thunar_accels.scm.E1oPNh.bak
 2026-09-24T02:47:18+03:00	46-paste-image	backup	/home/fanatic/.config/Thunar/uca.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_Thunar_uca.xml.pOnqj2.bak
+2026-09-24T03:14:41+03:00	46-paste-image	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.QMSvca.bak
+2026-09-24T03:14:41+03:00	46-paste-image	backup	/home/fanatic/.local/bin/paste-image	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_paste-image.dT02OT.bak
+2026-09-24T03:14:41+03:00	46-paste-image	backup	/home/fanatic/.config/Thunar/accels.scm	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_Thunar_accels.scm.EP873r.bak
+2026-09-24T03:14:41+03:00	46-paste-image	backup	/home/fanatic/.config/Thunar/uca.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_Thunar_uca.xml.LdAkAM.bak
+2026-09-24T03:14:41+03:00	46-paste-image	cmd	xfconf-query -c thunar -p /misc-window-title-style -r	

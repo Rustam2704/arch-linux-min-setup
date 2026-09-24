@@ -18,7 +18,7 @@
 	<submenu></submenu>
 	<unique-id>1758668400000000-2</unique-id>
 	<command>@HOME@/.local/bin/paste-image %f %d</command>
-	<description>Save the image from the clipboard here, named by the current time (Ctrl+V)</description>
+	<description>Save the image from the clipboard here, named by the current time (also Ctrl+V)</description>
 	<range></range>
 	<patterns>*</patterns>
 	<audio-files/>

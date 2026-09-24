@@ -300,6 +300,32 @@ class Chords:
         return combo
 
 
+def thunar_folder(local):
+    """The folder shown by the focused Thunar window, or None. Thunar is set to put
+    the full path into the title ("/home/me/Pictures - Thunar": xfconf thunar
+    /misc-window-title-style = full path with suffix), the only place it tells."""
+    try:
+        root = local.screen().root
+        win = local.get_input_focus().focus
+        cls = title = None
+        while win and win != root:                # up to the top-level window
+            if cls is None:
+                cls = win.get_wm_class()
+            if title is None:
+                name = win.get_full_property(local.intern_atom("_NET_WM_NAME"), 0)
+                if name and name.value:
+                    title = name.value.decode(errors="replace") if isinstance(name.value, bytes) else str(name.value)
+            if cls and title:
+                break
+            win = win.query_tree().parent
+    except Exception:                             # noqa: BLE001 - no window, no folder
+        return None
+    if not cls or cls[1] != "Thunar" or not title or not title.endswith(" - Thunar"):
+        return None
+    folder = title[:-len(" - Thunar")]
+    return folder if os.path.isdir(folder) else None
+
+
 def layout_names():
     """['EN', 'RU', 'UA'] in XKB group order, from the live keymap."""
     names = []
@@ -576,6 +602,7 @@ class Layouts:
         arrows = {kc for sym in ("Left", "Right", "Up", "Down", "KP_Left", "KP_Right", "KP_Up", "KP_Down")
                   for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym(sym))}
         keyed = enter | arrows
+        paste = {kc for kc, _ in local.keysym_to_keycodes(XK.string_to_keysym("v"))}   # the V key, any layout
         def handler(reply):
             data = reply.data
             while len(data):
@@ -591,6 +618,14 @@ class Layouts:
                         if ev.time - state["key_up"] > 8 and keysound_on():
                             SOUNDS.play("accept" if kc in enter else "move")
                     chords.press(kc)
+                    if kc in paste and set(chords.down.values()) == {"ctrl"}:
+                        folder = thunar_folder(local)
+                        if folder:
+                            # Ctrl+V in Thunar with an image on the clipboard: Thunar's own
+                            # paste knows only files, and its custom-action shortcuts match the
+                            # keyval (so not on RU/UA) - the keycode is watched here instead
+                            threading.Thread(target=run, daemon=True,
+                                             args=(os.path.expanduser("~/.local/bin/paste-image"), folder)).start()
                 elif ev.type == X.KeyRelease:
                     if kc in keyed:
                         state["key_up"] = ev.time

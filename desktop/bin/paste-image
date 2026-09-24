@@ -3,15 +3,21 @@
 becomes a PNG in the folder you are looking at, named by the moment of pasting
 ("2026-09-24 02-15-33.png"); copied or cut files are pasted as before.
 
-Thunar runs this as the custom action "Paste image" (uca.xml; the accelerator in
-accels.scm gives it Ctrl+V, which takes the key from Thunar's own paste - so the
-file case is handed straight back to Thunar over D-Bus, CopyInto / MoveInto, with
-its usual progress and conflict dialogs). Arguments: %f %d - the first selected
-item and its folder; with nothing selected, %f is the folder itself."""
+Why a script and not Thunar itself: Thunar's paste knows only files, and its
+accelerator does not check the clipboard first - Ctrl+V with an image on it pops
+"There is nothing on the clipboard to paste". So Thunar's own Ctrl+V is unbound
+(accels.scm; Shift+Insert and the Edit menu stay), osd-daemon watches the key by
+keycode (any layout: Thunar's custom-action shortcuts compare keyvals and miss on
+RU/UA) and runs this with the folder from the window title (Thunar is set to show
+the full path there). Files are handed back to Thunar over D-Bus, CopyInto /
+MoveInto, with its usual progress and conflict dialogs.
+
+The folder's context menu has the same thing as the custom action "Paste image"
+(uca.xml); from there the arguments are %f %d - the first selected item and its
+folder; with nothing selected, %f is the folder itself, so the title decides."""
 import os
 import sys
 import time
-import urllib.parse
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -24,14 +30,12 @@ COPIED = "x-special/gnome-copied-files"
 def target_folder(argv):
     """Where to paste: the folder shown in the window, never a selected sub-folder."""
     f = os.path.abspath(argv[1]) if len(argv) > 1 else os.getcwd()
-    d = os.path.abspath(argv[2]) if len(argv) > 2 else os.path.dirname(f)
+    if len(argv) < 3:
+        return f                                        # from osd-daemon: the folder itself
+    d = os.path.abspath(argv[2])
     if not os.path.isdir(f):
         return d                                        # a file is selected
-    # a folder: the one on show (no selection) or a selected one - the same two
-    # arguments either way; the focused window's title tells them apart
-    # ("<name> - Thunar")
-    title = window_title()
-    return f if title.startswith(os.path.basename(f) + " - ") or not title else d
+    return f if window_title().startswith(f + " - ") else d
 
 
 def window_title():
@@ -77,7 +81,7 @@ def paste_files(clipboard, folder):
 def paste_image(clipboard, folder):
     image = clipboard.wait_for_image()
     if image is None:
-        return False
+        return
     stamp = time.strftime("%Y-%m-%d %H-%M-%S")
     path = os.path.join(folder, f"{stamp}.png")
     n = 2
@@ -85,7 +89,6 @@ def paste_image(clipboard, folder):
         path = os.path.join(folder, f"{stamp} ({n}).png")
         n += 1
     image.savev(path, "png", [], [])
-    return True
 
 
 def main():
@@ -97,7 +100,7 @@ def main():
         paste_files(clipboard, folder)
     elif any(n.startswith("image/") for n in names):
         paste_image(clipboard, folder)
-    return 0                                            # nothing to paste: nothing happens
+    return 0                                            # text or nothing: nothing happens
 
 
 if __name__ == "__main__":
