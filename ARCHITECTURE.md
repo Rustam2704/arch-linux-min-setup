@@ -22,6 +22,10 @@ LightDM автологинит в эту сессию (`/usr/share/xsessions/xfc
 
 ## Общая библиотека `~/.local/share/sky-desktop/`
 
+`sky_text.py` — ширина разметки Pango шрифтом плагина (xfconf) при DPI экрана и
+дополнение прозрачными нулями/`letter_spacing` до заданной ширины (`pad_to`): так «offline»
+у пинга и EN/RU/UA у раскладки держат одну ширину.
+
 `theme.json` (стиль, см. README), `sky_theme.py` (`THEME`, `css()`, `rgb()`, `icon()`),
 `i3ipc.py` (клиент i3 IPC: `I3` для команд и запросов; `subscribe()`/`decode()` для сырого
 сокета в цикле `select()`; `Subscription` для GLib — GLib импортируется лениво).

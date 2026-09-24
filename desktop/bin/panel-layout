@@ -1,21 +1,16 @@
 #!/bin/sh
-# Keyboard layout for the panel (genmon): EN / RU / UA, written by osd-daemon,
-# which also refreshes this plugin the moment the layout changes.
-# Each language has its own colour, and the code is set in the monospaced panel
-# font: in a proportional one EN/RU/UA are 27/28/29 px wide, and every change of
-# layout nudged everything to the left of this plugin.
-name=$(cat "${XDG_RUNTIME_DIR:-/tmp}/kbd-layout" 2>/dev/null || echo "--")
-case "$name" in
-    EN) COLOUR="@COLOUR_LAYOUTS_EN@" ;;   # blue, like the flag
-    RU) COLOUR="@COLOUR_LAYOUTS_RU@" ;;   # dark brown
-    UA) COLOUR="@COLOUR_LAYOUTS_UA@" ;;   # yellow
-    *)  COLOUR="@COLOUR_MUTED@" ;;
-esac
+# Keyboard layout for the panel (genmon): EN / RU / UA in the plugin's own font,
+# written by osd-daemon as markup padded to one width for every language (the
+# font is proportional, and a change of layout must not nudge the neighbours);
+# osd-daemon also refreshes this plugin the moment the layout changes.
+run="${XDG_RUNTIME_DIR:-/tmp}"
+name=$(cat "$run/kbd-layout" 2>/dev/null || echo "--")
+markup=$(cat "$run/kbd-layout.markup" 2>/dev/null || echo "<span foreground=\"@COLOUR_MUTED@\">$name</span>")
 
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.
 echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>'
-echo "<txt><span font=\"JetBrainsMono Nerd Font Mono 17\" weight=\"bold\" foreground=\"$COLOUR\">$name</span></txt>"
+echo "<txt>$markup</txt>"
 echo "<txtclick>$HOME/.local/bin/osd layout next</txtclick>"
 echo "<tool>Keyboard layout: $name
 Alt+Shift: English / Russian

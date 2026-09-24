@@ -31,12 +31,14 @@ WINDOW = 10                     # seconds for the median and the loss
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME, icon
+import sky_text  # noqa: E402
 ACCENT, WARN, CRIT, DIM, TEXT = (THEME[k] for k in ("light", "warning", "danger", "muted", "foreground"))
 GAP = '<span size="50%"> </span>'      # half a space: a word and its number belong together
 NERD = "JetBrainsMono Nerd Font Propo"
 WIFI_OFF, WIRED, TETHER = "\U000f05aa", "\U000f0200", "\U000f0227"
 LINK_EVERY = 10                 # seconds between asking NetworkManager about the link
 WIFI_ICON = os.path.join(RUN, "panel-wifi.svg")
+PANEL_PLUGIN = 41                       # the ping plugin: its font sets the widths
 
 
 def signal_dbm(iface, percent):
@@ -313,66 +315,12 @@ def numbers_markup(now, median, c_now, c_med):
             f'{GAP}{icon("latency")}</span> ')
 
 
-_widths = {}
-
-
-def text_width(markup):
-    """Width of panel markup in Pango units (1024 per px) as genmon draws it: the
-    plugin's own font at the screen's DPI, measured once per string (Pango, warmed
-    up on first use)."""
-    if markup in _widths:
-        return _widths[markup]
-    import gi
-    gi.require_version("Pango", "1.0")
-    gi.require_version("PangoCairo", "1.0")
-    from gi.repository import Pango, PangoCairo
-    import cairo
-    if "font" not in _widths:
-        font = subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-p", "/plugins/plugin-41/font"],
-                              capture_output=True, text=True).stdout.strip() or THEME["panel_font"]
-        dpi = 96.0
-        for line in subprocess.run(["xrdb", "-query"], capture_output=True, text=True).stdout.splitlines():
-            if line.startswith("Xft.dpi:"):
-                dpi = float(line.split()[1])
-        _widths["font"], _widths["dpi"] = font, dpi
-    ctx = PangoCairo.create_context(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 4, 4)))
-    PangoCairo.context_set_resolution(ctx, _widths["dpi"])
-    layout = Pango.Layout.new(ctx)
-    layout.set_font_description(Pango.FontDescription.from_string(_widths["font"]))
-    layout.set_markup(markup, -1)
-    _widths[markup] = layout.get_size()[0]
-    return _widths[markup]
-
-
 def as_wide_as_numbers(word):
-    """A word in the place of the two readings, padded with transparent zeroes (and
-    Pango letter spacing for the rest) to the exact width the readings take, so the
+    """A word in the place of the two readings, padded to exactly their width, so the
     icons beside it stay where they are when the network comes and goes."""
-    target = text_width(numbers_markup("000", "000", DIM, DIM))
+    font = sky_text.panel_font(PANEL_PLUGIN)
     tail = f'<span font_features="tnum">{word}{GAP}{icon("latency")}</span> '
-    gap = target - text_width(tail)
-    if gap <= 0:
-        return tail
-    zero = text_width('<span font_features="tnum">0</span>')
-    n, rest = divmod(gap, zero)
-
-    def padded(spacing):
-        # letter spacing (Pango units) on the last transparent zero settles the
-        # remainder; with no whole zero to spare it goes negative
-        zeros = "0" * max(0, n - 1) if n else ""
-        last = f'<span alpha="1" letter_spacing="{spacing}">0</span>'
-        return f'<span font_features="tnum"><span alpha="1">{zeros}</span>{last}</span>' + tail
-    spacing = rest if n else rest - zero
-    out = padded(spacing)
-    # kerning in context and Pango's rounding of advances to whole pixels: correct
-    # by what is missing, then nudge by half-pixel steps until the widths agree
-    for _ in range(6):
-        off = target - text_width(out)
-        if not off:
-            break
-        spacing += off if abs(off) > 512 else (512 if off > 0 else -512)
-        out = padded(spacing)
-    return out
+    return sky_text.pad_to(tail, sky_text.width(numbers_markup("000", "000", DIM, DIM), font), font)
 
 
 def line(label, s):

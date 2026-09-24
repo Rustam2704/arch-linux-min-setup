@@ -32,14 +32,17 @@ from gi.repository import Gtk, Gdk, GLib  # noqa: E402
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 FIFO = os.path.join(RUN, "osd.fifo")
 LAYOUT_FILE = os.path.join(RUN, "kbd-layout")
+LAYOUT_MARKUP = LAYOUT_FILE + ".markup"   # what panel-layout shows: padded to one width
 HIDE_MS = 1100
 MARGIN_TOP = 56          # one-row 44px panel + gap
 MARGIN_RIGHT = 24
 import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME, css  # noqa: E402
+import sky_text  # noqa: E402
 import xfpanel  # noqa: E402
 ACCENT = THEME["light"]
+PANEL_FONT_FAMILY = THEME["panel_font"].rsplit(" ", 1)[0]   # the badge is set in the panel font
 OVER = THEME["warning"]     # above 100%
 LAYOUT_COLOURS = THEME["layouts"]   # one colour per language, the same as in the panel
 VOL_STEP = 5
@@ -62,7 +65,7 @@ window { background: transparent; }
 #osd label { color: @COLOUR_FOREGROUND@; font-family: @FONT@; font-size: 15px; font-weight: 600;
              font-feature-settings: "tnum"; }
 #osd label.glyph { font-family: "@MONO_FONT@"; font-size: 19px; color: @COLOUR_LIGHT@; }
-#osd label.badge { font-size: 48px; font-weight: 700; color: @COLOUR_LIGHT@; letter-spacing: 4px; }
+#osd label.badge { font-family: "PANEL_FONT_FAMILY"; font-size: 48px; font-weight: 400; color: @COLOUR_LIGHT@; letter-spacing: 4px; }
 #osd.badge-mode { padding: 20px 32px; border-radius: 24px; border-width: 2px; }
 #osd label.value { color: @COLOUR_LIGHT@; }
 #osd.over label.value, #osd.over label.glyph { color: @COLOUR_WARNING@; }
@@ -75,7 +78,7 @@ progressbar trough { min-height: 6px; min-width: 190px; background-color: rgba(2
 progressbar progress { min-height: 6px; background-color: @COLOUR_LIGHT@; border: none; border-radius: 3px; }
 #osd.over progressbar progress { background-color: @COLOUR_WARNING@; }
 #osd.muted progressbar progress { background-color: @COLOUR_DIM@; }
-""").encode()
+""".replace("PANEL_FONT_FAMILY", PANEL_FONT_FAMILY)).encode()
 
 
 def run(*cmd):
@@ -544,11 +547,22 @@ class Layouts:
             with open(LAYOUT_FILE + ".tmp", "w") as f:
                 f.write(name)
             os.replace(LAYOUT_FILE + ".tmp", LAYOUT_FILE)
+            with open(LAYOUT_MARKUP + ".tmp", "w") as f:
+                f.write(self.panel_markup(name))
+            os.replace(LAYOUT_MARKUP + ".tmp", LAYOUT_MARKUP)
         except OSError:
             pass
         xfpanel.plugin_event(PANEL_LAYOUT_PLUGIN)
         if show:
             GLib.idle_add(self.osd.badge, name)
+
+    def panel_markup(self, name):
+        """The code in its colour, padded to the width of the widest one: the panel
+        font is proportional, and a change of layout must not nudge its neighbours."""
+        font = sky_text.panel_font(PANEL_LAYOUT_PLUGIN.split("-")[1])
+        widest = max(sky_text.width(n, font) for n in self.names)
+        colour = LAYOUT_COLOURS.get(name, THEME["muted"])
+        return sky_text.pad_to(f'<span foreground="{colour}">{name}</span>', widest, font, align="center")
 
     def switch(self, g):
         if g is None or g == self.current:
