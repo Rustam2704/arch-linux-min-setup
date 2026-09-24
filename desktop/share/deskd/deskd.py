@@ -571,6 +571,7 @@ class Deskd:
         self.veils = {}             # dock frame id -> the dimming veil over that panel
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
         self.panel_windows = set()  # panel windows we watch the pointer on
+        self.reflow_pending = False
         self.click_by_win = {}
         self.items_by_output = {}   # output -> ([(label, ws)], segments)
         self.bounds_cache = {}
@@ -661,7 +662,10 @@ class Deskd:
         away from it, and it is the only way to see the plugins that have no window
         of their own - the clock, the volume, the shutdown button."""
         self.panel_items = self.panel_regions()
-        mask = X.PointerMotionMask | X.EnterWindowMask | X.LeaveWindowMask
+        # StructureNotify: a plugin that changes width (the ping reads "offline", the
+        # dock gains an icon) reflows the whole panel, and the hole in the veil must
+        # follow the new positions at once, not at the next 20 s recheck
+        mask = X.PointerMotionMask | X.EnterWindowMask | X.LeaveWindowMask | X.StructureNotifyMask
         watch = []
         frames = {}
         for frame, geom in self.dock_frames():
@@ -795,6 +799,26 @@ class Deskd:
         self.__dict__.pop("_panel_font", None)     # the panel may have been restyled
         self.place_ws_clicks()
         return True
+
+    def panel_reflowed(self):
+        """A panel plugin was moved or resized: rebuild the regions after the burst of
+        ConfigureNotify events settles, and re-aim the hole at the pointer."""
+        if self.reflow_pending:
+            return
+        self.reflow_pending = True
+
+        def rebuild():
+            self.reflow_pending = False
+            self.recheck_strips()
+            try:
+                q = self.xs.root.query_pointer()
+                self.panel_pointer(q.root_x, q.root_y)
+            except error.XError:
+                pass
+            if DEBUG:
+                log("panel reflowed: regions rebuilt")
+            return False
+        GLib.timeout_add(150, rebuild)
 
     # ------------------------------------------------------------ state
     def _load_state(self):
@@ -1285,6 +1309,8 @@ class Deskd:
                 return None
             self.raise_popup(e.window)
         elif t == X.ConfigureNotify:
+            if e.window.id in self.panel_windows:
+                return self.panel_reflowed()
             # i3 can restore its tiled/floating split after a resize or maximize.
             # Only managed frames need reconciliation, never our own overlays - and
             # not while we are the ones moving the window (drag_end refreshes once).
