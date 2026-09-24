@@ -22,3 +22,11 @@ calendar:selected {
    padding, so the margins here set the standard 15 px between icons - 11 before an
    item (4 px come from the separator line) and 4 after it (Telegram adds the rest). */
 #sn-button { margin: 0 4px 0 11px; }
+/* The tray's "show hidden items" arrow (Zoom's icon is hidden: its window is in the
+   dock). It cannot be removed, so it is invisible, and the tray sits between the
+   workspace strip and the separator line, where its 18 px vanish into the gap. */
+#systray-6 button:not(#sn-button) { opacity: 0; }
+
+/* Dock (docklike): its box keeps 6 px between buttons; the button padding makes the
+   standard 15 px between icons, like everywhere else on the panel. */
+#docklike-plugin button { padding: 0 1px 0 2px; }

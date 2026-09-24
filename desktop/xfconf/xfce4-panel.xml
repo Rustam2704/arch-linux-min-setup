@@ -18,8 +18,8 @@
         <value type="int" value="57"/>
         <value type="int" value="51"/>
         <value type="int" value="45"/>
-        <value type="int" value="52"/>
         <value type="int" value="6"/>
+        <value type="int" value="52"/>
         <value type="int" value="40"/>
         <value type="int" value="60"/>
         <value type="int" value="41"/>
@@ -83,11 +83,13 @@
         <value type="string" value="telegramdesktop"/>
         <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (42%)"/>
       </property>
+      <property name="hidden-items" type="array">
+        <value type="string" value="zoom"/>
+      </property>
       <property name="known-items" type="array">
         <value type="string" value="TelegramDesktop"/>
         <value type="string" value="zoom"/>
       </property>
-      <property name="hidden-items" type="string" value=""/>
       <property name="size-max" type="int" value="48"/>
       <property name="icon-size" type="int" value="36"/>
     </property>

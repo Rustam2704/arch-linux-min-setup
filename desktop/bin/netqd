@@ -302,6 +302,12 @@ def value(text, colour, width=3, size=""):
     """A cell exactly `width` digits wide with the number against its right edge: the
     reading never shifts sideways when it gains a digit. Transparent zeroes hold the
     space, because whitespace is not reliable inside a panel label."""
+    if not text.isdigit():
+        # "—" for a lost reading: not a digit, so not tabular - padded to the cell
+        # by measurement, otherwise the panel twitched whenever a ping timed out
+        font = sky_text.panel_font(PANEL_PLUGIN)
+        cell = sky_text.width(f'<span{size} font_features="tnum">{"0" * width}</span>', font)
+        return sky_text.pad_to(f'<span{size} foreground="{colour}">{text}</span>', cell, font)
     room = "0" * max(0, width - len(text))
     return (f'<span{size} foreground="{colour}"><span alpha="1">{room}</span>'
             f'{text}</span>')

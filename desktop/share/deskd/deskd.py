@@ -78,8 +78,8 @@ MARK_MAX = "_deskd_max"
 MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
-STRIP_PAD = "\u2003"           # em space on both sides of each panel workspace number (2x wider)
-STRIP_TAIL = "\u2003"          # one more at the end: genmon centres the strip, so this
+STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both sides of each workspace number
+STRIP_TAIL = "\u2007"          # one more at the end: genmon centres the strip, so this
                               # shifts the numbers left, away from the separator next to them
 
 
