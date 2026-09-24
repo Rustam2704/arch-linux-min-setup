@@ -816,11 +816,15 @@ class Deskd:
             win = self.xs.d.create_resource_object("window", wid)
             atom = self.A["_NET_WM_STATE"]
             skip = self.xs.d.intern_atom("_NET_WM_STATE_SKIP_TASKBAR")
+            pager = self.xs.d.intern_atom("_NET_WM_STATE_SKIP_PAGER")
             prop = win.get_full_property(atom, Xatom.ATOM)
-            states = list(prop.value) if prop else []
-            if skip not in states:
-                win.change_property(atom, Xatom.ATOM, 32, states + [skip])
-                self.xs.flush()
+            states = [a for a in (prop.value if prop else []) if a not in (skip, pager)]
+            # two changes on purpose: docklike decides "on the task list" from the state
+            # it had *before* a change, so the second change is the one that hides it
+            win.change_property(atom, Xatom.ATOM, 32, states + [skip])
+            self.xs.flush()
+            win.change_property(atom, Xatom.ATOM, 32, states + [skip, pager])
+            self.xs.flush()
         except error.XError as e:
             log("skip-dock failed:", e)
 
