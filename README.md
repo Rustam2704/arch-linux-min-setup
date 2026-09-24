@@ -19,7 +19,8 @@ desktop/                 объявленное состояние систем�
   config/                → ~/.config           i3, kitty, picom, rofi, touchegg, gtk-3.0, systemd/user, deskd/apps.conf …
   home/                  → ~                   .Xresources
   system/                → /                   /usr/local/bin/xfce-i3-session, /usr/share/xsessions/xfce-i3.desktop
-tools/desktop.py         check · build · diff · apply · status · packages
+  xfconf/                → xfconf-query        свойства xfconf (раскладка панели), ставятся живьём, откат по свойству
+tools/desktop.py         check · build · diff · apply · status · packages (файлы дерева и свойства xfconf)
 tests/                   unit-тесты календаря и GTK smoke-тест (xvfb)
 assets/                  исходники, которые не ставятся как есть: плагин Qt scroll-phases, иконки, userscripts
 lab/                     журнал изменений системы (lab, rollback.py, journal.tsv); backups/ вне git
@@ -52,8 +53,11 @@ make rollback EXP=33-name  # откат эксперимента
    Проверять на вложенном X (`Xephyr :9` + свой i3) или через `i3-peek`, не на экране пользователя.
 5. Абзац в `CHANGELOG.md` (раунд, эксперимент, что и почему), коммит.
 
-Что не описывается деревом — пакеты, свойства xfconf (панель), удаление файлов — идёт через
-`lab/lab pkg | undo | remove` с тем же именем эксперимента.
+Что не описывается деревом — пакеты, удаление файлов, разовые свойства xfconf — идёт через
+`lab/lab pkg | undo | remove` с тем же именем эксперимента. Раскладка панели объявлена в
+`desktop/xfconf/xfce4-panel.xml` (формат xfconf, личные пути и шрифт — токенами): правки через
+настройки панели переносятся в этот файл копией `~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml`
+(`make status` покажет расхождение), `make apply` ставит отличающиеся свойства через `xfconf-query`.
 
 ## Система стиля
 
@@ -69,7 +73,7 @@ make rollback EXP=33-name  # откат эксперимента
 | `font` `mono_font` `panel_font` | Inter · JetBrainsMono Nerd Font · Diablo 18 | `panel_font` — шрифт индикаторов панели (кроме часов), тот же в xfconf у genmon-плагинов |
 
 Конфиги и shell пишут `@COLOUR_ACCENT@`, `@RGB_LIGHT@` (для `rgba(@RGB_LIGHT@, 0.2)`),
-`@HEX_ACCENT@` (без решётки, touchegg), `@FONT@`, `@MONO_FONT@`. Python читает `THEME[...]`
+`@HEX_ACCENT@` (без решётки, touchegg), `@FONT@`, `@MONO_FONT@`, `@PANEL_FONT@`. Python читает `THEME[...]`
 из `sky_theme`, CSS внутри Python прогоняется через `sky_theme.css()` с теми же токенами.
 `make check` не пропустит цвет темы, написанный литералом.
 

@@ -2,13 +2,15 @@
 """Cut the burning DIABLO logo (ui_art/smlogo.pcx, 15 frames) into its six flames and
 press each flame through the shapes of the digits 1-9 as the panel draws them.
 
-Output (external-assets/fire-digits/):
-  flames/flame{k}/frame{i:02d}.png   the k-th flame alone, letter removed (k = 1..6 = D i a b l O)
+Output, what sky-stars uses (desktop/share/sky-desktop/fire/, installed with the tree):
   flame{k}-digit{d}.png              15 frames stacked vertically: the flame around and above the digit,
-                                     the digit itself cut out (a transparent hole - the panel's own digit shows)
-  preview.png                        frame 0 of every flame x digit, 4x, for a look
+                                     the digit itself cut out and filled black (the panel's own digit
+                                     under it is black too, but repaints later than the fire moves)
   spin.png                           the menu's spinning pentagram (ui_art/focus.pcx, 8 frames) at SPIN px
   index.json                         frame size per sheet
+Reference only (external-assets/fire-digits/):
+  flames/flame{k}/frame{i:02d}.png   the k-th flame alone, letter removed (k = 1..6 = D i a b l O)
+  preview.png                        frame 0 of every flame x digit, 4x, for a look
 
 The digit shape is the panel's own: the workspace strip font (xfconf plugin-45) at the
 panel's DPI, bold like the active number, tabular figures like the strip.
@@ -31,7 +33,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "diablo-spawn/ui_art/smlogo.pcx")
 SPIN_SRC = os.path.join(ROOT, "diablo-spawn/ui_art/focus.pcx")   # 30x30, 8 frames
 SPIN = 21                           # pentagram size on the panel, about the digit's height
-OUT = os.path.join(ROOT, "fire-digits")
+OUT = os.path.join(ROOT, "fire-digits")          # reference: flames per frame, preview
+TREE = os.path.join(os.path.dirname(ROOT), "desktop/share/sky-desktop/fire")   # what sky-stars uses
 FRAMES = 15
 TRANSPARENT = 250
 LETTER_TOP = 78                     # first row of the letters; the flames live above
@@ -119,6 +122,7 @@ def main():
     print(f"font {font!r} at {res:.0f} dpi; digit ink sizes:",
           {d: (m[1], m[2]) for d, m in masks.items()})
     os.makedirs(OUT, exist_ok=True)
+    os.makedirs(TREE, exist_ok=True)
     index = {"font": font, "dpi": res, "frames": FRAMES, "sheets": {}}
     bands = []
     for k, (x0, x1) in enumerate(BANDS, 1):
@@ -238,7 +242,7 @@ def main():
                 ctx.mask_surface(mask, 0, 0)
                 ctx.restore()
             name = f"flame{k}-digit{d}.png"
-            sheet.write_to_png(os.path.join(OUT, name))
+            sheet.write_to_png(os.path.join(TREE, name))
             index["sheets"][name] = {"flame": k, "digit": d, "width": W, "height": H, "above": ABOVE,
                                      "hole_x": hole_x, "digit_width": dw, "digit_height": dh}
             preview_cells.append((k, d, sheet, W, H))
@@ -283,11 +287,11 @@ def main():
         ctx.set_source(pat)
         ctx.paint()
         ctx.restore()
-    sheet.write_to_png(os.path.join(OUT, "spin.png"))
+    sheet.write_to_png(os.path.join(TREE, "spin.png"))
     index["spin"] = {"size": SPIN, "frames": 8}
-    with open(os.path.join(OUT, "index.json"), "w") as f:
+    with open(os.path.join(TREE, "index.json"), "w") as f:
         json.dump(index, f, indent=1)
-    print(f"{len(bands)} flames, {len(preview_cells)} digit sheets in {OUT}")
+    print(f"{len(bands)} flames in {OUT}; {len(preview_cells)} digit sheets, spin.png and index.json in {TREE}")
 
 
 if __name__ == "__main__":

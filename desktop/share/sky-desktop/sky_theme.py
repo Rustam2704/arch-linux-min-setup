@@ -34,7 +34,7 @@ def rgb(name):
 
 def tokens():
     """Every replacement the tree renderer and css() agree on."""
-    out = {"@FONT@": THEME["font"], "@MONO_FONT@": THEME["mono_font"]}
+    out = {"@FONT@": THEME["font"], "@MONO_FONT@": THEME["mono_font"], "@PANEL_FONT@": THEME["panel_font"]}
     for key, value in _flat(THEME):
         if isinstance(value, str) and value.startswith("#") and len(value) == 7:
             k = key.upper()

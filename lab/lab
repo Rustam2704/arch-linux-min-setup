@@ -7,6 +7,7 @@
 #   lab undo <exp> '<command>'    record an arbitrary undo command
 #   lab status                    show what is currently applied
 #   lab rollback <exp|all>        undo, newest first
+#   lab prune <days>              forget records older than <days> (and their backups)
 #
 # Journal format (TSV): timestamp <TAB> experiment <TAB> action <TAB> arg1 <TAB> arg2
 set -eu
@@ -81,6 +82,23 @@ cmd_rollback() {
     python3 "$LAB_DIR/rollback.py" "$JOURNAL" "$1"
 }
 
+cmd_prune() {
+    # Records older than N days are history, not state: git has the tree, the
+    # system has the result. Their backups go too; those rollbacks become impossible.
+    local cutoff tmp n
+    cutoff=$(date -Is -d "$1 days ago")
+    tmp=$(mktemp)
+    awk -F'\t' -v c="$cutoff" '$1 < c' "$JOURNAL" | awk -F'\t' '$3 == "backup" && $5 != "" {print $5}' | while read -r bak; do rm -f -- "$bak"; done
+    n=$(awk -F'\t' -v c="$cutoff" '$1 < c' "$JOURNAL" | wc -l)
+    awk -F'\t' -v c="$cutoff" '$1 >= c' "$JOURNAL" > "$tmp" && mv "$tmp" "$JOURNAL"
+    # backups nothing refers to any more (interrupted writes, pruned lines)
+    for bak in "$BACKUPS"/*.bak; do
+        [ -e "$bak" ] || continue
+        grep -qF -- "$bak" "$JOURNAL" || rm -f -- "$bak"
+    done
+    echo "pruned $n records older than $1 days"
+}
+
 case "${1-}" in
     pkg)      shift; cmd_pkg "$@" ;;
     write)    shift; cmd_write "$@" ;;
@@ -88,5 +106,6 @@ case "${1-}" in
     undo)     shift; cmd_undo "$@" ;;
     status)   cmd_status ;;
     rollback) shift; cmd_rollback "${1:-all}" ;;
+    prune)    shift; cmd_prune "${1:?days}" ;;
     *) sed -n '2,12p' "$0" ;;
 esac

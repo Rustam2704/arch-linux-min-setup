@@ -57,7 +57,7 @@ ALWAYS = os.environ.get("SKY_STARS_ALWAYS") == "1"   # draw under windows too (f
 # by external-assets/tools/fire-digits.py and are uploaded to the X server once.
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 MARK_FILE = os.path.join(RUN, "deskd-mark.json")
-FIRE_DIR = "@PROJECT@/external-assets/fire-digits"
+FIRE_DIR = "@HOME@/.local/share/sky-desktop/fire"    # sheets cut by external-assets/tools/fire-digits.py, installed with the tree
 MARK_MS = 60                # DevilutionX: one frame per 60 ms, for the fire and the pentagram alike
 FIRE_FLAMES = 6             # digit n burns with flame (n-1) % 6 + 1
 SPIN_GAP = 6                # px between the digit's ink and each pentagram

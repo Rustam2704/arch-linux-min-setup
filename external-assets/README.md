@@ -39,7 +39,13 @@
   ASCII и `°` (остальные ячейки листа — не Latin-1). Цифры получают `tnum`-варианты на общей
   ширине (самая широкая, ноль, плюс по пикселю). Перегенерация: `python3 external-assets/tools/diablo-font.py`.
 
+- `diablo-font.py` и `fire-digits.py` пишут то, что ставится в систему, прямо в дерево
+  (`desktop/share/fonts/Diablo.ttf`, `desktop/share/sky-desktop/fire/`); здесь остаются только
+  справочные материалы: распакованная игра, исходники движка, огоньки по кадрам и `preview.png`.
+
 ## Где используется
 
-`deskd` (`FireDigits`, константы `FIRE_DIR`, `FIRE_FPS`, `PANEL_WS_COUNT = 6` на время теста)
-рисует над цифрами 1–6 полосы областей шесть разных огоньков — для выбора.
+`sky-stars` рисует над активной цифрой полосы областей огонь из `~/.local/share/sky-desktop/fire`
+(листы `flame{k}-digit{d}.png`, `spin.png`, `index.json`) и две пентаграммы из `focus.pcx`;
+osd-daemon играет `accept.wav`/`move.wav` (из `sfx/items/titlslct.mp3`, `titlemov.mp3`); панель
+набрана шрифтом `Diablo` из `font30s.pcx`.

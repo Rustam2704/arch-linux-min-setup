@@ -1,7 +1,6 @@
 __pycache__/
 *.py[cod]
 .build/
-logs/
 lab/.lock
 lab/backups/
 external-assets/devilutionx-assets/*.mpq

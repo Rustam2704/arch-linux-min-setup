@@ -1,250 +1,3 @@
-2026-09-17T23:57:53+03:00	01-memory	cmd	sudo cp /home/fanatic/ai/claude/setup/lab/backups/timeshift.json.bak /etc/timeshift/timeshift.json	
-2026-09-17T23:57:54+03:00	01-memory	cmd	sudo swapoff /swapfile 2>/dev/null; sudo rm -f /swapfile	
-2026-09-17T23:58:03+03:00	01-memory	backup	/etc/fstab	/home/fanatic/ai/claude/setup/lab/backups/_etc_fstab.1789678683.bak
-2026-09-17T23:58:10+03:00	01-memory	cmd	sudo systemctl unmask systemd-zram-setup@zram0.service	
-2026-09-17T23:58:22+03:00	01-memory	cmd	echo N | sudo tee /sys/module/zswap/parameters/enabled >/dev/null	
-2026-09-17T23:58:22+03:00	01-memory	backup	/boot/loader/entries/arch-lts.conf	/home/fanatic/ai/claude/setup/lab/backups/_boot_loader_entries_arch-lts.conf.1789678702.bak
-2026-09-17T23:58:22+03:00	01-memory	file	/etc/sysctl.d/99-lab-memory.conf	
-2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.local/bin/firefox-limited	
-2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.local/bin/firefox-mem	
-2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.config/firefox-memory.conf	
-2026-09-17T23:59:02+03:00	01-memory	file	/home/fanatic/.local/share/applications/firefox-developer-edition.desktop	
-2026-09-17T23:59:02+03:00	01-memory	backup	/home/fanatic/.local/share/xfce4/helpers/firefox-developer-edition.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_xfce4_helpers_firefox-developer-edition.desktop.1789678742.bak
-2026-09-17T23:59:34+03:00	01-memory	file	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	
-2026-09-18T00:00:17+03:00	02-clock	cmd	sudo pacman -Rns --noconfirm ttf-dseg	
-2026-09-18T00:00:34+03:00	02-clock	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s 'Terminus 11'; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-format -s '%T'	
-2026-09-18T00:01:14+03:00	02-clock	file	/home/fanatic/.config/gtk-3.0/gtk.css	
-2026-09-18T00:19:39+03:00	03-osd	pkg	python-xlib	
-2026-09-18T00:19:39+03:00	03-osd	file	/home/fanatic/.local/bin/osd-daemon	
-2026-09-18T00:19:39+03:00	03-osd	file	/home/fanatic/.local/bin/osd	
-2026-09-18T00:20:52+03:00	03-osd	file	/home/fanatic/.config/systemd/user/osd.service	
-2026-09-18T00:20:52+03:00	03-osd	cmd	systemctl --user disable --now osd.service; systemctl --user daemon-reload	
-2026-09-18T00:21:59+03:00	03-osd	cmd	python3 /home/fanatic/ai/claude/setup/lab/revert-i3-config.py && i3-msg -q reload	
-2026-09-18T00:24:20+03:00	03-osd	cmd	sudo pacman -Rns --noconfirm xkb-switch	
-2026-09-18T00:25:09+03:00	03-osd	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789680309.bak
-2026-09-18T00:26:27+03:00	04-panel	file	/home/fanatic/.local/bin/panel-battery	
-2026-09-18T00:26:27+03:00	04-panel	file	/home/fanatic/.local/bin/panel-telegram	
-2026-09-18T00:27:11+03:00	04-panel	file	/home/fanatic/.local/bin/panel-sys	
-2026-09-18T00:27:11+03:00	04-panel	file	/home/fanatic/.local/bin/panel-net	
-2026-09-18T00:27:46+03:00	04-panel	file	/home/fanatic/.local/bin/panel-weather	
-2026-09-18T00:28:20+03:00	04-panel	file	/home/fanatic/.local/bin/app-focus-or-launch	
-2026-09-18T00:29:07+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/launcher-13/kitty.desktop	
-2026-09-18T00:29:07+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/launcher-14/files.desktop	
-2026-09-18T00:29:08+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/launcher-15/firefox.desktop	
-2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-40.rc	
-2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-41.rc	
-2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-42.rc	
-2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-43.rc	
-2026-09-18T00:29:45+03:00	04-panel	file	/home/fanatic/.config/xfce4/panel/genmon-44.rc	
-2026-09-18T00:29:45+03:00	04-panel	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-panel.xml.1789680585.bak
-2026-09-18T00:39:29+03:00	04-panel	file	/home/fanatic/.local/bin/panel-workspaces	
-2026-09-18T00:45:09+03:00	05-calendar	file	/home/fanatic/.local/bin/mini-calendar	
-2026-09-18T00:45:09+03:00	05-calendar	file	/home/fanatic/.config/systemd/user/mini-calendar.service	
-2026-09-18T00:45:10+03:00	05-calendar	cmd	systemctl --user disable --now mini-calendar.service; systemctl --user daemon-reload; rm -rf /home/fanatic/.local/share/mini-calendar	
-2026-09-18T06:16:52+03:00	06-osd-keyboard	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789701412.bak
-2026-09-18T06:16:52+03:00	06-osd-keyboard	backup	/home/fanatic/.local/bin/osd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd.1789701412.bak
-2026-09-18T06:16:52+03:00	06-osd-keyboard	cmd	xfconf-query -c keyboard-layout -p /Default/XkbOptions/Group -n -t string -s grp:alt_shift_toggle	
-2026-09-18T06:16:52+03:00	06-osd-keyboard	cmd	sudo localectl set-x11-keymap us,ru,ua pc105 '' grp:alt_shift_toggle,grp_led:scroll	
-2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789701509.bak
-2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789701509.bak
-2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-workspaces	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-workspaces.1789701509.bak
-2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789701509.bak
-2026-09-18T06:18:29+03:00	06-quickfixes	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1789701509.bak
-2026-09-18T06:18:43+03:00	06-osd-keyboard	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-panel.xml.1789701523.bak
-2026-09-18T06:18:43+03:00	06-osd-keyboard	file	/home/fanatic/.local/bin/panel-layout	
-2026-09-18T06:18:43+03:00	06-osd-keyboard	file	/home/fanatic/.config/xfce4/panel/genmon-55.rc	
-2026-09-18T06:20:19+03:00	06-quickfixes	pkg	btop	
-2026-09-18T06:20:19+03:00	06-quickfixes	file	/home/fanatic/.local/bin/i3-cycle-focus	
-2026-09-18T06:20:19+03:00	06-quickfixes	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789701619.bak
-2026-09-18T06:20:19+03:00	06-quickfixes	file	/home/fanatic/.config/i3/generated/README.conf	
-2026-09-18T06:20:30+03:00	06-quickfixes	backup	/home/fanatic/.config/mimeapps.list	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mimeapps.list.1789701630.bak
-2026-09-18T06:20:30+03:00	06-quickfixes	cmd	sudo pacman -S --noconfirm --needed mousepad	
-2026-09-18T06:21:02+03:00	07-firefox-reclaim	file	/home/fanatic/.local/bin/firefox-memd	
-2026-09-18T06:21:02+03:00	07-firefox-reclaim	file	/home/fanatic/.config/systemd/user/firefox-memd.service	
-2026-09-18T06:21:02+03:00	07-firefox-reclaim	backup	/home/fanatic/.config/firefox-memory.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_firefox-memory.conf.1789701662.bak
-2026-09-18T06:21:02+03:00	07-firefox-reclaim	cmd	systemctl --user disable --now firefox-memd.service; systemctl --user daemon-reload	
-2026-09-18T06:21:40+03:00	07-firefox-reclaim	backup	/home/fanatic/.local/bin/firefox-mem	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_firefox-mem.1789701700.bak
-2026-09-18T06:22:25+03:00	08-net	file	/home/fanatic/.local/bin/netqd	
-2026-09-18T06:22:25+03:00	08-net	backup	/home/fanatic/.local/bin/panel-net	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-net.1789701745.bak
-2026-09-18T06:22:25+03:00	08-net	file	/home/fanatic/.config/systemd/user/netqd.service	
-2026-09-18T06:22:25+03:00	08-net	cmd	systemctl --user disable --now netqd.service; systemctl --user daemon-reload	
-2026-09-18T06:22:55+03:00	08-net	file	/home/fanatic/.local/bin/net-menu	
-2026-09-18T06:23:13+03:00	08-net	cmd	echo 'panel update periods were all 30000 ms before 08-net'	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/32x32/apps/light-year.png	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/48x48/apps/light-year.png	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/64x64/apps/light-year.png	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/128x128/apps/light-year.png	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/icons/hicolor/256x256/apps/light-year.png	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/light-year/api.py	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/light-year/app.py	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/bin/light-year	
-2026-09-18T06:26:18+03:00	09-light-year	file	/home/fanatic/.local/share/applications/light-year.desktop	
-2026-09-18T06:26:57+03:00	09-light-year	cmd	tar -C ~/.local/share -xzf /home/fanatic/ai/claude/setup/lab/backups/mini-calendar-code.tar.gz; cp /home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_mini-calendar.removed ~/.local/bin/mini-calendar; cp /home/fanatic/ai/claude/setup/lab/backups/mini-calendar.service.removed ~/.config/systemd/user/mini-calendar.service; systemctl --user daemon-reload	
-2026-09-18T06:27:16+03:00	09-light-year	file	/home/fanatic/.local/share/light-year/ИНСТРУКЦИЯ.md	
-2026-09-18T06:28:29+03:00	10-favorites	file	/home/fanatic/.local/bin/deskd-favorites	
-2026-09-18T06:28:55+03:00	10-favorites	cmd	rm -f ~/.config/deskd/apps.conf ~/.config/i3/generated/apps.conf	
-2026-09-18T06:28:55+03:00	10-favorites	file	/home/fanatic/.config/xfce4/panel/launcher-56/favorites.desktop	
-2026-09-18T06:28:55+03:00	10-favorites	file	/home/fanatic/.config/autostart/deskd-favorites.desktop	
-2026-09-18T06:29:12+03:00	10-favorites	file	/home/fanatic/.config/autostart/deskd-favorites.desktop	
-2026-09-18T06:45:30+03:00	12-monitors	pkg	autorandr	
-2026-09-18T06:45:30+03:00	12-monitors	cmd	xfconf-query -c displays -p /Notify -s 1; xfconf-query -c displays -p /AutoEnableProfiles -s 3	
-2026-09-18T06:45:32+03:00	12-monitors	cmd	rm -rf ~/.config/autorandr	
-2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.local/share/deskd/deskd.py	
-2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.local/share/deskd/i3ipc.py	
-2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.local/bin/deskd-ctl	
-2026-09-18T06:46:58+03:00	11-deskd	file	/home/fanatic/.config/systemd/user/deskd.service	
-2026-09-18T06:46:58+03:00	11-deskd	cmd	systemctl --user disable --now deskd.service; systemctl --user daemon-reload	
-2026-09-18T06:46:58+03:00	11-deskd	backup	/home/fanatic/.local/bin/panel-workspaces	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-workspaces.1789703218.bak
-2026-09-18T06:47:22+03:00	11-deskd	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789703242.bak
-2026-09-18T06:49:59+03:00	11-deskd	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.1789703399.bak
-2026-09-18T06:50:18+03:00	11-deskd	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.1789703418.bak
-2026-09-18T06:52:01+03:00	11-deskd	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789703521.bak
-2026-09-18T06:52:24+03:00	11-deskd	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.1789703544.bak
-2026-09-18T06:53:06+03:00	11-deskd	backup	/home/fanatic/.config/systemd/user/osd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_osd.service.1789703586.bak
-2026-09-18T06:53:06+03:00	11-deskd	backup	/home/fanatic/.config/systemd/user/deskd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_deskd.service.1789703586.bak
-2026-09-18T06:53:06+03:00	11-deskd	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789703586.bak
-2026-09-19T23:19:22+03:00	13-round4	pkg	maim	
-2026-09-19T23:19:22+03:00	13-round4	pkg	slop	
-2026-09-19T23:19:22+03:00	13-round4	pkg	xclip	
-2026-09-19T23:19:22+03:00	13-round4	file	/home/fanatic/.local/bin/snip	
-2026-09-19T23:19:43+03:00	13-round4	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789849183.bak
-2026-09-19T23:19:43+03:00	13-round4	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789849183.bak
-2026-09-19T23:19:43+03:00	13-round4	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789849183.bak
-2026-09-19T23:27:59+03:00	13-round4	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-panel.xml.1789849679.bak
-2026-09-19T23:27:59+03:00	13-round4	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789849679.bak
-2026-09-19T23:28:00+03:00	13-round4	file	/home/fanatic/.local/share/deskd/panels.py	
-2026-09-19T23:28:00+03:00	13-round4	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.1789849680.bak
-2026-09-19T23:28:59+03:00	13-round4	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789849739.bak
-2026-09-19T23:28:59+03:00	13-round4	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789849739.bak
-2026-09-19T23:30:06+03:00	13-round4	file	/home/fanatic/.config/menus/xfce-applications.menu	
-2026-09-19T23:30:06+03:00	13-round4	file	/home/fanatic/.local/share/applications/deskd-favorites.desktop	
-2026-09-19T23:30:06+03:00	13-round4	backup	/home/fanatic/.local/bin/deskd-favorites	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-favorites.1789849806.bak
-2026-09-19T23:33:19+03:00	13-round4	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.1789849999.bak
-2026-09-20T01:27:37+03:00	14-round5	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789856857.bak
-2026-09-20T01:27:37+03:00	14-round5	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789856857.bak
-2026-09-20T01:28:03+03:00	14-round5	file	/home/fanatic/.local/bin/telegram-toggle	
-2026-09-20T01:28:16+03:00	14-round5	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789856896.bak
-2026-09-20T01:28:24+03:00	14-round5	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789856904.bak
-2026-09-20T01:28:51+03:00	14-round5	backup	/home/fanatic/.local/bin/deskd-favorites	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-favorites.1789856931.bak
-2026-09-20T01:30:11+03:00	14-round5	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789857011.bak
-2026-09-20T01:30:11+03:00	14-round5	backup	/home/fanatic/.local/bin/app-focus-or-launch	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_app-focus-or-launch.1789857011.bak
-2026-09-20T01:42:01+03:00	14-round5	file	/home/fanatic/.local/bin/open-path	
-2026-09-20T01:42:01+03:00	14-round5	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789857721.bak
-2026-09-20T02:11:51+03:00	15-codex-mcp	pkg	nodejs	
-2026-09-20T02:56:30+03:00	16-round6	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.1789862190.bak
-2026-09-20T04:12:14+03:00	16-round6	cmd	xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 44; xfconf-query -c xfce4-panel -p /panels/panel-1/icon-size -s 32; for p in 40 41 42 43 44 45 55; do xfconf-query -c xfce4-panel -p /plugins/plugin-$p/font -s "Inter 10"; done; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s "Terminus 11"	
-2026-09-20T04:16:50+03:00	16-round6	file	/home/fanatic/.local/share/panel-icons/telegram.png	
-2026-09-20T04:16:50+03:00	16-round6	file	/home/fanatic/.local/share/panel-icons/telegram-accent.png	
-2026-09-20T04:16:50+03:00	16-round6	file	/home/fanatic/.local/share/panel-icons/telegram-off.png	
-2026-09-20T04:16:51+03:00	16-round6	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.1789867011.bak
-2026-09-20T04:17:03+03:00	16-round6	cmd	rmdir /home/fanatic/.local/share/panel-icons 2>/dev/null	
-2026-09-20T04:17:19+03:00	16-round6	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789867039.bak
-2026-09-20T04:17:36+03:00	16-round6	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-56 -r -R; xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -t int -s 1 -t int -s 13 -t int -s 14 -t int -s 15 -t int -s 50 -t int -s 2 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 40 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 20 -t int -s 55 -t int -s 8 -t int -s 21	
-2026-09-20T04:18:55+03:00	16-round6	backup	/home/fanatic/.config/xfce4/panel/launcher-13/kitty.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-13_kitty.desktop.1789867135.bak
-2026-09-20T04:19:01+03:00	16-round6	backup	/home/fanatic/.config/xfce4/panel/launcher-14/files.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-14_files.desktop.1789867141.bak
-2026-09-20T04:19:09+03:00	16-round6	backup	/home/fanatic/.config/xfce4/panel/launcher-15/firefox.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-15_firefox.desktop.1789867149.bak
-2026-09-20T04:25:34+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789867534.bak
-2026-09-20T04:27:24+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789867644.bak
-2026-09-20T04:30:48+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789867848.bak
-2026-09-20T04:32:03+03:00	16-round6	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789867923.bak
-2026-09-20T04:33:46+03:00	16-round6	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.1789868026.bak
-2026-09-20T04:33:46+03:00	16-round6	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789868026.bak
-2026-09-20T04:39:14+03:00	16-round6	backup	/home/fanatic/.local/bin/app-focus-or-launch	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_app-focus-or-launch.1789868354.bak
-2026-09-20T04:41:42+03:00	16-round6	backup	/home/fanatic/.local/bin/app-focus-or-launch	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_app-focus-or-launch.1789868502.bak
-2026-09-20T04:42:15+03:00	16-round6	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789868535.bak
-2026-09-20T14:23:24+03:00	17-round7	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789903404.bak
-2026-09-20T14:23:24+03:00	17-round7	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789903404.bak
-2026-09-20T14:23:40+03:00	17-round7	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-8/mode -s 4; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-layout -s 3; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s "Terminus 11"; xfconf-query -c xfce4-panel -p /plugins/plugin-6/size-max -r	
-2026-09-20T14:28:26+03:00	17-round7	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789903706.bak
-2026-09-20T14:29:17+03:00	17-round7	backup	/home/fanatic/.local/bin/net-menu	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_net-menu.1789903757.bak
-2026-09-20T14:29:27+03:00	17-round7	file	/home/fanatic/.config/autostart/nm-applet.desktop	
-2026-09-20T14:33:40+03:00	17-round7	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789904020.bak
-2026-09-20T14:35:15+03:00	17-round7	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789904115.bak
-2026-09-20T14:35:47+03:00	17-round7	pkg	xfce4-docklike-plugin	
-2026-09-20T14:35:58+03:00	17-round7	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-57 -r -R; xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -t int -s 1 -t int -s 13 -t int -s 14 -t int -s 15 -t int -s 50 -t int -s 2 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 40 -t int -s 56 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 20 -t int -s 55 -t int -s 8 -t int -s 21; xfconf-query -c xfce4-panel -p /plugins/plugin-2 -n -t string -s tasklist; xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-labels -n -t bool -s true; xfconf-query -c xfce4-panel -p /plugins/plugin-2/grouping -n -t int -s 1	
-2026-09-20T15:47:08+03:00	18-claude-sessions	file	/home/fanatic/.local/bin/claude-projects-link	
-2026-09-20T15:47:14+03:00	18-claude-sessions	backup	/home/fanatic/.bashrc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.bashrc.1789908434.bak
-2026-09-20T15:47:36+03:00	18-claude-sessions	cmd	rm -f /home/fanatic/.claude/projects/-home-fanatic-ai-claude /home/fanatic/.claude/projects/-home-fanatic-ai-claude-setup /home/fanatic/.claude/projects/-home-fanatic--local-share-deskd	
-2026-09-20T15:48:22+03:00	18-claude-sessions	cmd	rm -f /home/fanatic/.claude/projects/-home-fanatic-ai-claude-tools	
-2026-09-20T16:17:58+03:00	17-round7	backup	/home/fanatic/.bashrc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.bashrc.1789910278.bak
-2026-09-20T16:19:12+03:00	17-round7	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-57/middleButtonBehavior -r	
-2026-09-20T16:27:35+03:00	17-round7	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.1789910855.bak
-2026-09-20T16:30:34+03:00	17-round7	cmd	mkdir -p /home/fanatic/.config/xfce4/panel/launcher-13 /home/fanatic/.config/xfce4/panel/launcher-14 /home/fanatic/.config/xfce4/panel/launcher-15; for n in 13 14 15; do xfconf-query -c xfce4-panel -p /plugins/plugin-$n -n -t string -s launcher; xfconf-query -c xfce4-panel -p /plugins/plugin-$n/show-label -n -t bool -s false; done; xfconf-query -c xfce4-panel -p /plugins/plugin-13/items -n -a -t string -s kitty.desktop; xfconf-query -c xfce4-panel -p /plugins/plugin-14/items -n -a -t string -s files.desktop; xfconf-query -c xfce4-panel -p /plugins/plugin-15/items -n -a -t string -s firefox.desktop; xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -t int -s 1 -t int -s 13 -t int -s 14 -t int -s 15 -t int -s 50 -t int -s 57 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 40 -t int -s 56 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 20 -t int -s 55 -t int -s 8 -t int -s 21	
-2026-09-20T16:56:36+03:00	18-round8	backup	/home/fanatic/.bashrc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.bashrc.1789912596.bak
-2026-09-20T16:57:44+03:00	18-round8	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789912664.bak
-2026-09-20T16:58:00+03:00	18-round8	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789912680.bak
-2026-09-20T16:58:13+03:00	18-round8	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789912693.bak
-2026-09-20T16:59:38+03:00	18-round8	cmd	xfconf-query -c xfce4-panel -p /panels/panel-1/icon-size -s 48; xfconf-query -c xfce4-panel -p /plugins/plugin-57/forceIconSize -r; xfconf-query -c xfce4-panel -p /plugins/plugin-57/iconSize -r	
-2026-09-20T17:00:28+03:00	18-round8	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-58 -r -R; xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -t int -s 1 -t int -s 50 -t int -s 57 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 40 -t int -s 56 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 20 -t int -s 55 -t int -s 8 -t int -s 21	
-2026-09-20T17:01:41+03:00	18-round8	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-59 -r -R; xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s "DSEG7 Classic 18"	
-2026-09-20T17:04:14+03:00	18-round8	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.1789913054.bak
-2026-09-20T17:07:55+03:00	18-round8	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789913275.bak
-2026-09-20T17:08:58+03:00	18-round8	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789913338.bak
-2026-09-20T17:10:55+03:00	18-round8	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789913455.bak
-2026-09-21T00:40:50+03:00	15-kitty-layout-shortcuts	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789940450.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	cmd	rmdir /home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status /home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable /home/fanatic/.local/share/icons/Sky-Dark-Icons 2>/dev/null || true	
-2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789942239.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789942239.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789942239.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.1789942239.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.1789942239.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	backup	/home/fanatic/.config/kitty/kitty.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_kitty.conf.1789942239.bak
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-000.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-025.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-050.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-075.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-100-dim.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-100.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/panel-icons/battery-charging.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/index.theme	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-high-symbolic.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-low-symbolic.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-medium-symbolic.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-muted-symbolic.svg	
-2026-09-21T01:10:39+03:00	19-panel-polish	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-8/digital-time-font -s "DSEG7 Classic Bold 18"; xfconf-query -c xsettings -p /Net/IconThemeName -s "Papirus-Dark"	
-2026-09-21T01:22:19+03:00	19-panel-polish	file	/home/fanatic/.config/kitty/open-click.py	
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/share/panel-icons/battery-charging.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-charging.svg.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-low-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-low-symbolic.svg.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-medium-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-medium-symbolic.svg.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-high-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-high-symbolic.svg.1789945014.bak
-2026-09-21T01:56:54+03:00	20-panel-corrections	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-muted-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-muted-symbolic.svg.1789945014.bak
-2026-09-21T02:08:47+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789945727.bak
-2026-09-21T02:11:12+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789945872.bak
-2026-09-21T02:11:12+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789945872.bak
-2026-09-21T02:11:42+03:00	21-panel-finish	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-low-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-low-symbolic.svg.1789945902.bak
-2026-09-21T02:11:42+03:00	21-panel-finish	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-medium-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-medium-symbolic.svg.1789945902.bak
-2026-09-21T02:11:42+03:00	21-panel-finish	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-high-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-high-symbolic.svg.1789945902.bak
-2026-09-21T02:11:42+03:00	21-panel-finish	backup	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/audio-volume-muted-symbolic.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_icons_Sky-Dark-Icons_scalable_status_audio-volume-muted-symbolic.svg.1789945902.bak
-2026-09-21T02:12:10+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.1789945930.bak
-2026-09-21T02:12:29+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789945949.bak
-2026-09-21T02:12:47+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-000.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-000.svg.1789945967.bak
-2026-09-21T02:12:47+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-025.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-025.svg.1789945967.bak
-2026-09-21T02:12:47+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-050.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-050.svg.1789945967.bak
-2026-09-21T02:12:48+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-075.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-075.svg.1789945968.bak
-2026-09-21T02:12:48+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-100-dim.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-100-dim.svg.1789945968.bak
-2026-09-21T02:12:48+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-100.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-100.svg.1789945968.bak
-2026-09-21T02:12:48+03:00	21-panel-finish	backup	/home/fanatic/.local/share/panel-icons/battery-charging.svg	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_battery-charging.svg.1789945968.bak
-2026-09-21T02:12:56+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1789945976.bak
-2026-09-21T02:14:12+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789946052.bak
-2026-09-21T02:16:02+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1789946162.bak
-2026-09-21T02:19:47+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789946387.bak
-2026-09-21T02:24:11+03:00	21-panel-finish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789946651.bak
-2026-09-21T02:53:39+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.1789948419.bak
-2026-09-21T02:53:39+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789948419.bak
-2026-09-21T02:54:44+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1789948484.bak
-2026-09-21T02:55:21+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.1789948521.bak
-2026-09-21T02:55:21+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.1789948521.bak
-2026-09-21T02:56:47+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789948607.bak
-2026-09-21T02:57:53+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.1789948673.bak
-2026-09-21T03:00:12+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789948812.bak
-2026-09-21T03:03:22+03:00	22-panel-round11	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789949002.bak
-2026-09-21T03:04:38+03:00	22-panel-round11	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789949078.bak
 2026-09-21T05:21:48+03:00	22-panel-round11	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.1789957308.bak
 2026-09-21T05:22:04+03:00	22-panel-round11	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.1789957324.bak
 2026-09-21T05:22:19+03:00	22-panel-round11	backup	/home/fanatic/.local/share/panel-icons/telegram.png	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_panel-icons_telegram.png.1789957339.bak
@@ -470,3 +223,62 @@
 2026-09-24T03:14:41+03:00	46-paste-image	backup	/home/fanatic/.config/Thunar/accels.scm	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_Thunar_accels.scm.EP873r.bak
 2026-09-24T03:14:41+03:00	46-paste-image	backup	/home/fanatic/.config/Thunar/uca.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_Thunar_uca.xml.LdAkAM.bak
 2026-09-24T03:14:41+03:00	46-paste-image	cmd	xfconf-query -c thunar -p /misc-window-title-style -r	
+2026-09-24T03:58:43+03:00	47-tidy	backup	/home/fanatic/.local/bin/sky-stars	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-stars.rJkPKx.bak
+2026-09-24T03:58:43+03:00	47-tidy	cmd	rmdir -- /home/fanatic/.local/share/sky-desktop/fire	
+2026-09-24T03:58:43+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit1.png	
+2026-09-24T03:58:43+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit2.png	
+2026-09-24T03:58:43+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit3.png	
+2026-09-24T03:58:43+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit4.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit5.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit6.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit7.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit8.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame1-digit9.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit1.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit2.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit3.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit4.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit5.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit6.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit7.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit8.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame2-digit9.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit1.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit2.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit3.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit4.png	
+2026-09-24T03:58:44+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit5.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit6.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit7.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit8.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame3-digit9.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit1.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit2.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit3.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit4.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit5.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit6.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit7.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit8.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame4-digit9.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit1.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit2.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit3.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit4.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit5.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit6.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit7.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit8.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame5-digit9.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit1.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit2.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit3.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit4.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit5.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit6.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit7.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit8.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/flame6-digit9.png	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/index.json	
+2026-09-24T03:58:45+03:00	47-tidy	file	/home/fanatic/.local/share/sky-desktop/fire/spin.png	
+2026-09-24T03:58:45+03:00	47-tidy	backup	/home/fanatic/.local/share/sky-desktop/sky_theme.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_sky_theme.py.TkX64X.bak

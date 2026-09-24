@@ -55,7 +55,7 @@ Python + python-xlib + GTK, живёт на событиях i3 IPC (`window`, `
 - **Огонь и вращающиеся пентаграммы у активной цифры** рисует `sky-stars` (класс окон
   `sky-marks`): deskd лишь пишет, где цифра (`$XDG_RUNTIME_DIR/deskd-mark.json`), потому что сам
   на переключении области занят до 0,3 с и замораживал бы анимацию. Кадры — из
-  `external-assets/fire-digits/` (пикс-мапы на X-сервере, `CopyArea` раз в 60 мс). deskd ставит эти
+  `~/.local/share/sky-desktop/fire` (нарезка `external-assets/tools/fire-digits.py`, лежит в дереве `desktop/share/sky-desktop/fire/` (пикс-мапы на X-сервере, `CopyArea` раз в 60 мс). deskd ставит эти
   окна под вуаль по тику `deskd overlays`; нарисованная пентаграмма выключена (`STAR_MARK`).
 - **Тултипы панели** не показываются, пока открыто наше всплывающее окно (меню Wi-Fi, питания,
   календарь): deskd видит появление окна типа `TOOLTIP` и прячет его.
@@ -70,7 +70,9 @@ Python + python-xlib + GTK, живёт на событиях i3 IPC (`window`, `
 `50 51` растяжки · `6` трей (пустой) · `58 59` отступы · `40` Telegram · `56` отступ ·
 `60` Wi-Fi · `41` пинг · `42` CPU/RAM/SWAP · `43` погода · `44` батарея · `62` звук (`panel-audio`; меню
 `audio-menu`; колесо и средняя кнопка — слой deskd; состояние пишет osd-daemon из `pactl subscribe`) ·
-`55` раскладка · `61` часы (`panel-clock`) · `21` выключение. Индикаторы — genmon-скрипты `desktop/bin/panel-*`
+`55` раскладка · `61` часы (`panel-clock`) · `21` выключение. Вся раскладка панели объявлена в
+`desktop/xfconf/xfce4-panel.xml` (плагины `20` и `8` в xfconf оставлены для отката, в дереве их нет).
+Индикаторы — genmon-скрипты `desktop/bin/panel-*`
 (протокол `<img>`/`<txt>`/`<css>`/`<txtclick>`), значения читают файлы `netqd` и deskd.
 Перерисовать плагин просят по D-Bus (`xfpanel.plugin_event`, `org.xfce.Panel.PluginEvent`),
 не процессом `xfce4-panel --plugin-event` (~130 мс на запуск).
