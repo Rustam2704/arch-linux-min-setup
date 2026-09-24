@@ -2,7 +2,8 @@
 """Click menu for the network indicator: Wi-Fi networks, current numbers, speed test.
 
 This menu replaces nm-applet's tray icon, which the panel could not scale past
-22 px. Networks come from NetworkManager's own scan cache (nmcli, no rescan), a
+22 px. Networks come from NetworkManager's scan cache, refreshed by a scan when the
+cache holds fewer than three (NetworkManager forgets what it has not seen lately); a
 known network connects straight away and a new one asks for its password here.
 Anything the menu does not cover - hidden networks, VPN, static addresses - opens
 nmtui or nm-connection-editor, both part of NetworkManager.
@@ -233,12 +234,19 @@ def menu(wifi_only=False):
 
         def show_networks():
             wifi = networks() if switch.get_active() else []
-            if wifi or not switch.get_active():
-                fill(wifi, "Wi-Fi is off")
-            else:
-                # nothing cached (radio just came on, or after sleep): this click is
-                # the user asking, so a scan is fine here - never in the background
-                fill([], "Scanning…")
+            fill(wifi, "Wi-Fi is off" if not switch.get_active() else "Scanning…")
+            if switch.get_active() and len(wifi) < 3:
+                # NetworkManager forgets networks it has not seen for a few minutes,
+                # and while connected it rarely looks, so the cache is often just the
+                # network in use. This click is the user asking: what is cached shows
+                # at once, a scan runs meanwhile and the list fills in (never a scan
+                # in the background, only here)
+                if wifi:
+                    note = Gtk.MenuItem(label="Scanning…")
+                    note.set_sensitive(False)
+                    m.insert(note, 2 + len(dynamic))
+                    dynamic.append(note)
+                    note.show()
                 start_scan()
 
         def operation(args):
