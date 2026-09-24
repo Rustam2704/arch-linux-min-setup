@@ -87,6 +87,8 @@ STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both si
 STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with the tray's invisible
                               # 18 px next to it, 15 px from the sixth number's pentagram to the line
 STRIP_TAIL = ""                # (a trailing spacer used to push the numbers left; the end pad does that now)
+STRIP_SHIFT = 16               # px the numbers sit below the panel's centre: room above for the
+                              # whole flame of the game's logo (padding-top 2x this on the plugin)
                               # shifts the numbers left, away from the separator next to them
 
 
@@ -2032,7 +2034,9 @@ class Deskd:
             items = self.items_for_output(o["name"], workspaces)
             segs = self.strip_segments(items, by_num)
             self.items_by_output[o["name"]] = (items, segs)
-            text = ('<txt><span font_features="tnum">' + "".join(m for _, m in segs) + STRIP_TAIL
+            text = ('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
+                    f'button {{ padding: {2 * STRIP_SHIFT}px 0 0 0; }}</css>\n'
+                    '<txt><span font_features="tnum">' + "".join(m for _, m in segs) + STRIP_TAIL
                     + "</span></txt>\n"
                     "<tool>Workspaces: click to switch · drag a window here to move it</tool>\n")
             files = [ws_file(o["name"])] + ([WS_FILE] if o["name"] == primary else [])
@@ -2194,7 +2198,7 @@ class Deskd:
         try:
             _, layout = self.strip_layout(STRIP_PAD + label + STRIP_PAD)
             ink, logical = layout.get_pixel_extents()
-            return gy + (gh - logical.height) / 2 + ink.y
+            return gy + (gh - logical.height) / 2 + ink.y + STRIP_SHIFT
         except Exception as e:                       # noqa: BLE001
             log("digit top failed:", e)
             return gy + gh / 2 - 11

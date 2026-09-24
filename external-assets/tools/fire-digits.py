@@ -38,7 +38,9 @@ TREE = os.path.join(os.path.dirname(ROOT), "desktop/share/sky-desktop/fire")   #
 FRAMES = 15
 TRANSPARENT = 250
 LETTER_TOP = 78                     # first row of the letters; the flames live above
-ABOVE, BELOW = 22, 6                # the flame rises ABOVE px over the digit's top (the panel ends there)
+BELOW = 3                           # px of sheet under the digit's foot
+# the whole flame is kept: the sheet rises LETTER_TOP * scale over the digit's top (the
+# numbers sit low in the panel to make room, see STRIP_SHIFT in deskd)
 HUG = 16                            # digit width + this = the flame width at the digit (sets the scale)
 AIR = 1.5                           # the cut-out is a little wider than the glyph
 SIDE_FADE = 8                       # px of fade at each side of a sheet
@@ -164,6 +166,7 @@ def main():
             # px wide - the proportions of the first test, which read well; the frame
             # itself spans the whole flame so no tongue is cut
             scale = min(0.85, (dw + HUG) / (lx1 - lx0 + 1 + 12))
+            ABOVE = int(LETTER_TOP * scale + 0.5)
             W, H = int(bw * scale + 0.5), ABOVE + dh + BELOW
             # the digit sits under the foot of the flame, not under the letter's middle:
             # the tongues lean, and a number placed by the letter looked pushed aside
