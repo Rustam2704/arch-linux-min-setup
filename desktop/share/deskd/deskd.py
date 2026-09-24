@@ -63,6 +63,9 @@ MARK_FILE = os.path.join(RUN, "deskd-mark.json")   # where the active digit is, 
 # windows closed the moment they appear: (class, title). Sublime Text ignores
 # "update_check": false for an unregistered copy and nags on every start.
 DISMISS = {("Sublime_text", "Update - Sublime Text")}
+# window classes kept out of the dock (_NET_WM_STATE_SKIP_TASKBAR, which docklike
+# honours and i3 4.25 leaves alone): Telegram has its own panel indicator instead
+NO_DOCK = {"TelegramDesktop"}
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
 POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
@@ -597,6 +600,7 @@ class Deskd:
                                       self.on_i3)
         self.outputs_changed()
         self.refresh()
+        self.skip_dock_existing()
         # the panel can restart or reflow; keep the click layer on the workspace strip
         GLib.timeout_add_seconds(20, self.recheck_strips)
         GLib.timeout_add(1500, lambda: (self.watch_panel_items(), False)[1])
@@ -804,6 +808,31 @@ class Deskd:
         self.place_ws_clicks()
         return True
 
+    def skip_dock(self, wid):
+        """Mark a client window as not for task lists, so the dock ignores it."""
+        if not wid:
+            return
+        try:
+            win = self.xs.d.create_resource_object("window", wid)
+            atom = self.A["_NET_WM_STATE"]
+            skip = self.xs.d.intern_atom("_NET_WM_STATE_SKIP_TASKBAR")
+            prop = win.get_full_property(atom, Xatom.ATOM)
+            states = list(prop.value) if prop else []
+            if skip not in states:
+                win.change_property(atom, Xatom.ATOM, 32, states + [skip])
+                self.xs.flush()
+        except error.XError as e:
+            log("skip-dock failed:", e)
+
+    def skip_dock_existing(self):
+        """At start: the windows already open of the classes kept out of the dock."""
+        try:
+            for n, _ in walk(self.i3.tree()):
+                if n.get("window") and ((n.get("window_properties") or {}).get("class") in NO_DOCK):
+                    self.skip_dock(n["window"])
+        except Exception as e:                       # noqa: BLE001
+            log("skip-dock scan failed:", e)
+
     def panel_reflowed(self):
         """A panel plugin was moved or resized: rebuild the regions after the burst of
         ConfigureNotify events settles, and re-aim the hole at the pointer."""
@@ -897,6 +926,8 @@ class Deskd:
                 if (props.get("class"), con.get("name")) in DISMISS:
                     self.cmd(f'[con_id={con["id"]}] kill')
                     return
+                if change == "new" and props.get("class") in NO_DOCK:
+                    self.skip_dock(con.get("window"))
             if change in ("title", "urgent"):
                 # neither moves, stacks or focuses anything; a busy terminal (spinner
                 # in the title) would otherwise cost a full tree refresh every 100 ms
