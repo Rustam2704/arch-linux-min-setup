@@ -62,7 +62,8 @@ window { background: transparent; }
 #osd label { color: @COLOUR_FOREGROUND@; font-family: @FONT@; font-size: 15px; font-weight: 600;
              font-feature-settings: "tnum"; }
 #osd label.glyph { font-family: "@MONO_FONT@"; font-size: 19px; color: @COLOUR_LIGHT@; }
-#osd label.badge { font-size: 24px; font-weight: 700; color: @COLOUR_LIGHT@; letter-spacing: 2px; }
+#osd label.badge { font-size: 48px; font-weight: 700; color: @COLOUR_LIGHT@; letter-spacing: 4px; }
+#osd.badge-mode { padding: 20px 32px; border-radius: 24px; border-width: 2px; }
 #osd label.value { color: @COLOUR_LIGHT@; }
 #osd.over label.value, #osd.over label.glyph { color: @COLOUR_WARNING@; }
 #osd.muted label.value, #osd.muted label.glyph { color: @COLOUR_MUTED@; }
@@ -126,8 +127,11 @@ class Osd(Gtk.Window):
             return                          # same mode, same screen: never move
         self.monitor_geo = key
         self.resize(1, 1)
-        width = self.get_preferred_size().natural_size.width
-        self.move(geo.x + geo.width - width - MARGIN_RIGHT, geo.y + MARGIN_TOP)
+        size = self.get_preferred_size().natural_size
+        if mode == "badge":                  # the layout: in the middle of the screen, big
+            self.move(geo.x + (geo.width - size.width) // 2, geo.y + (geo.height - size.height) // 2)
+        else:
+            self.move(geo.x + geo.width - size.width - MARGIN_RIGHT, geo.y + MARGIN_TOP)
 
     def _set_state(self, *classes):
         ctx = self.box.get_style_context()
@@ -138,6 +142,7 @@ class Osd(Gtk.Window):
         ctx = self.icon.get_style_context()
         ctx.remove_class("badge")
         ctx.add_class("glyph")
+        self.box.get_style_context().remove_class("badge-mode")
         self.icon.set_text(glyph)
         self.bar.show()
         self.value.show()
@@ -150,6 +155,7 @@ class Osd(Gtk.Window):
         ctx = self.icon.get_style_context()
         ctx.remove_class("glyph")
         ctx.add_class("badge")
+        self.box.get_style_context().add_class("badge-mode")
         colour = LAYOUT_COLOURS.get(text, ACCENT)
         self.icon.set_markup(f'<span foreground="{colour}">{text}</span>')
         self.bar.hide()

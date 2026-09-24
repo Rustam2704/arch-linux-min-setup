@@ -52,7 +52,7 @@ def signal_dbm(iface, percent):
     return round(percent / 2 - 100) if percent is not None else None
 
 
-def write_wifi_icon(signal, dbm):
+def write_wifi_icon(signal, dbm, online=True):
     """The Wi-Fi fan as an SVG: the solid fan it always was, cut into eight steps
     instead of four so a change in signal shows sooner, with the level in dBm
     written across it. The number is black on the lit part of the fan and turns
@@ -60,7 +60,7 @@ def write_wifi_icon(signal, dbm):
     inverted-text effect, which needs the fan to be solid to work at panel size."""
     signal = 0 if signal is None else max(0, min(100, signal))
     steps = 8
-    lit = max(1, min(steps, round(signal * steps / 100)))
+    lit = max(1, min(steps, round(signal * steps / 100))) if online else 0
     cx, cy, radius = 28.0, 33.0, 30.0        # apex, and the radius of the whole fan
     half, drop = 0.866, 0.5                  # a 120 degree fan: cos 30, sin 30
 
@@ -77,9 +77,9 @@ def write_wifi_icon(signal, dbm):
                 f'fill="none" stroke="black" stroke-width="0.7"/>')
 
     lit_radius = radius * lit / steps
-    body = sector(radius, "#21343d") + sector(lit_radius, ACCENT)
+    body = sector(radius, "#21343d") + (sector(lit_radius, ACCENT) if lit else "")
     body += "".join(divider(radius * k / steps) for k in range(1, steps))
-    label = "---" if dbm is None else str(dbm)
+    label = "off" if not online else "---" if dbm is None else str(dbm)
     text = (f'<text x="{cx}" y="14" text-anchor="middle" font-family="Inter" '
             f'font-size="13" font-weight="700" letter-spacing="0.1"')
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="56" height="35" viewBox="0 0 56 35">
@@ -141,8 +141,9 @@ class Link:
         """(image path or None, text glyph or empty, tooltip line). Wi-Fi is drawn as
         an image because it carries the dBm readout; the others stay glyphs."""
         if not iface or not online:
-            return (None, f'<span font_family="{NERD}" size="140%" foreground="{DIM}">{WIFI_OFF}</span>',
-                    "No link")
+            # the same fan, dark, with "off" in it: the panel keeps its layout
+            write_wifi_icon(None, None, online=False)
+            return (WIFI_ICON, "", "No link")
         if iface.startswith("wl"):
             write_wifi_icon(self.signal, self.dbm)
             where = self.ssid or "Wi-Fi"
@@ -304,6 +305,76 @@ def value(text, colour, width=3, size=""):
             f'{text}</span>')
 
 
+def numbers_markup(now, median, c_now, c_med):
+    """The panel text with two readings: the one shape every state must keep."""
+    return (f'<span font_features="tnum">{value(now, c_now)}'
+            f'<span foreground="{DIM}">{GAP}·{GAP}</span>'
+            f'{value(median, c_med, size=" size=\"75%\"")}'
+            f'{GAP}{icon("latency")}</span> ')
+
+
+_widths = {}
+
+
+def text_width(markup):
+    """Width of panel markup in Pango units (1024 per px) as genmon draws it: the
+    plugin's own font at the screen's DPI, measured once per string (Pango, warmed
+    up on first use)."""
+    if markup in _widths:
+        return _widths[markup]
+    import gi
+    gi.require_version("Pango", "1.0")
+    gi.require_version("PangoCairo", "1.0")
+    from gi.repository import Pango, PangoCairo
+    import cairo
+    if "font" not in _widths:
+        font = subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-p", "/plugins/plugin-41/font"],
+                              capture_output=True, text=True).stdout.strip() or THEME["panel_font"]
+        dpi = 96.0
+        for line in subprocess.run(["xrdb", "-query"], capture_output=True, text=True).stdout.splitlines():
+            if line.startswith("Xft.dpi:"):
+                dpi = float(line.split()[1])
+        _widths["font"], _widths["dpi"] = font, dpi
+    ctx = PangoCairo.create_context(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 4, 4)))
+    PangoCairo.context_set_resolution(ctx, _widths["dpi"])
+    layout = Pango.Layout.new(ctx)
+    layout.set_font_description(Pango.FontDescription.from_string(_widths["font"]))
+    layout.set_markup(markup, -1)
+    _widths[markup] = layout.get_size()[0]
+    return _widths[markup]
+
+
+def as_wide_as_numbers(word):
+    """A word in the place of the two readings, padded with transparent zeroes (and
+    Pango letter spacing for the rest) to the exact width the readings take, so the
+    icons beside it stay where they are when the network comes and goes."""
+    target = text_width(numbers_markup("000", "000", DIM, DIM))
+    tail = f'<span font_features="tnum">{word}{GAP}{icon("latency")}</span> '
+    gap = target - text_width(tail)
+    if gap <= 0:
+        return tail
+    zero = text_width('<span font_features="tnum">0</span>')
+    n, rest = divmod(gap, zero)
+
+    def padded(spacing):
+        # letter spacing (Pango units) on the last transparent zero settles the
+        # remainder; with no whole zero to spare it goes negative
+        zeros = "0" * max(0, n - 1) if n else ""
+        last = f'<span alpha="1" letter_spacing="{spacing}">0</span>'
+        return f'<span font_features="tnum"><span alpha="1">{zeros}</span>{last}</span>' + tail
+    spacing = rest if n else rest - zero
+    out = padded(spacing)
+    # kerning in context and Pango's rounding of advances to whole pixels: correct
+    # by what is missing, then nudge by half-pixel steps until the widths agree
+    for _ in range(6):
+        off = target - text_width(out)
+        if not off:
+            break
+        spacing += off if abs(off) > 512 else (512 if off > 0 else -512)
+        out = padded(spacing)
+    return out
+
+
 def line(label, s):
     if not s:
         return f"{label}: no data"
@@ -343,18 +414,15 @@ def main():
         image, glyph, link_tip = link.markup(iface, bool(iface))
         lead = ""
         if not iface:
-            text = f'{lead}<span foreground="{DIM}">offline</span>'
+            text = as_wide_as_numbers(f'<span foreground="{DIM}">offline</span>')
             verdict = "No network connection"
         elif not i or not i["fresh"]:
-            text = f'{lead}<span foreground="{DIM}">…</span>'
+            text = as_wide_as_numbers(f'<span foreground="{DIM}">…</span>')
             verdict = "Measuring…"
         else:
             c = colour(i["median"], i["loss"])
-            text = (f'{lead}<span font_features="tnum">'
-                    f'{value(fmt(i["now"], panel=True), colour(i["now"], 0))}'
-                    f'<span foreground="{DIM}">{GAP}·{GAP}</span>'
-                    f'{value(fmt(i["median"], panel=True), dim(c), size=" size=\"75%\"")}'
-                    f'{GAP}{icon("latency")}</span> ')
+            text = numbers_markup(fmt(i["now"], panel=True), fmt(i["median"], panel=True),
+                                  colour(i["now"], 0), dim(c))
             router_bad = r and (r["median"] is None or r["median"] > 40 or r["loss"] >= 10)
             net_bad = i["median"] is None or i["median"] > 100 or i["loss"] >= 5
             verdict = ("Slow: Wi-Fi / router" if router_bad else

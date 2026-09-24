@@ -286,3 +286,7 @@
 2026-09-24T12:34:55+03:00	48-wifi-battery	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.jdajm4.bak
 2026-09-24T15:51:10+03:00	48-wifi-battery	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.IquBJL.bak
 2026-09-24T16:24:15+03:00	48-wifi-battery	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.mdYeHj.bak
+2026-09-24T17:59:15+03:00	49-panel-polish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.g7ZIhv.bak
+2026-09-24T17:59:15+03:00	49-panel-polish	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.ZiIyNq.bak
+2026-09-24T17:59:15+03:00	49-panel-polish	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.19Mfsv.bak
+2026-09-24T17:59:53+03:00	49-panel-polish	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.SYprQI.bak

@@ -59,6 +59,9 @@ BTN_COLOURS = [theme_rgb(name) for name in ("warning", "success", "danger")]
 MARK_ORANGE = (0xf4, 0x81, 0x1e)   # the orange stripe of the apple in the corner
 PANEL_WS_COUNT = 5            # workspaces always shown per screen
 MARK_FILE = os.path.join(RUN, "deskd-mark.json")   # where the active digit is, for sky-stars
+# windows closed the moment they appear: (class, title). Sublime Text ignores
+# "update_check": false for an unregistered copy and nags on every start.
+DISMISS = {("Sublime_text", "Update - Sublime Text")}
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
 POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
@@ -888,6 +891,11 @@ class Deskd:
         elif name == "window":
             change = ev.get("change")
             con = ev.get("container", {})
+            if change in ("new", "title"):
+                props = con.get("window_properties") or {}
+                if (props.get("class"), con.get("name")) in DISMISS:
+                    self.cmd(f'[con_id={con["id"]}] kill')
+                    return
             if change in ("title", "urgent"):
                 # neither moves, stacks or focuses anything; a busy terminal (spinner
                 # in the title) would otherwise cost a full tree refresh every 100 ms
