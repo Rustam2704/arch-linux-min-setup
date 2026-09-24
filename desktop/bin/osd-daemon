@@ -116,6 +116,7 @@ class Osd(Gtk.Window):
         self.timer = None
         self.mode = None
         self.monitor_geo = None
+        self.badge_width = None
 
     def _place(self, mode):
         display = Gdk.Display.get_default()
@@ -143,6 +144,7 @@ class Osd(Gtk.Window):
         ctx.remove_class("badge")
         ctx.add_class("glyph")
         self.box.get_style_context().remove_class("badge-mode")
+        self.icon.set_size_request(-1, -1)
         self.icon.set_text(glyph)
         self.bar.show()
         self.value.show()
@@ -157,6 +159,15 @@ class Osd(Gtk.Window):
         ctx.add_class("badge")
         self.box.get_style_context().add_class("badge-mode")
         colour = LAYOUT_COLOURS.get(text, ACCENT)
+        if self.badge_width is None:
+            # one size for every language: the widest name sets the label's width,
+            # so the UA badge is the same box as EN and RU (Inter is proportional)
+            widths = []
+            for name in LAYOUT_COLOURS:
+                self.icon.set_text(name)
+                widths.append(self.icon.get_preferred_width()[1])
+            self.badge_width = max(widths)
+        self.icon.set_size_request(self.badge_width, -1)
         self.icon.set_markup(f'<span foreground="{colour}">{text}</span>')
         self.bar.hide()
         self.value.hide()
