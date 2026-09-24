@@ -20,10 +20,7 @@
         <value type="int" value="45"/>
         <value type="int" value="52"/>
         <value type="int" value="6"/>
-        <value type="int" value="58"/>
-        <value type="int" value="59"/>
         <value type="int" value="40"/>
-        <value type="int" value="56"/>
         <value type="int" value="60"/>
         <value type="int" value="41"/>
         <value type="int" value="42"/>
@@ -68,7 +65,7 @@
       <property name="style" type="uint" value="1"/>
     </property>
     <property name="plugin-6" type="string" value="systray">
-      <property name="square-icons" type="bool" value="true"/>
+      <property name="square-icons" type="bool" value="false"/>
       <property name="symbolic-icons" type="bool" value="true"/>
       <property name="menu-is-primary" type="bool" value="false"/>
       <property name="hide-new-items" type="bool" value="false"/>
@@ -161,20 +158,8 @@
       <property name="show-generic-names" type="bool" value="false"/>
       <property name="small" type="bool" value="false"/>
     </property>
-    <property name="plugin-56" type="string" value="separator">
-      <property name="style" type="int" value="0"/>
-      <property name="expand" type="bool" value="false"/>
-    </property>
     <property name="plugin-57" type="string" value="docklike">
       <property name="middleButtonBehavior" type="int" value="2"/>
-    </property>
-    <property name="plugin-58" type="string" value="separator">
-      <property name="style" type="int" value="0"/>
-      <property name="expand" type="bool" value="false"/>
-    </property>
-    <property name="plugin-59" type="string" value="separator">
-      <property name="style" type="int" value="0"/>
-      <property name="expand" type="bool" value="false"/>
     </property>
     <property name="plugin-60" type="string" value="genmon">
       <property name="command" type="string" value="@HOME@/.local/bin/panel-wifi"/>

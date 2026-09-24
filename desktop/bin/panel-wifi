@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME
 
 print('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
-      f'button {{ padding: 0 {THEME["panel_gap"]}px; }}</css>')
+      'button { padding: 0 2px; }</css>')
 try:
     print((Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "netq-wifi.txt").read_text())
 except OSError:

@@ -78,8 +78,10 @@ def panel_percent(pct):
 parts = [f'{value(panel_percent(cpu), colour(cpu), 2)}{GAP}{icon("cpu")}',
          f'{value(panel_percent(mem_pct), colour(mem_pct), 2)}{GAP}{icon("memory")}']
 if swap_used > 64:
-    swap_txt = str(max(1, round(swap_used / 1024)))
-    parts.append(f'{value(swap_txt, THEME["text"], 2)}{GAP}{icon("swap")}')
+    # one digit: 10 GB and above roll over to 0-6 in red, the way the user asked
+    swap_gb = max(1, round(swap_used / 1024))
+    swap_txt, swap_colour = (str(swap_gb - 10), THEME["danger"]) if swap_gb >= 10 else (str(swap_gb), THEME["text"])
+    parts.append(f'{value(swap_txt, swap_colour, 1)}{GAP}{icon("swap")}')
 
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.

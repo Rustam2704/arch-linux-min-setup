@@ -40,7 +40,8 @@ else:
 
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.
-print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
+print('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
+      'button { padding: 0 2px 0 0; }</css>')   # the tray keeps 16 px of its own on the left
 print(f"<img>{os.path.join(ICONS, icon)}</img>")
 if text:
     print(f"<txt>{text} </txt>")

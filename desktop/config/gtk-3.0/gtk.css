@@ -17,3 +17,8 @@ calendar:selected {
 /* The clock's own calendar pop-up (panel-calendar): the same dark surface as menus. */
 #panel-calendar { background-color: @COLOUR_BACKGROUND@; border: 1px solid @COLOUR_BORDER@; border-radius: 8px; }
 #panel-calendar calendar { font-family: @FONT@; }   /* no background here: it would outrank calendar:selected */
+
+/* Panel tray (Status Tray plugin, square icons off): the plugin zeroes its buttons'
+   padding, so the margins here set the standard 15 px between icons - 11 before an
+   item (4 px come from the separator line) and 4 after it (Telegram adds the rest). */
+#sn-button { margin: 0 4px 0 11px; }

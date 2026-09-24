@@ -295,3 +295,13 @@
 2026-09-24T18:29:05+03:00	49-panel-polish	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.Vpt0nW.bak
 2026-09-24T18:29:05+03:00	49-panel-polish	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.e2qkLp.bak
 2026-09-24T18:29:05+03:00	49-panel-polish	file	/home/fanatic/.local/share/sky-desktop/sky_text.py	
+2026-09-25T00:35:54+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-audio	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-audio.9IzWrf.bak
+2026-09-25T00:35:54+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.cKN7Ak.bak
+2026-09-25T00:35:54+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.S65emH.bak
+2026-09-25T00:35:54+03:00	50-panel-spacing	cmd	xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -a -t int -s 1 -t int -s 50 -t int -s 57 -t int -s 51 -t int -s 45 -t int -s 52 -t int -s 6 -t int -s 58 -t int -s 59 -t int -s 40 -t int -s 56 -t int -s 60 -t int -s 41 -t int -s 42 -t int -s 54 -t int -s 43 -t int -s 53 -t int -s 44 -t int -s 62 -t int -s 55 -t int -s 61 -t int -s 21	
+2026-09-25T00:35:54+03:00	50-panel-spacing	cmd	for p in 56 58 59; do xfconf-query -c xfce4-panel -p /plugins/plugin-$p -n -t string -s separator; xfconf-query -c xfce4-panel -p /plugins/plugin-$p/style -n -t int -s 0; xfconf-query -c xfce4-panel -p /plugins/plugin-$p/expand -n -t bool -s false; done	
+2026-09-25T00:37:30+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-audio	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-audio.Wx6B9h.bak
+2026-09-25T00:37:30+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.DuyNXY.bak
+2026-09-25T00:37:30+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-wifi	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-wifi.aRQxfl.bak
+2026-09-25T00:38:51+03:00	50-panel-spacing	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-6/square-icons -t bool -s true	
+2026-09-25T00:39:34+03:00	50-panel-spacing	backup	/home/fanatic/.config/gtk-3.0/gtk.css	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_gtk-3.0_gtk.css.bScHOo.bak

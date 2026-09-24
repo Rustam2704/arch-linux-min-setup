@@ -45,9 +45,9 @@ lit = 0 if muted else (1 if vol <= 33 else 2 if vol <= 66 else 3)
 arcs = [("M34 26q6 6 0 12", THEME["warning"]), ("M41 20q12 12 0 24", THEME["success"]),
         ("M48 14q18 18 0 36", THEME["light"])]
 horn = THEME["muted"] if muted else THEME["danger"]
-# the speaker is the same drawing as the icon theme's, moved to the right half of
-# the canvas; the left slot holds the microphone while recording and stays empty
-# otherwise, so nothing beside the indicator ever shifts
+# the speaker is the same drawing as the icon theme's; while something records, a
+# small red microphone sits on the horn as a badge - no slot of its own, so the
+# indicator is exactly as wide as the speaker and nothing beside it ever shifts
 body = f'<path fill="none" stroke="{horn}" stroke-width="2.6" d="M7 24h9l12-10v36L16 40H7z"/>'
 for i, (d, colour) in enumerate(arcs):
     extra = "" if i < lit else f' opacity="{DIM}"'
@@ -57,11 +57,12 @@ if muted:
 mic = ""
 if state.get("recording"):
     colour = THEME["muted"] if state.get("mic_muted") else THEME["danger"]
-    mic = (f'<g fill="none" stroke="{colour}" stroke-linecap="round" stroke-linejoin="round" transform="translate(-19 -12)">'
-           '<rect x="26" y="14" width="12" height="22" rx="6" stroke-width="2.6"/>'
-           '<path d="M21 29v1a11 11 0 0 0 22 0v-1" stroke-width="4"/><path d="M32 41v6M25 47h14" stroke-width="4"/></g>')
-svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="94" height="38" viewBox="0 0 94 38">'
-       f'{mic}<g stroke-linecap="round" stroke-linejoin="round" transform="translate(27 -12)">{body}</g></svg>')
+    mic = (f'<g fill="none" stroke="{colour}" stroke-linecap="round" stroke-linejoin="round" '
+           'transform="translate(-6 8) scale(0.55)">'
+           f'<rect x="26" y="14" width="12" height="22" rx="6" fill="{THEME["background"]}" stroke-width="3"/>'
+           '<path d="M21 29v1a11 11 0 0 0 22 0v-1" stroke-width="5"/><path d="M32 41v6M25 47h14" stroke-width="5"/></g>')
+svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="62" height="38" viewBox="0 0 62 38">'
+       f'<g stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -12)">{body}{mic}</g></svg>')
 try:
     old = open(ICON).read() if os.path.exists(ICON) else ""
     if old != svg:
@@ -75,7 +76,8 @@ tip = f"Volume: {'muted' if muted else f'{vol}%'}\nMicrophone: {'muted' if state
 if state.get("recording"):
     tip += "\nRecording now"
 tip += "\nClick: sound menu · scroll: volume · middle: mute"
-print('<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>')
+print('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
+      'button { padding: 0 12px 0 4px; }</css>')
 print(f"<img>{ICON}</img>")
 print(f"<click>{os.path.expanduser('~/.local/bin/audio-menu')}</click>")
 print(f"<tool>{tip}</tool>")
