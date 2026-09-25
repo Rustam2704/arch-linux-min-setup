@@ -64,25 +64,7 @@
       <property name="symbolic-icons" type="bool" value="true"/>
       <property name="menu-is-primary" type="bool" value="false"/>
       <property name="hide-new-items" type="bool" value="false"/>
-      <property name="known-legacy-items" type="array">
-        <value type="string" value="wi-fi network connection “tp-link_bcf1_5g” active: tp-link_bcf1_5g (59%)"/>
-        <value type="string" value="wi-fi network connection “tp-link_bcf1_5g” active: tp-link_bcf1_5g (57%)"/>
-        <value type="string" value="wi-fi network connection “oppo reno12 pro 5g” active: oppo reno12 pro 5g (100%)"/>
-        <value type="string" value="wi-fi network connection “oppo reno12 pro 5g” active: oppo reno12 pro 5g (99%)"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (52%)"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (49%)"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (50%)"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (40%)"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (47%)"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (44%)"/>
-        <value type="string" value="telegramdesktop"/>
-        <value type="string" value="wi-fi network connection “nokia-062a-5g” active: nokia-062a-5g (42%)"/>
-      </property>
       <property name="hidden-items" type="array">
-        <value type="string" value="zoom"/>
-      </property>
-      <property name="known-items" type="array">
-        <value type="string" value="TelegramDesktop"/>
         <value type="string" value="zoom"/>
       </property>
       <property name="size-max" type="int" value="48"/>

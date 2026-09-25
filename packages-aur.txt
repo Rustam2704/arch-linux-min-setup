@@ -1,0 +1,13 @@
+# Packages from the AUR (yay -S --needed ...). The first group is the desktop itself,
+# the second is this MacBookPro11,1 and can be skipped on other hardware.
+ttf-dseg                    # the panel clock's seven-segment font
+xkb-switch                  # layout indicator and OSD
+zoom                        # video lessons (panel indicator, screen-share rules)
+vesktop-bin                 # Discord client
+rustdesk-bin                # remote desktop (i3 "passthrough" mode for it)
+
+# MacBookPro11,1 only
+broadcom-wl-dkms            # Wi-Fi BCM4360 (no WPA3)
+facetimehd-dkms             # camera
+facetimehd-firmware
+mbpfan                      # fan control

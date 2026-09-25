@@ -11,7 +11,7 @@ The tree under desktop/ is the whole installed desktop:
     desktop/xfconf/<channel>.xml                 xfconf properties (the panel layout), set live
                                                  with xfconf-query, one undo per changed property
 
-Text files are rendered: @HOME@, @PROJECT@ and the style tokens from
+Text files are rendered: @HOME@, @USER@, @PROJECT@ and the style tokens from
 desktop/share/sky-desktop/theme.json (@COLOUR_ACCENT@, @RGB_LIGHT@, @HEX_ACCENT@,
 @FONT@ ...). Binary files (icons) are copied as they are. `check` refuses a
 source that spells a theme colour as a literal instead of a token, so the theme
@@ -65,7 +65,8 @@ def render(path):
         return raw
     if str(path.relative_to(SOURCE)) in RAW:
         return raw
-    data = data.replace("@HOME@", str(Path.home())).replace("@PROJECT@", str(ROOT))
+    data = (data.replace("@HOME@", str(Path.home())).replace("@PROJECT@", str(ROOT))
+            .replace("@USER@", Path.home().name))
     for token, value in TOKENS.items():
         data = data.replace(token, value)
     return data.encode()

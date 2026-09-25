@@ -9,7 +9,13 @@ import os
 import time
 import urllib.request
 
-LAT, LON = 50.260106, 28.669628          # Zhytomyr
+# The place: "<lat> <lon>" in ~/.config/sky-desktop/weather (private, not in the
+# tree); without it the city centre of Zhytomyr.
+LAT, LON = 50.26, 28.67
+try:
+    LAT, LON = (float(v) for v in open(os.path.expanduser("~/.config/sky-desktop/weather")).read().split()[:2])
+except (OSError, ValueError):
+    pass
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "panel-weather.json")
 MAX_AGE = 900                             # refresh at most every 15 minutes
 STALE_AFTER = 3 * 3600                    # dim the reading after 3 hours

@@ -53,3 +53,6 @@ xorg-server-xvfb            # make test (GTK smoke test)
 libevdev                    # assets/qt-scroll-phases
 qt6-base
 cmake
+
+# Fonts and build tools
+python-fonttools            # external-assets/tools/diablo-font.py (font from the game's sheet)

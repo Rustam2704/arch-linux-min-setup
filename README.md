@@ -1,5 +1,13 @@
 # sky-desktop — настройка whitebook
 
+*English: a declarative, reproducible desktop for Arch Linux — Xfce infrastructure + the i3 window
+manager + our own tools (window title buttons, snapping, per-screen workspaces, a panel with live
+indicators, OSD, calendar, a starfield background). Everything installed on the system lives in
+this repository and is installed with one command; [BOOTSTRAP.md](BOOTSTRAP.md) is a step-by-step
+runbook for an AI agent to reproduce it on a bare Arch install. The documents are in Russian.*
+
+**Воспроизвести на чистом Arch** — [BOOTSTRAP.md](BOOTSTRAP.md) (пошагово, рассчитано на ИИ-агента).
+
 Рабочий стол ноутбука **whitebook** (MacBookPro11,1, Arch Linux, Xorg): инфраструктура Xfce
 (панель, xfsettingsd, power manager, Thunar) + оконный менеджер **i3** + свои инструменты,
 которые делают из этого законченную среду в духе Windows: шапки окон с кнопками, прилипание
@@ -25,7 +33,8 @@ tools/desktop.py         check · build · diff · apply · status · packages (
 tests/                   unit-тесты календаря и GTK smoke-тест (xvfb)
 assets/                  исходники, которые не ставятся как есть: плагин Qt scroll-phases, GTK-модуль dock-rtl, иконки, userscripts
 lab/                     журнал изменений системы (lab, rollback.py, journal.tsv); backups/ вне git
-packages.txt             пакеты, которые нужны дереву
+packages.txt             пакеты, которые нужны дереву · packages-aur.txt — из AUR
+BOOTSTRAP.md             как поднять всё это на чистом Arch (для агента)
 ```
 
 Файлы дерева — шаблоны: `@HOME@`, `@PROJECT@` и токены стиля из
@@ -72,6 +81,9 @@ make rollback EXP=33-name  # откат эксперимента
 | `warning` `danger` `success` `highlight` | `#febc2e` `#ff5f57` `#28c840` `#ffd166` | состояния; те же три цвета у кнопок в шапке окна |
 | `layouts` | EN `#3b7ddd` · RU `#8f5b2e` · UA `#ffd447` | индикатор раскладки и OSD |
 | `font` `mono_font` `panel_font` | Inter · JetBrainsMono Nerd Font · Diablo 18 | `panel_font` — шрифт индикаторов панели (кроме часов), тот же в xfconf у genmon-плагинов |
+
+Личные вещи — координаты погоды, звук клавиш, ключи календаря — живут в `~/.config/sky-desktop/`
+и `~/.config/light-year/`, вне дерева (см. BOOTSTRAP.md). Дерево знает пользователя как `@USER@`.
 
 Конфиги и shell пишут `@COLOUR_ACCENT@`, `@RGB_LIGHT@` (для `rgba(@RGB_LIGHT@, 0.2)`),
 `@HEX_ACCENT@` (без решётки, touchegg), `@FONT@`, `@MONO_FONT@`, `@PANEL_FONT@`. Python читает `THEME[...]`

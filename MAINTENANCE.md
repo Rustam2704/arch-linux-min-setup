@@ -38,24 +38,10 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 
 ## Восстановление на чистой машине
 
-1. Arch с ядром LTS, пользователь `fanatic` (или заменить в `desktop/config/deskd/apps.conf` и
-   тестах), `git clone` в `~/ai/claude/setup`.
-2. `make packages` → `sudo pacman -S --needed <недостающие>`; из AUR — `touchegg`, `zoom`,
-   `xfce4-docklike-plugin`, `mbpfan`, `facetimehd-dkms`, `broadcom-wl-dkms`.
-3. `make apply EXP=00-fresh-install` — ставит дерево (системные файлы через `sudo`).
-4. Панель: раскладка хранится в xfconf и деревом не описана — скопировать
-   `xfce4-panel.xml` с рабочей машины (`~/.config/xfce4/xfconf/xfce-perchannel-xml/`) при
-   остановленной панели, либо собрать по списку плагинов из [ARCHITECTURE.md](ARCHITECTURE.md#панель-xfce-одна-строка-сверху-66-px-144-dpi).
-   Прочие свойства xfconf: `xsettings` (тема Sky-Dark, Inter 10, DPI), `keyboard-layout`
-   (us,ru,ua без `grp:` опций — их делает OSD), `displays` (`Notify=0`, `AutoEnableProfiles=0`),
-   `xfce4-power-manager` (уведомления выключены).
-5. `systemctl --user enable netqd firefox-memd sky-stars`; `deskd` и `osd` запускает i3.
-6. LightDM: в `/etc/lightdm/lightdm.conf` `[Seat:*]` → `autologin-user=fanatic`,
-   `autologin-session=xfce-i3`, группа `autologin`. `/boot/loader/loader.conf` — `timeout 0`.
-7. Плагин Qt: `assets/qt-scroll-phases/install.sh` (сборка cmake, udev-правило, пересобирать
-   после обновления Qt — при несовпадении версии плагин просто не загружается).
-8. Календарь: положить ключи в `~/.config/light-year/` (Google OAuth-клиент Desktop,
-   Zoom Server-to-Server), нажать **Connect Google** в окне.
+Пошагово — [BOOTSTRAP.md](BOOTSTRAP.md): пакеты (`packages.txt`, `packages-aur.txt`),
+`make apply EXP=00-fresh-install` (дерево вместе со свойствами xfconf: панель, xsettings,
+раскладки, power manager, Thunar), группа `autologin` и LightDM (drop-in из дерева), службы,
+личные файлы вне дерева.
 
 Снапшоты — Timeshift (rsync), последний рубеж — `before-lab-experiments`.
 
