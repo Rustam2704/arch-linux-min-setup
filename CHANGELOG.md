@@ -1542,3 +1542,9 @@ Claude Code хранит расшифровки (и файлы памяти) в 
 через npm в `~/.local` (prefix переключён на `~/.local`) — `wrangler`; Playwright положил
 headless Chromium в `~/.cache/ms-playwright` (~200 МБ) для проверок design-sync.
 `gh` залогинен токеном пользователя (`~/.config/gh/hosts.yml`), wrangler — OAuth в `~/.config/.wrangler/`.
+
+## 51 — friend-arch-stick (2026-09-25)
+
+Установочная флешка Arch + KDE Plasma для ноутбука друга (проект `~/ai/claude/gaming-on-linux`).
+На whitebook поставлены `archiso`, `qemu-base`, `edk2-ovmf` (`lab pkg 51-friend-arch-stick`) —
+только для сборки и теста образа; после завершения проекта их можно удалить (`lab rollback 51-friend-arch-stick`).
