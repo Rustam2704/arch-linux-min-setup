@@ -67,6 +67,9 @@ DISMISS = {("Sublime_text", "Update - Sublime Text")}
 # honours and i3 4.25 leaves alone): Telegram has its own panel indicator instead
 NO_DOCK = {"TelegramDesktop"}
 TARGET_MARGIN = 40            # px the drop-target overlay extends past the workspace strip
+# Zoom's screen-share border: while it is up picom bypasses the compositor and every
+# translucent overlay of ours would be a solid black box - so none is shown
+SHARE_FRAME = "cpt_frame_xcb_window"
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
 POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
 MENU_HOSTS = ("osd-daemon",)      # daemons whose *menus* (window type POPUP_MENU) count as pop-ups too
@@ -580,6 +583,7 @@ class Deskd:
         self.click_layers = {}      # plugin id -> click window over the strip
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
+        self.sharing = False        # Zoom's share frame is up: no overlays at all
         self.audio_layer = None     # InputOnly window over panel-audio: wheel = volume, middle = mute
         self.veils = {}             # dock frame id -> the dimming veil over that panel
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
@@ -607,6 +611,8 @@ class Deskd:
         self.outputs_changed()
         self.refresh()
         self.skip_dock_existing()
+        if self.share_frame_present():
+            self.set_sharing(True)
         # the panel can restart or reflow; keep the click layer on the workspace strip
         GLib.timeout_add_seconds(20, self.recheck_strips)
         GLib.timeout_add(1500, lambda: (self.watch_panel_items(), False)[1])
@@ -688,6 +694,8 @@ class Deskd:
             veil = self.veils.get(frame.id)
             if veil is None or not veil.matches(geom):
                 self.veils[frame.id] = PanelDim(self.xs, geom)
+                if self.sharing:
+                    self.veils[frame.id].set_visible(False)
         for fid in [f for f in self.veils if f not in frames]:   # the panel restarted: its old
             self.veils.pop(fid).set_visible(False)                # frame is gone, so is its veil
         watch += [win for win, _ in self.panel_wrappers()]
@@ -1359,7 +1367,15 @@ class Deskd:
             self.monitors.changed()
         elif t == X.DestroyNotify:
             self.frames.pop(e.window.id, None)
+            if self.sharing and not self.share_frame_present():
+                self.set_sharing(False)
+        elif t == X.UnmapNotify:
+            if self.sharing and not self.share_frame_present():
+                self.set_sharing(False)
         elif t == X.MapNotify:
+            if not self.sharing and self.is_share_frame(e.window):
+                self.set_sharing(True)
+                return None
             # a menu or a popup (the clock's calendar, a plugin's menu) is an
             # override-redirect window: a menu, a notification, the clock's calendar.
             # Keep it above everything, whatever the window below is doing.
@@ -2137,6 +2153,37 @@ class Deskd:
         self.pump()
         return False
 
+    def is_share_frame(self, win):
+        try:
+            return win.get_wm_name() == SHARE_FRAME
+        except error.XError:
+            return False
+
+    def share_frame_present(self):
+        try:
+            return any(self.is_share_frame(w) and w.get_attributes().map_state == X.IsViewable
+                       for w in self.xs.root.query_tree().children)
+        except error.XError:
+            return False
+
+    def set_sharing(self, sharing):
+        """Zoom's share frame appeared or went: hide every overlay of ours, or bring
+        them back the way the screens' full-screen state allows."""
+        self.sharing = sharing
+        log("screen share", "started: overlays hidden" if sharing else "ended: overlays back")
+        if sharing:
+            for veil in self.veils.values():
+                veil.set_visible(False)
+            if self.ws_mark is not None:
+                self.ws_mark.hide()
+                self.mark_file.hide()
+            return
+        try:
+            self.hide_over_fullscreen(self.i3.workspaces())
+        except Exception as e:                       # noqa: BLE001
+            log("veils after share:", e)
+        self.sync_active_mark()
+
     def hide_over_fullscreen(self, workspaces):
         """A full-screen window (a photo in Telegram, a video, a game) covers the panel
         as well, and our veil and mark would still be sitting on top of it."""
@@ -2149,7 +2196,7 @@ class Deskd:
             if veil is None:
                 continue
             out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + geom[3] // 2)
-            clear = (out or {}).get("name") not in busy
+            clear = (out or {}).get("name") not in busy and not self.sharing
             veil.set_visible(clear)
             if not clear and self.ws_mark is not None:
                 self.ws_mark.hide()
@@ -2162,6 +2209,10 @@ class Deskd:
         if self.ws_mark is None:
             self.ws_mark = ActiveMark(self.xs)
             self.mark_file = MarkFile(self.i3)
+        if self.sharing:
+            self.ws_mark.hide()
+            self.mark_file.hide()
+            return
         if focused is None:
             focused = next((w["num"] for w in self.i3.workspaces() if w.get("focused")), None)
         for pid, out in self.strip_plugins():
