@@ -398,14 +398,14 @@ def main():
         # the image is its own genmon tag, never inside <txt>: nested there it is
         # drawn twice and drags the label off the line the other plugins sit on
         picture = f"<img>{image}</img>\n" if image else f"<txt>{glyph}</txt>\n"
-        menu = os.path.expanduser("~/.local/bin/net-menu")
-        wifi_out = (f"{picture}<click>{menu} --wifi</click>\n"
-                    f"<txtclick>{menu} --wifi</txtclick>\n<tool>{link_tip}\nClick: Wi-Fi networks</tool>\n")
+        menu = os.path.expanduser("~/.local/bin/osd") + " menu"   # osd-daemon hosts the menus warm
+        wifi_out = (f"{picture}<click>{menu} wifi</click>\n"
+                    f"<txtclick>{menu} wifi</txtclick>\n<tool>{link_tip}\nClick: Wi-Fi networks</tool>\n")
         wifi_path = os.path.join(RUN, "netq-wifi.txt")
         with open(wifi_path + ".tmp", "w") as stream:
             stream.write(wifi_out)
         os.replace(wifi_path + ".tmp", wifi_path)
-        out = (f"<txt>{text}</txt>\n<txtclick>{menu} --info</txtclick>\n"
+        out = (f"<txt>{text}</txt>\n<txtclick>{menu} info</txtclick>\n"
                f"<tool>{tip}</tool>\n")
         with open(OUT + ".tmp", "w") as f:
             f.write(out)

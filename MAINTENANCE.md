@@ -18,7 +18,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 |---|---|
 | `config/i3/config` | `i3 -C -c ~/.config/i3/config && i3-msg reload` |
 | `share/deskd/*`, `share/sky-desktop/*` | `systemctl --user restart deskd` (и `osd`, `sky-stars`, если менялась тема) |
-| `bin/osd-daemon` | `systemctl --user restart osd` |
+| `bin/osd-daemon`, `share/sky-desktop/netmenu.py` | `systemctl --user restart osd` |
 | `bin/netqd` | `systemctl --user restart netqd` |
 | `bin/sky-stars` | `systemctl --user restart sky-stars` |
 | `bin/panel-*` | ничего: genmon перечитывает скрипт при следующем запуске команды |

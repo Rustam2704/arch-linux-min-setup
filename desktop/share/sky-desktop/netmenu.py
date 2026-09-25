@@ -1,0 +1,350 @@
+"""The network menus behind the panel's Wi-Fi fan and ping: Wi-Fi networks (connect,
+password, scan), the numbers and the speed test. Lives in the shared library so
+osd-daemon can host it warm - `osd menu wifi` pops it up in a few milliseconds,
+while starting a Python+GTK process for it took ~350 ms. `net-menu` is the thin
+command: it asks the daemon, or runs the menu standalone when there is none.
+
+This menu replaces nm-applet's tray icon, which the panel could not scale past
+22 px. Networks come from NetworkManager's scan cache, refreshed by a scan when the
+cache holds fewer than three (NetworkManager forgets what it has not seen lately); a
+known network connects straight away and a new one asks for its password here.
+Anything the menu does not cover - hidden networks, VPN, static addresses - opens
+nmtui or nm-connection-editor, both part of NetworkManager.
+
+The speed test only ever runs from this menu, never by accident. It downloads
+25 MB and uploads 10 MB through Cloudflare's speed test endpoints (curl, no extra
+packages) and keeps the result for the tooltip."""
+import datetime
+import json
+import os
+import subprocess
+import sys
+
+RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+STATE = os.path.join(RUN, "netq.json")
+SPEED = os.path.join(os.path.expanduser("~/.cache"), "netq-speed.json")
+LOCK = os.path.join(RUN, "netq-speedtest.lock")
+
+
+def notify(title, body=""):
+    subprocess.run(["notify-send", "-a", "Network", "-i", "network-wireless", title, body])
+
+
+def curl_speed(args):
+    out = subprocess.run(["curl", "-s", "-o", "/dev/null", "--max-time", "40", *args],
+                         capture_output=True, text=True).stdout
+    return float(out or 0) * 8 / 1e6          # bytes/s -> Mbit/s
+
+
+def speedtest():
+    try:
+        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL)
+        os.close(fd)
+    except FileExistsError:
+        notify("Speed test is already running")
+        return
+    try:
+        notify("Speed test started", "About 10–30 seconds…")
+        down = curl_speed(["-w", "%{speed_download}",
+                           "https://speed.cloudflare.com/__down?bytes=25000000"])
+        up = subprocess.run(
+            "head -c 10000000 /dev/zero | curl -s -o /dev/null --max-time 40 "
+            "-w '%{speed_upload}' -X POST --data-binary @- https://speed.cloudflare.com/__up",
+            shell=True, capture_output=True, text=True).stdout
+        up = float(up or 0) * 8 / 1e6
+        when = datetime.datetime.now().strftime("%H:%M")
+        os.makedirs(os.path.dirname(SPEED), exist_ok=True)
+        with open(SPEED, "w") as f:
+            json.dump({"down": down, "up": up, "when": when}, f)
+        if down == 0 and up == 0:
+            notify("Speed test failed", "No connection to speed.cloudflare.com")
+        else:
+            notify("Speed test", f"↓ {down:.1f} Mbit/s    ↑ {up:.1f} Mbit/s")
+    finally:
+        os.unlink(LOCK)
+
+
+def split_fields(line):
+    """nmcli -t escapes a colon inside a value as "\\:"."""
+    out, cur, escaped = [], "", False
+    for ch in line:
+        if escaped:
+            cur += ch
+            escaped = False
+        elif ch == "\\":
+            escaped = True
+        elif ch == ":":
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    out.append(cur)
+    return out
+
+
+def nmcli(*args, timeout=8):
+    try:
+        return subprocess.run(["nmcli", *args], capture_output=True, text=True,
+                              timeout=timeout).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def networks(rescan=False):
+    """[(in_use, ssid, signal, secured)]: the scan NetworkManager already has, or with
+    rescan=True a fresh one - nmcli then blocks until the scan is complete, so the
+    list is whole instead of just the network in use."""
+    seen, out = set(), []
+    for row in nmcli("-t", "-f", "IN-USE,SIGNAL,SECURITY,SSID", "dev", "wifi", "list",
+                     "--rescan", "yes" if rescan else "no", timeout=40).splitlines():
+        f = split_fields(row)
+        if len(f) < 4 or not f[3] or f[3] in seen:
+            continue
+        seen.add(f[3])
+        out.append((f[0] == "*", f[3], int(f[1]) if f[1].isdigit() else 0,
+                    bool(f[2].strip()) and f[2].strip() != "--"))
+    out.sort(key=lambda n: (not n[0], -n[2]))
+    return out[:10]
+
+
+def known(ssid):
+    return any(split_fields(r)[:1] == [ssid] for r in nmcli("-t", "-f", "NAME", "con", "show").splitlines())
+
+
+def ask_password(parent_ssid):
+    """A new network needs its key; nm-applet used to ask, so we ask."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gtk
+    dlg = Gtk.Dialog(title="Wi-Fi password", modal=True)
+    dlg.set_default_size(360, -1)
+    box = dlg.get_content_area()
+    box.set_spacing(8)
+    box.set_border_width(16)
+    box.pack_start(Gtk.Label(label=f"Password for {parent_ssid}", xalign=0), False, False, 0)
+    entry = Gtk.Entry(visibility=False, activates_default=True)
+    box.pack_start(entry, False, False, 0)
+    dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+    dlg.add_button("Connect", Gtk.ResponseType.OK)
+    dlg.set_default_response(Gtk.ResponseType.OK)
+    dlg.show_all()
+    answer = entry.get_text() if dlg.run() == Gtk.ResponseType.OK else None
+    dlg.destroy()
+    return answer
+
+
+def connect(ssid, secured):
+    password = None if known(ssid) or not secured else ask_password(ssid)
+    if secured and not known(ssid) and not password:
+        return
+    args = ["dev", "wifi", "connect", ssid] + (["password", password] if password else [])
+    def work():
+        notify(f"Connecting to {ssid}…")
+        result = subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=45)
+        notify(f"Connected to {ssid}" if result.returncode == 0 else f"Could not connect to {ssid}",
+               "" if result.returncode == 0 else result.stderr.strip())
+    import threading
+    threading.Thread(target=work, daemon=False).start()
+
+
+def menu(wifi_only=False, hosted=False):
+    """Build and pop up the menu at the pointer. Standalone it runs its own GTK loop;
+    hosted (inside osd-daemon, which keeps it warm) it just pops up and returns."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, GLib, Gtk
+    import threading
+
+    try:
+        st = json.load(open(STATE))
+    except (OSError, ValueError):
+        st = {}
+    try:
+        sp = json.load(open(SPEED))
+    except (OSError, ValueError):
+        sp = None
+
+    def fmt(s, label):
+        if not s:
+            return f"{label}: no data"
+        med = "—" if s.get("median") is None else f"{s['median']:.0f}"
+        now = "—" if s.get("now") is None else f"{s['now']:.0f}"
+        return f"{label}: {now} ms now · {med} ms median · {s.get('loss', 0)}% loss"
+
+    m = Gtk.Menu()
+
+    def info(text):
+        item = Gtk.MenuItem(label=text)
+        item.set_sensitive(False)
+        m.append(item)
+
+    if wifi_only:
+        header = Gtk.MenuItem()
+        row = Gtk.Box(spacing=12, margin=4)
+        row.pack_start(Gtk.Label(label="Wi-Fi", xalign=0), True, True, 4)
+        switch = Gtk.Switch()
+        switch.set_active(nmcli("radio", "wifi").strip() == "enabled")
+        row.pack_start(switch, False, False, 0)
+        refresh = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
+        refresh.set_tooltip_text("Refresh networks")
+        row.pack_start(refresh, False, False, 0)
+        header.add(row)
+        m.append(header)
+        m.append(Gtk.SeparatorMenuItem())
+        dynamic = []
+        pending = False
+
+        scanning = {"busy": False}
+
+        def fill(wifi, note=None):
+            for item in dynamic:
+                m.remove(item)
+            dynamic.clear()
+            for in_use, ssid, signal, secured in wifi:
+                mark = "● " if in_use else "   "
+                lock = " 🔒" if secured else ""
+                item = Gtk.MenuItem(label=f"{mark}{ssid}   {signal}%{lock}")
+                item.set_sensitive(not in_use)
+                item.connect("activate", lambda _i, s=ssid, sec=secured: connect(s, sec))
+                m.insert(item, 2 + len(dynamic))
+                dynamic.append(item)
+            if not wifi:
+                item = Gtk.MenuItem(label=note or "No networks found")
+                item.set_sensitive(False)
+                m.insert(item, 2)
+                dynamic.append(item)
+            for item in dynamic:          # not show_all(): that would unhide "Turn Wi-Fi on"
+                item.show()
+
+        def start_scan():
+            if scanning["busy"]:
+                return
+            scanning["busy"] = True
+
+            def work():
+                wifi = networks(rescan=True)
+
+                def done():
+                    scanning["busy"] = False
+                    if switch.get_active():
+                        fill(wifi)
+                    return False
+                GLib.idle_add(done)
+            threading.Thread(target=work, daemon=True).start()
+
+        def show_networks(wifi=None):
+            if wifi is None:
+                # the menu is already on screen: nmcli answers in a thread, the rows
+                # fill in when it does - a click must open the menu at once
+                if not switch.get_active():
+                    fill([], "Wi-Fi is off")
+                    return
+                fill([], "Loading…")
+
+                def work():
+                    got = networks()
+                    GLib.idle_add(lambda: (show_networks(got), False)[1])
+                threading.Thread(target=work, daemon=True).start()
+                return
+            fill(wifi, "Wi-Fi is off" if not switch.get_active() else "Scanning…")
+            if switch.get_active() and len(wifi) < 3:
+                # NetworkManager forgets networks it has not seen for a few minutes,
+                # and while connected it rarely looks, so the cache is often just the
+                # network in use. This click is the user asking: what is cached shows
+                # at once, a scan runs meanwhile and the list fills in (never a scan
+                # in the background, only here)
+                if wifi:
+                    note = Gtk.MenuItem(label="Scanning…")
+                    note.set_sensitive(False)
+                    m.insert(note, 2 + len(dynamic))
+                    dynamic.append(note)
+                    note.show()
+                start_scan()
+
+        def operation(args):
+            nonlocal pending
+            if pending:
+                return
+            pending = True
+            refresh.set_sensitive(False)
+            switch.set_sensitive(False)
+            def work():
+                try:
+                    result = subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=20)
+                    err = result.stderr.strip() if result.returncode else ""
+                    enabled = nmcli("radio", "wifi").strip() == "enabled"
+                except (OSError, subprocess.SubprocessError) as exc:
+                    err, enabled = str(exc), switch.get_active()
+                def done():
+                    nonlocal pending
+                    switch.handler_block(toggle_handler)
+                    switch.set_active(enabled)
+                    switch.handler_unblock(toggle_handler)
+                    refresh.set_sensitive(enabled)
+                    switch.set_sensitive(True)
+                    pending = False
+                    show_networks()
+                    if err:
+                        notify("Network action failed", err)
+                    return False
+                GLib.idle_add(done)
+            threading.Thread(target=work, daemon=False).start()
+
+        toggle_handler = switch.connect("notify::active", lambda widget, _: operation(
+            ["radio", "wifi", "on" if widget.get_active() else "off"]))
+        refresh.connect("clicked", lambda *_: (fill([], "Scanning…"), start_scan()))
+        refresh.set_sensitive(switch.get_active())
+        GLib.idle_add(show_networks)            # after the menu has popped up
+        # plain menu rows as well as the small header controls: a big target that
+        # says what it does, for the case the icon shows "off" and you need a network
+        turn_on = Gtk.MenuItem(label="Turn Wi-Fi on")
+        turn_on.connect("activate", lambda *_: switch.set_active(True))
+        m.append(turn_on)
+        rescan = Gtk.MenuItem(label="Refresh networks")
+        rescan.connect("activate", lambda *_: (fill([], "Scanning…"), start_scan()))
+        m.append(rescan)
+        for row in (turn_on, rescan):
+            # GTK closes a menu when a row activates; these two keep it open so the
+            # list can fill in right here, like the header switch does
+            row.connect("button-release-event", lambda w, e: (w.activate(), True)[1])
+
+        def sync_rows(*_):
+            turn_on.set_visible(not switch.get_active())
+            rescan.set_sensitive(switch.get_active())
+        switch.connect("notify::active", sync_rows)
+        m.connect("show", sync_rows)
+        other = Gtk.MenuItem(label="Other network…")
+        other.connect("activate", lambda *_: subprocess.Popen(
+            ["kitty", "--class", "nmtui", "-e", "nmtui-connect"], start_new_session=True))
+        m.append(other)
+        settings = Gtk.MenuItem(label="Network settings…")
+        settings.connect("activate", lambda *_: subprocess.Popen(["nm-connection-editor"], start_new_session=True))
+        m.append(settings)
+    else:
+        info(st.get("verdict", "No data yet"))
+        info(fmt(st.get("internet"), "Internet"))
+        info(fmt(st.get("router"), f"Router {st.get('gateway') or ''}".strip()))
+        if sp:
+            info(f"Last speed test {sp['when']}: ↓ {sp['down']:.1f}  ↑ {sp['up']:.1f} Mbit/s")
+        m.append(Gtk.SeparatorMenuItem())
+        run = Gtk.MenuItem(label="Run speed test")
+        run.connect("activate", lambda *_: subprocess.Popen(
+            [os.path.expanduser("~/.local/bin/net-menu"), "--speedtest"], start_new_session=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        m.append(run)
+    if not hosted:
+        m.connect("deactivate", lambda *_: Gtk.main_quit())
+    m.show_all()
+    # started by the panel, not from a click inside a GTK window: there is no trigger
+    # event, so the menu is placed at the pointer explicitly (popup_at_pointer would
+    # warn "no trigger event" and show nothing)
+    _, x, y = Gdk.Display.get_default().get_default_seat().get_pointer().get_position()
+    rect = Gdk.Rectangle()
+    rect.x, rect.y, rect.width, rect.height = x, y, 1, 1
+    m.popup_at_rect(Gdk.get_default_root_window(), rect, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+    if not hosted:
+        Gtk.main()
+
+

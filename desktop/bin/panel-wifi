@@ -11,4 +11,4 @@ print('<css>* { background-color: transparent; background-image: none; box-shado
 try:
     print((Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "netq-wifi.txt").read_text())
 except OSError:
-    print(f'<txt>Wi-Fi</txt><txtclick>{Path.home()}/.local/bin/net-menu --wifi</txtclick>')
+    print(f'<txt>Wi-Fi</txt><txtclick>{Path.home()}/.local/bin/osd menu wifi</txtclick>')

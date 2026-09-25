@@ -51,9 +51,11 @@ def width(markup, font):
 
 def pad_to(markup, target, font, align="right"):
     """`markup` padded with transparent zeroes to exactly `target` units: the text
-    against the right edge, or centred. A tiny transparent zero (5 % size, about a
-    pixel) carrying Pango letter spacing settles anything short of a whole zero;
-    Pango only ever adds spacing, so the loop corrects upwards or drops a zero."""
+    against the right edge, or centred. The remainder short of a whole zero is Pango
+    letter spacing on the *first* zero of a filler (a tiny 5 % zero, about a pixel,
+    when there is no whole one), never on the last glyph: spacing after the last
+    glyph of a line is dropped by Pango, so a filler that ended with it measured
+    right alone and ten pixels wider once other text followed."""
     base = width(markup, font)
     if base >= target:
         return markup
@@ -61,30 +63,36 @@ def pad_to(markup, target, font, align="right"):
     tiny = width('<span alpha="1" size="5%">0</span>', font)
     gap = target - base
     left = gap // 2 if align == "center" else 0
-    parts = {"left": [0, 0], "right": [0, 0]}          # [whole zeroes, spacing units]
+    parts = {}
     for side, units in (("left", left), ("right", gap - left)):
-        if units > 0:
-            n = max(0, (units - tiny) // zero)
-            parts[side] = [n, max(0, units - n * zero - tiny)]
+        if units <= 0:
+            parts[side] = None
+            continue
+        n = max(0, (units - tiny) // zero)             # whole zeroes, one of them spaced
+        parts[side] = [n, max(0, units - (n * zero + tiny if n else 2 * tiny))]
 
-    def filler(n, spacing):
-        if n == 0 and spacing == 0:
+    def filler(part):
+        if part is None:
             return ""
-        return (f'<span alpha="1">{"0" * n}</span>'
-                f'<span alpha="1" size="5%" letter_spacing="{spacing}">0</span>')
+        n, spacing = part
+        if n:
+            return (f'<span alpha="1" letter_spacing="{spacing}">0</span><span alpha="1">{"0" * (n - 1)}</span>'
+                    f'<span alpha="1" size="5%">0</span>')
+        return f'<span alpha="1" size="5%" letter_spacing="{spacing}">0</span><span alpha="1" size="5%">0</span>'
 
     def build():
-        return (f'<span font_features="tnum">{filler(*parts["left"])}{markup}'
-                f'{filler(*parts["right"])}</span>')
+        return (f'<span font_features="tnum">{filler(parts["left"])}{markup}'
+                f'{filler(parts["right"])}</span>')
+    side = "right" if parts["right"] else "left"
     out = build()
-    side = "right" if gap - left > 0 else "left"
+    sentinel = '<span alpha="1">0</span>'              # measure as text that is followed by more text
     for _ in range(8):
-        off = target - width(out, font)
+        off = target - (width(out + sentinel, font) - width(sentinel, font))
         if not off:
             break
         n, spacing = parts[side]
         spacing += off
-        while spacing < 0 and n:                      # only positive spacing counts
+        while spacing < 0 and n:
             n, spacing = n - 1, spacing + zero
         parts[side] = [n, max(0, spacing)]
         out = build()
