@@ -69,6 +69,7 @@ NO_DOCK = {"TelegramDesktop"}
 TARGET_MARGIN = 40            # px the drop-target overlay extends past the workspace strip
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
 POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
+MENU_HOSTS = ("osd-daemon",)      # daemons whose *menus* (window type POPUP_MENU) count as pop-ups too
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
 HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
@@ -1133,12 +1134,20 @@ class Deskd:
             kind = win.get_full_property(self.xs.d.get_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM)
             if not kind or self.xs.d.get_atom("_NET_WM_WINDOW_TYPE_TOOLTIP") not in list(kind.value):
                 return False
+            menu_type = self.xs.d.get_atom("_NET_WM_WINDOW_TYPE_POPUP_MENU")
             for w in self.xs.root.query_tree().children:
                 try:
                     cls = w.get_wm_class()
-                    if cls and cls[0] in POPUP_OWNERS and w.get_attributes().map_state == X.IsViewable:
+                    if not cls or w.get_attributes().map_state != X.IsViewable:
+                        continue
+                    if cls[0] in POPUP_OWNERS:
                         win.unmap()
                         return True
+                    if cls[0] in MENU_HOSTS:              # the network menus live in osd-daemon
+                        t = w.get_full_property(self.xs.d.get_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM)
+                        if t and menu_type in list(t.value):
+                            win.unmap()
+                            return True
                 except error.XError:
                     continue
         except error.XError:

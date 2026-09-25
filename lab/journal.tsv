@@ -504,3 +504,7 @@
 2026-09-25T14:01:45+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.fQVHxa.bak
 2026-09-25T14:01:45+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-wifi	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-wifi.783T4b.bak
 2026-09-25T14:01:45+03:00	50-panel-spacing	file	/home/fanatic/.local/share/sky-desktop/netmenu.py	
+2026-09-25T14:42:43+03:00	40-friend-arch-stick	pkg	archiso	
+2026-09-25T14:42:43+03:00	40-friend-arch-stick	pkg	qemu-base	
+2026-09-25T14:42:43+03:00	40-friend-arch-stick	pkg	edk2-ovmf	
+2026-09-25T14:42:43+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.nqFTuW.bak
