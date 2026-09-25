@@ -564,7 +564,7 @@ class Layouts:
         font = sky_text.panel_font(PANEL_LAYOUT_PLUGIN.split("-")[1])
         widest = max(sky_text.width(n, font) for n in self.names)
         colour = LAYOUT_COLOURS.get(name, THEME["muted"])
-        return sky_text.pad_to(f'<span foreground="{colour}">{name}</span>', widest, font, align="center")
+        return sky_text.pad_to(f'<span foreground="{colour}">{name}</span>', widest, font, align="center", after="")
 
     def switch(self, g):
         if g is None or g == self.current:

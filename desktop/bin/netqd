@@ -298,7 +298,7 @@ def fmt(ms, panel=False):
     return "000" if panel and rounded >= 1000 else str(rounded)
 
 
-def value(text, colour, width=3, size=""):
+def value(text, colour, width=3, size="", after="", before=""):
     """A cell exactly `width` digits wide with the number against its right edge: the
     reading never shifts sideways when it gains a digit. Transparent zeroes hold the
     space, because whitespace is not reliable inside a panel label."""
@@ -307,7 +307,7 @@ def value(text, colour, width=3, size=""):
         # by measurement, otherwise the panel twitched whenever a ping timed out
         font = sky_text.panel_font(PANEL_PLUGIN)
         cell = sky_text.width(f'<span{size} font_features="tnum">{"0" * width}</span>', font)
-        return sky_text.pad_to(f'<span{size} foreground="{colour}">{text}</span>', cell, font)
+        return sky_text.pad_to(f'<span{size} foreground="{colour}">{text}</span>', cell, font, after=after, before=before)
     room = "0" * max(0, width - len(text))
     return (f'<span{size} foreground="{colour}"><span alpha="1">{room}</span>'
             f'{text}</span>')
@@ -315,10 +315,11 @@ def value(text, colour, width=3, size=""):
 
 def numbers_markup(now, median, c_now, c_med):
     """The panel text with two readings: the one shape every state must keep."""
-    return (f'<span font_features="tnum">{value(now, c_now)}'
-            f'<span foreground="{DIM}">{GAP}·{GAP}</span>'
-            f'{value(median, c_med, size=" size=\"75%\"")}'
-            f'{GAP}{icon("latency")}</span> ')
+    dot = f'<span foreground="{DIM}">{GAP}·{GAP}</span>'
+    tail = f'{GAP}{icon("latency")}'
+    return (f'<span font_features="tnum">{value(now, c_now, after=dot)}{dot}'
+            f'{value(median, c_med, size=" size=\"75%\"", after=tail, before=dot)}'
+            f'{tail}</span> ')
 
 
 def as_wide_as_numbers(word):
