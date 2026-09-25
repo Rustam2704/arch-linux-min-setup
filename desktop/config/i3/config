@@ -187,6 +187,11 @@ for_window [class="Pavucontrol|Xfce4-appfinder|Nm-connection-editor"] floating e
 for_window [class="(?i)zoom" window_type="notification"] floating enable
 # (not "zoom": every Zoom window starts with that title before renaming itself)
 for_window [class="(?i)zoom" title="^(Settings|Participants|Chat)$"] floating enable
+# During a screen share Zoom pops its annotation toolbar and the small self-view as
+# "normal" windows; tiled, they split the workspace. They are overlays: float them
+# without a frame and never take the focus for them.
+for_window [class="(?i)zoom" title="^(annotate_toolbar|zoom_linux_float_video_window)$"] floating enable, border none
+no_focus [class="(?i)zoom" title="^(annotate_toolbar|zoom_linux_float_video_window)$"]
 for_window [title="Flameshot"] floating enable, border none
 for_window [class="btop-float"] floating enable, resize set 70 ppt 75 ppt, move position center
 for_window [class="deskd-menu"] floating enable, border none
