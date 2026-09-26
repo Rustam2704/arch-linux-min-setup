@@ -23,6 +23,7 @@ Commands arrive as i3 `nop deskd ...` bindings (see ~/.config/i3/config) or from
 import json
 import math
 import os
+import ctypes
 import subprocess
 import sys
 import time
@@ -80,6 +81,7 @@ EDGE = 3                      # px from a screen edge that counts as "at the edg
 POLL_MS = 16
 PANEL_FONT = THEME["panel_font"]
 POPUP_APPS = "firefox-developer-edition"   # default for [settings] popup_apps
+CURSOR_PNG = os.path.expanduser("~/.local/share/sky-desktop/cursor-diablo.png")   # the game's pointer, 1.5x
 PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote machine       # genmon font of the workspace strip
 DEBUG = bool(os.environ.get("DESKD_DEBUG"))
 
@@ -128,7 +130,47 @@ class XServer:
                             ("br", 14), ("t", 138), ("b", 16), ("l", 70), ("r", 96), ("hand", 60)):
             self.cursors[name] = font.create_glyph_cursor(font, glyph, glyph + 1,
                                                           (0, 0, 0), (65535, 65535, 65535))
+        diablo = self.image_cursor(CURSOR_PNG, 0, 0)
+        if diablo is not None:
+            self.cursors["hand"] = diablo          # the game's gauntlet instead of X's hand
         self.gc_cache = {}
+
+    def image_cursor(self, path, xhot, yhot):
+        """An ARGB cursor from a PNG through libXcursor. Cursor ids are server-wide, so
+        the one made on a ctypes connection serves python-xlib windows; that connection
+        stays open, the cursor lives as long as it does."""
+        try:
+            surface = cairo.ImageSurface.create_from_png(path)
+            w, h = surface.get_width(), surface.get_height()
+            xc = ctypes.CDLL("libXcursor.so.1")
+            x11 = ctypes.CDLL("libX11.so.6")
+            x11.XOpenDisplay.restype = ctypes.c_void_p
+            x11.XFlush.argtypes = [ctypes.c_void_p]
+
+            class Image(ctypes.Structure):
+                _fields_ = [("version", ctypes.c_uint32), ("size", ctypes.c_uint32), ("width", ctypes.c_uint32),
+                            ("height", ctypes.c_uint32), ("xhot", ctypes.c_uint32), ("yhot", ctypes.c_uint32),
+                            ("delay", ctypes.c_uint32), ("pixels", ctypes.POINTER(ctypes.c_uint32))]
+            xc.XcursorImageCreate.restype = ctypes.POINTER(Image)
+            xc.XcursorImageLoadCursor.restype = ctypes.c_ulong
+            xc.XcursorImageLoadCursor.argtypes = [ctypes.c_void_p, ctypes.POINTER(Image)]
+            self._cursor_dpy = x11.XOpenDisplay(None)
+            if not self._cursor_dpy:
+                return None
+            img = xc.XcursorImageCreate(w, h)
+            img.contents.xhot, img.contents.yhot = xhot, yhot
+            surface.flush()
+            data = bytes(surface.get_data())          # cairo ARGB32: premultiplied, native order - what Xcursor wants
+            stride = surface.get_stride()
+            base = ctypes.addressof(img.contents.pixels.contents)
+            for y in range(h):
+                ctypes.memmove(base + y * w * 4, data[y * stride:y * stride + w * 4], w * 4)
+            cursor = xc.XcursorImageLoadCursor(self._cursor_dpy, img)
+            x11.XFlush(self._cursor_dpy)
+            return int(cursor) or None
+        except Exception as e:                       # noqa: BLE001 - the X hand will do
+            log("image cursor failed:", e)
+            return None
 
     def _argb_visual(self):
         for depth in self.screen.allowed_depths:
@@ -584,6 +626,8 @@ class Deskd:
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
         self.sharing = False        # Zoom's share frame is up: no overlays at all
+        self.passthrough_frame = None   # the remote desktop's frame while it is focused
+        self.passthrough_client = None
         self.audio_layer = None     # InputOnly window over panel-audio: wheel = volume, middle = mute
         self.veils = {}             # dock frame id -> the dimming veil over that panel
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
@@ -1029,13 +1073,50 @@ class Deskd:
         return False
 
     def passthrough_for(self, con):
-        """RustDesk focused: every key (Super+...) goes to the remote machine."""
+        """RustDesk focused: every key (Super+...) goes to the remote machine - but only
+        while the pointer is on its window. When it leaves, the keyboard goes with it
+        (X focus follows the pointer) and i3's own keys work again; back in, both return.
+        The user found a focused RustDesk swallowing everything he typed elsewhere."""
         cls = ((con.get("window_properties") or {}).get("class") or "").lower()
         want = cls in PASSTHROUGH_CLASSES
         if want and not self.passthrough:
             self.cmd('mode "passthrough"')
         elif not want and self.passthrough:
             self.cmd('mode "default"')
+        if want:
+            self.watch_passthrough(con)
+        else:
+            self.passthrough_frame = None
+
+    def watch_passthrough(self, con):
+        got = self.frame_of(con.get("window"))
+        if not got:
+            return
+        frame, _ = got
+        self.passthrough_frame, self.passthrough_client = frame.id, con.get("window")
+        try:
+            frame.change_attributes(event_mask=X.EnterWindowMask | X.LeaveWindowMask)
+        except error.XError:
+            pass
+
+    def passthrough_pointer(self, e):
+        """The pointer left or entered the remote-desktop window."""
+        if e.mode != X.NotifyNormal or e.detail == X.NotifyInferior:
+            return
+        if e.type == X.LeaveNotify:
+            self.xs.d.set_input_focus(X.PointerRoot, X.RevertToPointerRoot, X.CurrentTime)
+            self.xs.flush()
+            if self.passthrough:
+                self.cmd('mode "default"')
+        else:
+            try:
+                self.xs.d.create_resource_object("window", self.passthrough_client).set_input_focus(
+                    X.RevertToParent, X.CurrentTime)
+                self.xs.flush()
+            except error.XError:
+                pass
+            if not self.passthrough:
+                self.cmd('mode "passthrough"')
 
     # ------------------------------------------------------------ refresh
     def refresh(self):
@@ -1335,6 +1416,8 @@ class Deskd:
         t = e.type
         if t in (X.ButtonPress, X.ButtonRelease, X.MotionNotify, X.EnterNotify, X.LeaveNotify, X.Expose):
             wid = e.window.id
+            if wid == self.passthrough_frame and t in (X.EnterNotify, X.LeaveNotify):
+                return self.passthrough_pointer(e)
             if wid in self.strip_by_win:
                 return self.strip_event(self.strips.get(self.strip_by_win[wid]), e)
             if wid in self.handle_by_win:

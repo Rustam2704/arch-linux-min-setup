@@ -316,18 +316,16 @@ def value(text, colour, width=3, size="", after="", before=""):
 def numbers_markup(now, median, c_now, c_med):
     """The panel text with two readings: the one shape every state must keep."""
     dot = f'<span foreground="{DIM}">{GAP}·{GAP}</span>'
-    tail = f'{GAP}{icon("latency")}'
     return (f'<span font_features="tnum">{value(now, c_now, after=dot)}{dot}'
-            f'{value(median, c_med, size=" size=\"75%\"", after=tail, before=dot)}'
-            f'{tail}</span> ')
+            f'{value(median, c_med, size=" size=\"75%\"", after="", before=dot)}</span> ')
 
 
 def as_wide_as_numbers(word):
     """A word in the place of the two readings, padded to exactly their width, so the
     icons beside it stay where they are when the network comes and goes."""
     font = sky_text.panel_font(PANEL_PLUGIN)
-    tail = f'<span font_features="tnum">{word}{GAP}{icon("latency")}</span> '
-    return sky_text.pad_to(tail, sky_text.width(numbers_markup("000", "000", DIM, DIM), font), font)
+    tail = f'<span font_features="tnum">{word}</span> '
+    return sky_text.pad_to(tail, sky_text.width(numbers_markup("000", "000", DIM, DIM), font), font, after="")
 
 
 def line(label, s):

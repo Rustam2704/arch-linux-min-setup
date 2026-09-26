@@ -522,3 +522,19 @@
 2026-09-25T18:56:25+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.mgGDhn.bak
 2026-09-25T18:56:25+03:00	50-panel-spacing	cmd	rmdir -- /etc/lightdm/lightdm.conf.d	
 2026-09-25T18:56:25+03:00	50-panel-spacing	file	/etc/lightdm/lightdm.conf.d/50-sky-desktop.conf	
+2026-09-26T12:40:08+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.XZ6rea.bak
+2026-09-26T12:40:08+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-sys	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-sys.EEf5tv.bak
+2026-09-26T12:40:08+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.2bLFkK.bak
+2026-09-26T12:40:08+03:00	50-panel-spacing	cmd	rmdir -- /home/fanatic/.local/share/panel-icons/proposals	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/README.md	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/battery-cpu.svg	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/battery-ram.svg	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/battery-swap.svg	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/diablo-cpu.svg	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/diablo-ram.svg	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/diablo-swap.svg	
+2026-09-26T12:40:08+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/preview.png	
+2026-09-26T12:40:09+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/segment-cpu.svg	
+2026-09-26T12:40:09+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/segment-ram.svg	
+2026-09-26T12:40:09+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/segment-swap.svg	
+2026-09-26T12:40:09+03:00	50-panel-spacing	file	/home/fanatic/.local/share/sky-desktop/cursor-diablo.png	
