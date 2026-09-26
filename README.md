@@ -14,7 +14,8 @@ runbook for an AI agent to reproduce it on a bare Arch install. The documents ar
 к краям, рабочие области на каждом экране, панель с живыми индикаторами, OSD, календарь,
 фон-звёзды. Всё, что установлено в систему, лежит в этом репозитории и ставится одной командой.
 
-Документы: **[ARCHITECTURE.md](ARCHITECTURE.md)** — как устроено и почему ·
+Документы: **[FEATURES.md](FEATURES.md)** — что здесь реализовано, полный список ·
+**[ARCHITECTURE.md](ARCHITECTURE.md)** — как устроено и почему ·
 **[MAINTENANCE.md](MAINTENANCE.md)** — обслуживание, восстановление, известные хвосты ·
 **[CHANGELOG.md](CHANGELOG.md)** — история по раундам · [lab/README.md](lab/README.md) — журнал изменений.
 
@@ -35,6 +36,7 @@ assets/                  исходники, которые не ставятс�
 lab/                     журнал изменений системы (lab, rollback.py, journal.tsv); backups/ вне git
 packages.txt             пакеты, которые нужны дереву · packages-aur.txt — из AUR
 BOOTSTRAP.md             как поднять всё это на чистом Arch (для агента)
+FEATURES.md              полный список возможностей
 ```
 
 Файлы дерева — шаблоны: `@HOME@`, `@PROJECT@` и токены стиля из
