@@ -628,6 +628,8 @@ class Deskd:
         self.sharing = False        # Zoom's share frame is up: no overlays at all
         self.passthrough_frame = None   # the remote desktop's frame while it is focused
         self.passthrough_client = None
+        self.window_focused = True      # a window (not a workspace) holds i3's focus
+        self.desktop_win = None         # sky-stars' window: the "background" the pointer can enter
         self.audio_layer = None     # InputOnly window over panel-audio: wheel = volume, middle = mute
         self.veils = {}             # dock frame id -> the dimming veil over that panel
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
@@ -643,7 +645,7 @@ class Deskd:
         self.passthrough = False
         self.expect = {}            # class -> (workspace, when): "open the next window here"
 
-        root_mask = X.SubstructureNotifyMask | X.PropertyChangeMask
+        root_mask = X.SubstructureNotifyMask | X.PropertyChangeMask | X.EnterWindowMask
         self.xs.root.change_attributes(event_mask=root_mask)
         self.A = {n: self.xs.atom(n) for n in (
             "WM_CHANGE_STATE", "_NET_WM_STATE", "_NET_WM_STATE_MAXIMIZED_VERT",
@@ -655,6 +657,7 @@ class Deskd:
         self.outputs_changed()
         self.refresh()
         self.skip_dock_existing()
+        self.watch_desktop()
         if self.share_frame_present():
             self.set_sharing(True)
         # the panel can restart or reflow; keep the click layer on the workspace strip
@@ -804,8 +807,57 @@ class Deskd:
             log("panel regions failed:", e)
         return regions
 
+    def pointer_off_windows(self):
+        """Focus follows the pointer all the way: onto the panel or the background no
+        window keeps it. i3 cannot focus "nothing", but it can focus the workspace
+        container ("focus parent" up from the window): every window is then unfocused
+        and keys go to i3 alone; the next window the pointer enters gets focus back
+        (focus_follows_mouse). Asked for by the user - "if the mouse is not on a
+        window, the window is not selected"."""
+        if not self.window_focused or self.drag is not None or self.resizing is not None:
+            return
+        try:
+            tree = self.i3.tree()
+        except Exception:                            # noqa: BLE001
+            return
+        path = []
+
+        def find(n, chain):
+            if n.get("focused"):
+                path.extend(chain + [n])
+                return True
+            return any(find(c, chain + [n]) for c in n.get("nodes", []) + n.get("floating_nodes", []))
+        find(tree, [])
+        if not path or path[-1].get("type") != "con" or not path[-1].get("window"):
+            self.window_focused = False
+            return
+        ws = next((i for i, n in enumerate(path) if n.get("type") == "workspace"), None)
+        if ws is None:
+            return
+        hops = len(path) - 1 - ws                    # "focus parent" from the window up to its workspace
+        self.cmd("; ".join(["focus parent"] * hops))
+        self.window_focused = False
+
+    def watch_desktop(self):
+        """Select pointer entry on sky-stars' background window (it may restart)."""
+        try:
+            for w in self.xs.root.query_tree().children:
+                try:
+                    cls = w.get_wm_class()
+                except error.XError:
+                    continue
+                if cls and cls[0] == "sky-stars":
+                    if w.id != self.desktop_win:
+                        w.change_attributes(event_mask=X.EnterWindowMask)
+                        self.desktop_win = w.id
+                    return
+        except error.XError:
+            pass
+
     def panel_pointer(self, x, y):
         """Open the hole in the veil over whatever the pointer is on."""
+        if x >= 0:
+            self.pointer_off_windows()               # onto the panel
         hole = None
         for rect in self.panel_items:
             rx, ry, rw, rh = rect
@@ -859,6 +911,7 @@ class Deskd:
         return found
 
     def recheck_strips(self):
+        self.watch_desktop()
         self.strip_plugins(fresh=True)
         self.panel_windows = set()  # the panel may have restarted with new windows
         self.watch_panel_items()
@@ -1001,6 +1054,7 @@ class Deskd:
             elif change == "floating" and str(con.get("floating", "")).endswith("_on"):
                 GLib.timeout_add(80, lambda cid=con["id"]: self.clamp_floating(cid))
             elif change == "focus":
+                self.window_focused = True
                 if any(m.startswith(MARK_MIN) for m in (con.get("marks") or [])):
                     GLib.idle_add(lambda cid=con["id"]: self.unminimize(cid) and False)
                 self.passthrough_for(con)
@@ -1418,6 +1472,8 @@ class Deskd:
             wid = e.window.id
             if wid == self.passthrough_frame and t in (X.EnterNotify, X.LeaveNotify):
                 return self.passthrough_pointer(e)
+            if t == X.EnterNotify and wid in (self.xs.root.id, self.desktop_win) and e.mode == X.NotifyNormal:
+                return self.pointer_off_windows()     # onto the background
             if wid in self.strip_by_win:
                 return self.strip_event(self.strips.get(self.strip_by_win[wid]), e)
             if wid in self.handle_by_win:
