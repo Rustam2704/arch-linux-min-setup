@@ -496,7 +496,10 @@ def watch_audio():
                  "muted": "yes" in pactl("get-sink-mute", "@DEFAULT_SINK@"),
                  "mic": percent(pactl("get-source-volume", "@DEFAULT_SOURCE@")),
                  "mic_muted": "yes" in pactl("get-source-mute", "@DEFAULT_SOURCE@"),
-                 "recording": bool(pactl("list", "source-outputs", "short").strip())}
+                 # a recording = a client's stream on a source; module streams (the echo
+                 # canceller's own capture) have no client and do not count
+                 "recording": any(line.split("\t")[2:3] not in ([], ["-"])
+                                  for line in pactl("list", "source-outputs", "short").splitlines() if line.strip())}
         if state == last:
             return
         last = state

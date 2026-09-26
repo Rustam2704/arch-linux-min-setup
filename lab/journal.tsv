@@ -539,3 +539,8 @@
 2026-09-26T12:40:09+03:00	50-panel-spacing	file	/home/fanatic/.local/share/panel-icons/proposals/segment-swap.svg	
 2026-09-26T12:40:09+03:00	50-panel-spacing	file	/home/fanatic/.local/share/sky-desktop/cursor-diablo.png	
 2026-09-26T13:23:13+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.vzokGn.bak
+2026-09-26T16:17:23+03:00	50-panel-spacing	backup	/home/fanatic/.config/mimeapps.list	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mimeapps.list.6ssyKF.bak
+2026-09-26T16:17:24+03:00	50-panel-spacing	backup	/home/fanatic/.config/picom/picom.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_picom.conf.PcqtbI.bak
+2026-09-26T16:17:41+03:00	50-panel-spacing	cmd	rmdir -- /home/fanatic/.config/pipewire/pipewire.conf.d	
+2026-09-26T16:17:41+03:00	50-panel-spacing	file	/home/fanatic/.config/pipewire/pipewire.conf.d/20-echo-cancel.conf	
+2026-09-26T16:18:57+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.xCN1M1.bak
