@@ -714,7 +714,7 @@ class Deskd:
         elif e.detail == 2:
             self.osd("vol mute")
         elif e.detail == 1:
-            spawn([os.path.expanduser("~/.local/bin/audio-menu")])
+            self.osd("menu audio")                   # hosted by osd-daemon: one instance, toggled
 
     def osd(self, line):
         try:

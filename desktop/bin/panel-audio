@@ -78,5 +78,5 @@ tip += "\nClick: sound menu · scroll: volume · middle: mute"
 print('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
       'button { padding: 0 12px 0 4px; }</css>')
 print(f"<img>{ICON}</img>")
-print(f"<click>{os.path.expanduser('~/.local/bin/audio-menu')}</click>")
+print(f"<click>{os.path.expanduser('~/.local/bin/osd')} menu audio</click>")
 print(f"<tool>{tip}</tool>")
