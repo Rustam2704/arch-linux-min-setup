@@ -104,7 +104,7 @@ def networks(rescan=False):
         out.append((f[0] == "*", f[3], int(f[1]) if f[1].isdigit() else 0,
                     bool(f[2].strip()) and f[2].strip() != "--"))
     out.sort(key=lambda n: (not n[0], -n[2]))
-    return out[:10]
+    return out[:15]
 
 
 def known(ssid):
@@ -198,6 +198,8 @@ def menu(wifi_only=False, hosted=False):
 
         scanning = {"busy": False}
 
+        anchor = {}
+
         def fill(wifi, note=None):
             for item in dynamic:
                 m.remove(item)
@@ -217,6 +219,17 @@ def menu(wifi_only=False, hosted=False):
                 dynamic.append(item)
             for item in dynamic:          # not show_all(): that would unhide "Turn Wi-Fi on"
                 item.show()
+            # the menu is already on screen when the rows arrive (they come from a thread
+            # after "Loading…"): a GTK menu keeps the size it popped up with and adds
+            # scroll arrows, so it is popped up again at the same spot with its new size
+            if m.get_visible() and anchor.get("rect") is not None:
+                m.popdown()
+
+                def again():             # a turn of the loop later: popped up again at once, GTK shows nothing
+                    m.popup_at_rect(Gdk.get_default_root_window(), anchor["rect"], Gdk.Gravity.SOUTH_WEST,
+                                    Gdk.Gravity.NORTH_WEST, None)
+                    return False
+                GLib.timeout_add(60, again)
 
         def start_scan():
             if scanning["busy"]:
@@ -342,6 +355,8 @@ def menu(wifi_only=False, hosted=False):
     # warn "no trigger event" and show nothing)
     _, x, y = Gdk.Display.get_default().get_default_seat().get_pointer().get_position()
     rect = Gdk.Rectangle()
+    if wifi_only:
+        anchor["rect"] = rect
     rect.x, rect.y, rect.width, rect.height = x, y, 1, 1
     m.popup_at_rect(Gdk.get_default_root_window(), rect, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
     if not hosted:

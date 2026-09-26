@@ -629,6 +629,7 @@ class Deskd:
         self.passthrough_frame = None   # the remote desktop's frame while it is focused
         self.passthrough_client = None
         self.window_focused = True      # a window (not a workspace) holds i3's focus
+        self.focus_at = 0.0             # when a window last got focus (an i3 event)
         self.desktop_win = None         # sky-stars' window: the "background" the pointer can enter
         self.audio_layer = None     # InputOnly window over panel-audio: wheel = volume, middle = mute
         self.veils = {}             # dock frame id -> the dimming veil over that panel
@@ -816,6 +817,8 @@ class Deskd:
         window, the window is not selected"."""
         if not self.window_focused or self.drag is not None or self.resizing is not None:
             return
+        if time.monotonic() - self.focus_at < 1.0:
+            return                                   # just focused by a click on the panel (dock, Telegram)
         try:
             tree = self.i3.tree()
         except Exception:                            # noqa: BLE001
@@ -837,6 +840,8 @@ class Deskd:
         hops = len(path) - 1 - ws                    # "focus parent" from the window up to its workspace
         self.cmd("; ".join(["focus parent"] * hops))
         self.window_focused = False
+        self.schedule_refresh()                      # i3 sends no window event for this: buttons,
+                                                     # stacking and the strip must learn it here
 
     def watch_desktop(self):
         """Select pointer entry on sky-stars' background window (it may restart)."""
@@ -856,8 +861,6 @@ class Deskd:
 
     def panel_pointer(self, x, y):
         """Open the hole in the veil over whatever the pointer is on."""
-        if x >= 0:
-            self.pointer_off_windows()               # onto the panel
         hole = None
         for rect in self.panel_items:
             rx, ry, rw, rh = rect
@@ -1055,6 +1058,7 @@ class Deskd:
                 GLib.timeout_add(80, lambda cid=con["id"]: self.clamp_floating(cid))
             elif change == "focus":
                 self.window_focused = True
+                self.focus_at = time.monotonic()
                 if any(m.startswith(MARK_MIN) for m in (con.get("marks") or [])):
                     GLib.idle_add(lambda cid=con["id"]: self.unminimize(cid) and False)
                 self.passthrough_for(con)
@@ -1154,23 +1158,17 @@ class Deskd:
             pass
 
     def passthrough_pointer(self, e):
-        """The pointer left or entered the remote-desktop window."""
+        """The pointer left or entered the remote-desktop window: i3's passthrough mode
+        (every key to the remote machine) holds only while the pointer is on it. Which
+        window has the keyboard is left to i3 alone - a second opinion on X focus made
+        "selected" and "typing goes here" disagree."""
         if e.mode != X.NotifyNormal or e.detail == X.NotifyInferior:
             return
         if e.type == X.LeaveNotify:
-            self.xs.d.set_input_focus(X.PointerRoot, X.RevertToPointerRoot, X.CurrentTime)
-            self.xs.flush()
             if self.passthrough:
                 self.cmd('mode "default"')
-        else:
-            try:
-                self.xs.d.create_resource_object("window", self.passthrough_client).set_input_focus(
-                    X.RevertToParent, X.CurrentTime)
-                self.xs.flush()
-            except error.XError:
-                pass
-            if not self.passthrough:
-                self.cmd('mode "passthrough"')
+        elif not self.passthrough:
+            self.cmd('mode "passthrough"')
 
     # ------------------------------------------------------------ refresh
     def refresh(self):
@@ -1483,6 +1481,8 @@ class Deskd:
                     if e.detail == X.NotifyInferior:    # only stepped into a child
                         return None
                     return self.panel_pointer(-1, -1)
+                if t == X.EnterNotify and e.mode == X.NotifyNormal:
+                    self.pointer_off_windows()         # onto the panel
                 if t in (X.MotionNotify, X.EnterNotify):
                     return self.panel_pointer(e.root_x, e.root_y)
                 return None
@@ -1499,6 +1499,8 @@ class Deskd:
                     return self.ws_clicked(e)
                 if t == X.LeaveNotify:
                     return self.panel_pointer(-1, -1)
+                if t == X.EnterNotify and e.mode == X.NotifyNormal:
+                    self.pointer_off_windows()         # onto the panel (its strip layer)
                 return self.panel_pointer(e.root_x, e.root_y)
         elif t == X.ClientMessage:
             self.client_message(e)
