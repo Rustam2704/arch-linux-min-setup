@@ -38,8 +38,8 @@ tiling_drag modifier
 #   left drag: rearrange tiles / move a floating window;  right drag: pull the window out
 #   drop at the top edge = maximize, left/right edge = half, on a panel number = that workspace
 #   left double click = maximize <-> restore;  right click = tiled <-> floating
-bindsym button1 mark --add _deskd_click, nop deskd titlebar 1
-bindsym button3 mark --add _deskd_click, nop deskd titlebar 3
+bindsym button1 mark --add _deskd_click, focus, nop deskd titlebar 1
+bindsym button3 mark --add _deskd_click, focus, nop deskd titlebar 3
 
 # --- launching ----------------------------------------------------------
 bindsym $mod+Return exec kitty
@@ -150,8 +150,8 @@ bindsym $mod+Shift+minus nop deskd unminimize
 mode "passthrough" {
     bindsym $mod+Escape mode "default"
     # the title bar must still work with the mouse (mouse bindings are per mode too)
-    bindsym button1 mark --add _deskd_click, nop deskd titlebar 1
-    bindsym button3 mark --add _deskd_click, nop deskd titlebar 3
+    bindsym button1 mark --add _deskd_click, focus, nop deskd titlebar 1
+    bindsym button3 mark --add _deskd_click, focus, nop deskd titlebar 3
     # the remote machine gets every other key; moving the window itself must still work
     bindsym $mod+Shift+1 nop deskd move 1
     bindsym $mod+Shift+2 nop deskd move 2
