@@ -684,6 +684,7 @@ class Layouts:
 def main():
     osd = Osd()
     layouts = Layouts(osd)
+    threading.Thread(target=audiomenu.apply_echo, daemon=True).start()   # the saved echo-cancel state
     jobs = queue.Queue()
 
     def worker():                      # one command at a time, in order
