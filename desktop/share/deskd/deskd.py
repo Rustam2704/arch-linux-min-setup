@@ -626,6 +626,7 @@ class Deskd:
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
         self.sharing = False        # Zoom's share frame is up: no overlays at all
+        self.audio_geom = None          # where the sound indicator's layer sits
         self.passthrough_frame = None   # the remote desktop's frame while it is focused
         self.passthrough_client = None
 
@@ -704,7 +705,9 @@ class Deskd:
                                  events=X.ButtonPressMask, cursor=self.xs.cursors["hand"])
             self.audio_layer = win
         self.audio_layer.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
-        self.audio_layer.map()
+        self.audio_geom = geom
+        out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + 2)
+        self.show_layer(self.audio_layer, (out or {}).get("name") not in self.busy_outputs)
 
     def audio_click(self, e):
         if e.detail in (4, 5):
@@ -2210,6 +2213,16 @@ class Deskd:
                     self._dpi = float(line.split()[1])
         return self._dpi
 
+    def show_layer(self, win, visible):
+        try:
+            if visible:
+                win.map()
+                win.configure(stack_mode=X.Above)
+            else:
+                win.unmap()
+        except error.XError:
+            pass
+
     def place_ws_clicks(self):
         """A transparent click layer over every strip: click a number = go there."""
         for pid, out in self.strip_plugins():
@@ -2226,7 +2239,7 @@ class Deskd:
                 self.click_layers[pid] = win
                 self.click_by_win[win.id] = (pid, out)
             win.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
-            win.map()
+            self.show_layer(win, self.strip_output(out) not in self.busy_outputs)
         self.sync_active_mark()
         self.pump()
         return False
@@ -2279,6 +2292,15 @@ class Deskd:
             if not clear and self.ws_mark is not None:
                 self.ws_mark.hide()
                 self.mark_file.hide()
+        # the click layers over the strip and the sound indicator too: a full-screen
+        # window (RustDesk, a video) covers the panel, and a click on its own toolbar up
+        # there must reach it, not switch the workspace
+        for pid, win in self.click_layers.items():
+            out = self.click_by_win.get(win.id, (None, None))[1]
+            self.show_layer(win, self.strip_output(out) not in busy)
+        if self.audio_layer is not None and self.audio_geom:
+            out = self.output_rect_at(self.audio_geom[0] + self.audio_geom[2] // 2, self.audio_geom[1] + 2)
+            self.show_layer(self.audio_layer, (out or {}).get("name") not in busy)
 
     def sync_active_mark(self, focused=None):
         """Put the pentagram over the number of the workspace in front of you. The
