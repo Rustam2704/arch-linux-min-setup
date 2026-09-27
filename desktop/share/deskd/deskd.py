@@ -738,7 +738,7 @@ class Deskd:
         frames = {}
         for frame, geom in self.dock_frames():
             frames[frame.id] = geom
-            watch += frame.query_tree().children
+            watch += self.children(frame)
             veil = self.veils.get(frame.id)
             if veil is None or not veil.matches(geom):
                 self.veils[frame.id] = PanelDim(self.xs, geom)
@@ -839,14 +839,14 @@ class Deskd:
         """[(window, plugin id)] of the panel plugins that run in their own process."""
         found = []
         for top in self.xs.root.query_tree().children:
-            for kid in top.query_tree().children:
+            for kid in self.children(top):
                 cls = kid.get_wm_class()
                 if not cls or cls[1] != "Xfce4-panel":
                     continue
                 stack = [kid]
                 while stack:
                     w = stack.pop()
-                    for c in w.query_tree().children:
+                    for c in self.children(w):
                         stack.append(c)
                         wc = c.get_wm_class()
                         if not wc or wc[0] != "wrapper-2.0":
@@ -862,12 +862,27 @@ class Deskd:
                             found.append((c, int(args[2])))
         return found
 
+    def children(self, win):
+        """A window's children, or none if it vanished meanwhile (windows come and go
+        between two requests; one BadWindow must not abort a whole pass)."""
+        try:
+            return win.query_tree().children
+        except error.XError:
+            return []
+
     def recheck_strips(self):
-        self.strip_plugins(fresh=True)
-        self.panel_windows = set()  # the panel may have restarted with new windows
-        self.watch_panel_items()
-        self.__dict__.pop("_panel_font", None)     # the panel may have been restyled
-        self.place_ws_clicks()
+        """Every 20 s and after every panel reflow. It must never raise: GLib drops a
+        timer whose callback raises, and then the fire stayed wherever the strip used to
+        be (a vanished window during the walk did exactly that)."""
+        try:
+            self.strip_plugins(fresh=True)
+            self.panel_windows = set()  # the panel may have restarted with new windows
+            self.watch_panel_items()
+            self.__dict__.pop("_panel_font", None)     # the panel may have been restyled
+            self.bounds_cache.clear()                   # the strip may have moved
+            self.place_ws_clicks()
+        except Exception as e:                          # noqa: BLE001 - keep the timer alive
+            log("recheck failed:", e)
         return True
 
     def skip_dock(self, wid):
@@ -2080,14 +2095,14 @@ class Deskd:
         """Screen rectangle of a panel plugin (its wrapper-2.0 window)."""
         try:
             for top in self.xs.root.query_tree().children:
-                for kid in top.query_tree().children:
+                for kid in self.children(top):
                     cls = kid.get_wm_class()
                     if not cls or cls[1] != "Xfce4-panel":
                         continue
                     stack = [kid]
                     while stack:
                         w = stack.pop()
-                        for c in w.query_tree().children:
+                        for c in self.children(w):
                             stack.append(c)
                             wc = c.get_wm_class()
                             if not wc or wc[0] != "wrapper-2.0":
