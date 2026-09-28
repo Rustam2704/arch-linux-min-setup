@@ -1766,9 +1766,25 @@ class Deskd:
         self.cmd(f"[con_id={cid}] focus")
 
     def minimize(self, cid):
-        node, parent = find(self.i3.tree(), cid)
+        tree = self.i3.tree()
+        node, parent = find(tree, cid)
         if node is None:
             return
+        # a dialog is never hidden on its own: while a modal one sits in the scratchpad
+        # its owner takes no clicks at all (Sublime's "Save File" did exactly that).
+        # Minimizing a dialog minimizes the window it belongs to, dialog and all.
+        owner = (node.get("window_properties") or {}).get("transient_for")
+        if node.get("window_type") == "dialog" or owner:
+            main = next((n for n, _ in walk(tree) if owner and n.get("window") == owner), None)
+            if main is not None and main["id"] != cid:
+                return self.minimize(main["id"])
+            return
+        # the window's own dialogs go with it, so none stays behind blocking nothing -
+        # and none is left on screen for a hidden owner
+        for n, _ in walk(tree):
+            if n.get("window") and n["id"] != cid and \
+                    (n.get("window_properties") or {}).get("transient_for") == node.get("window"):
+                self.cmd(f"[con_id={n['id']}] mark --add {MARK_MIN}_{n['id']}, move scratchpad")
         if not self.saved(cid):
             self.set_saved(cid, self.remember(cid))
         self.cmd(f"[con_id={cid}] mark --add {MARK_MIN}_{cid}, move scratchpad")
@@ -1783,6 +1799,12 @@ class Deskd:
             self.maximize(cid, saved)
         else:
             self.restore(cid)
+        # its dialogs come back with it, on top
+        for n, _ in walk(self.i3.tree()):
+            if n.get("window") and n["id"] != cid and \
+                    (n.get("window_properties") or {}).get("transient_for") == node.get("window") and \
+                    f"{MARK_MIN}_{n['id']}" in (n.get("marks") or []):
+                self.cmd(f"[con_id={n['id']}] unmark {MARK_MIN}_{n['id']}, scratchpad show, floating enable, focus")
 
     def unminimize_last(self):
         tree = self.i3.tree()
