@@ -885,6 +885,19 @@ class Deskd:
             log("recheck failed:", e)
         return True
 
+    def unstick(self, con):
+        """An ordinary window asked to be on every workspace (EWMH _NET_WM_DESKTOP = -1;
+        Firefox did it during a full-screen video) and i3 made it sticky and floating:
+        it then showed on every workspace. Only small overlays are allowed that -
+        picture-in-picture, notifications, dialogs - everything else goes back."""
+        props = con.get("window_properties") or {}
+        title = con.get("name") or ""
+        if con.get("window_type") in ("dialog", "utility", "notification", "tooltip", "popup_menu") \
+                or props.get("transient_for") or "Picture-in-Picture" in title:
+            return
+        log("unsticking", props.get("class"), title[:40])
+        self.cmd(f'[con_id={con["id"]}] sticky disable, floating disable')
+
     def skip_dock(self, wid):
         """Mark a client window as not for task lists, so the dock ignores it."""
         if not wid:
@@ -1002,6 +1015,8 @@ class Deskd:
         elif name == "window":
             change = ev.get("change")
             con = ev.get("container", {})
+            if con.get("sticky") and change in ("new", "floating", "focus"):
+                self.unstick(con)
             if change in ("new", "title"):
                 props = con.get("window_properties") or {}
                 if (props.get("class"), con.get("name")) in DISMISS:
