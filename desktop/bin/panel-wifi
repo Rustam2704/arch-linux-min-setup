@@ -1,14 +1,7 @@
-#!/usr/bin/env python3
-"""Independent genmon widget: its actual geometry is also its hover region."""
-import os
-import sys
-from pathlib import Path
-sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME
-
-print('<css>* { background-color: transparent; background-image: none; box-shadow: none; } '
-      'button { padding: 0 2px; }</css>')
-try:
-    print((Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "netq-wifi.txt").read_text())
-except OSError:
-    print(f'<txt>Wi-Fi</txt><txtclick>{Path.home()}/.local/bin/osd menu wifi</txtclick>')
+#!/bin/sh
+# Wi-Fi fan for the panel (genmon). netqd renders the picture and the markup; this only
+# prints them - a shell script, because genmon runs it every few seconds and a Python
+# start-up (60 ms of CPU) each time was a steady few percent for nothing.
+f="${XDG_RUNTIME_DIR:-/tmp}/netq-wifi.txt"
+echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; } button { padding: 0 2px; }</css>'
+cat "$f" 2>/dev/null || echo "<txt>Wi-Fi</txt><txtclick>@HOME@/.local/bin/osd menu wifi</txtclick>"
