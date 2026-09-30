@@ -2,7 +2,7 @@
 # compositor-bench — what a repainting browser window costs Xorg, the compositor and
 # Firefox under each compositor setup. It opens one Firefox window with an animated
 # page (700x700 px) on the current workspace for ~25 s per setup, swaps the compositor
-# between setups (the screen blinks once) and puts the real picom back at the end.
+# between setups (the screen blinks once) and puts the session's compositor back at the end.
 #   tools/compositor-bench                       all setups
 #   tools/compositor-bench xrender xcompmgr      chosen ones: config glx glx-novsync xrender xcompmgr fastcompmgr none
 set -u
@@ -27,7 +27,7 @@ jiffies() {  # total CPU jiffies of the processes named (exact names, or -f patt
 stop_compositors() { for c in picom xcompmgr fastcompmgr; do pkill -x $c; done; sleep 0.6; }
 start() {
     case $1 in
-        config)      picom --config "$HOME/.config/picom/picom.conf" -b ;;   # the real setup
+        config)      picom --config "$HOME/.config/picom/picom.conf" -b ;;   # the old picom setup
         glx)         picom --backend glx --vsync -b ;;
         glx-novsync) picom --backend glx --no-vsync -b ;;
         xrender)     picom --backend xrender --vsync -b ;;
@@ -51,5 +51,5 @@ run_setup() {
 }
 echo "each setup: ~$((SECS+9)) s with an animated 700x700 Firefox window on this workspace"
 for s in ${@:-glx xrender xcompmgr fastcompmgr none}; do run_setup "$s"; done
-stop_compositors; picom --config "$HOME/.config/picom/picom.conf" -b 2>/dev/null   # the real config back
-echo "picom restored"
+stop_compositors; xcompmgr -c -C -f -r 14 -o 0.45 -l -14 -t -10 -I 0.06 -O 0.06 -D 8 >/dev/null 2>&1 &   # the session's compositor back
+echo "xcompmgr restored"

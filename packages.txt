@@ -2,6 +2,7 @@
 # Session
 i3-wm
 picom
+xcompmgr
 rofi
 kitty
 lightdm                     # autologin straight into the "Xfce + i3" session
