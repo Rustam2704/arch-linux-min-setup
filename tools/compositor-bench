@@ -1,0 +1,43 @@
+#!/bin/sh
+# compositor-bench — what a repainting browser window costs Xorg, picom and Firefox
+# under each compositor setup. Run it yourself when convenient: it opens one Firefox
+# window with an animated page (about 700x700 px) on the current workspace for ~25 s
+# per setup, restarts picom between setups (the screen blinks once) and puts the
+# real picom config back at the end. Nothing else is touched.
+#   tools/compositor-bench            all setups
+#   tools/compositor-bench glx        one setup: glx | xrender | none
+set -u
+S=${XDG_RUNTIME_DIR:-/tmp}/compositor-bench; mkdir -p "$S"
+PAGE="$S/anim.html"
+cat > "$PAGE" <<'HTML'
+<!doctype html><title>compositor-bench</title>
+<body style="margin:0;background:#000"><canvas id=c width=700 height=700></canvas>
+<script>
+const c=document.getElementById('c').getContext('2d');let t=0;
+(function f(){t++;for(let i=0;i<60;i++){c.fillStyle=`hsl(${(t*3+i*6)%360},70%,50%)`;
+c.fillRect((i*37+t*5)%700,(i*53+t*3)%700,120,120);}requestAnimationFrame(f)})();
+</script>
+HTML
+cpu() {  # average %CPU of a process name over N seconds
+    top -b -d 1 -n "$2" -w 200 | awk -v n="$1" '$NF==n {s+=$9; k++} END {if (k) printf "%.1f", s/k; else print "0"}'
+}
+run_setup() {
+    name=$1
+    case $name in
+        glx)     pkill -x picom; sleep 0.5; picom --backend glx --vsync -b 2>/dev/null ;;
+        xrender) pkill -x picom; sleep 0.5; picom --backend xrender --vsync -b 2>/dev/null ;;
+        none)    pkill -x picom; sleep 0.5 ;;
+    esac
+    sleep 2
+    firefox-developer-edition --new-window "file://$PAGE" >/dev/null 2>&1 &
+    sleep 6
+    ff=$(top -b -d 1 -n 20 -w 200 | awk '$NF ~ /^(Co|Isolat|firefox|WRRend|Render)/ {s+=$9} /^top -/{k++} END {printf "%.1f", s/(k-1)}') &
+    x=$(cpu Xorg 20); p=$(cpu picom 20); wait
+    printf "%-8s Xorg %5s%%  picom %5s%%  firefox(all) %5s%%\n" "$name" "$x" "$p" "$ff"
+    win=$(xdotool search --name "compositor-bench" | head -1); [ -n "$win" ] && xdotool windowclose "$win"
+    sleep 1
+}
+echo "each setup: ~25 s with an animated 700x700 Firefox window on this workspace"
+for s in ${1:-glx xrender none}; do run_setup "$s"; done
+pkill -x picom; sleep 0.5; picom -b 2>/dev/null   # the real config (~/.config/picom/picom.conf) back
+echo "picom restored"
