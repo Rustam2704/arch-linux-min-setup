@@ -32,7 +32,7 @@
 5. **Группы и вход**: `sudo groupadd -r autologin; sudo gpasswd -a $USER autologin;
    sudo systemctl enable lightdm`. Автовход настроен drop-in-файлом из дерева: сессия
    `xfce-i3`, без выбора сессии. `/boot/loader/loader.conf` — `timeout 0` (systemd-boot).
-6. **Службы**: `systemctl --user enable netqd firefox-memd sky-stars`; `deskd` и `osd`
+6. **Службы**: `systemctl --user enable netqd sky-stars`; `deskd` и `osd`
    запускает i3 (`exec` в конфиге, юниты `desktop/config/systemd/user/`). Touchégg:
    `sudo systemctl enable --now touchegg` (системная часть; клиент стартует из сессии).
 7. **Шрифты**: `fc-cache -f` после установки (в дереве лежит `Diablo.ttf`; Inter, JetBrainsMono

@@ -9,14 +9,13 @@
 LightDM автологинит в эту сессию (`/usr/share/xsessions/xfce-i3.desktop`).
 
 Службы `systemctl --user`: `deskd` и `osd` запускает i3 (им нужен X; служба, стартующая до X,
-падает и systemd сдаётся), `netqd`, `firefox-memd`, `sky-stars` — `graphical-session.target`.
+падает и systemd сдаётся), `netqd`, `sky-stars` — `graphical-session.target`.
 
 | Служба | Что делает | Память | CPU в простое |
 |---|---|---|---|
 | `deskd` | окна как в Windows, панели, области на каждом экране | ~35 МиБ PSS | ≈0 (события i3) |
 | `osd` | OSD громкости/яркости/раскладки, переключатель раскладок | ~30 МиБ | ≈0 |
 | `netqd` | ping роутера и 1.1.1.1 раз в секунду → `$XDG_RUNTIME_DIR/netq*.txt` | ~8 МиБ | ~0.03 % |
-| `firefox-memd` | фоновая выгрузка памяти Firefox в своп до 2 ГБ | ~5 МиБ | ~0.4 % (работа ядра) |
 | `sky-stars` | фон-звёзды | 23 МБ RSS | 0 при закрытом экране, ≤0.6 % при открытом |
 | `light-year` | календарь, только пока открыт (Super+C) | ~42 МиБ | — |
 
@@ -206,8 +205,9 @@ Zoom — приложение Server-to-Server OAuth с правами `meeting:
 - **Клавиши**: `~/.config/i3/config`, шпаргалка `Super+/` (`cheatsheet.txt`): `Alt+Tab`,
   `Super+↑/↓/←/→` как в Windows, `Super+R/E/C`, `Ctrl+Shift+Esc` btop, `Super+Shift+S`/`Print`
   скриншоты (`snip`), `Super+Shift+E` меню выключения (то же, что кнопка ⏻ — `power-menu`).
-- **Firefox**: `firefox-limited` (мягкий потолок 4 ГБ через systemd) + `firefox-memd`
-  (выгрузка до 2 ГБ заранее, `firefox-mem` для настройки на лету). Userscripts и фильтры
+- **Firefox**: `firefox-limited` (мягкий потолок 4 ГБ через systemd, `firefox-mem` для настройки
+  на лету). Своей выгрузки памяти в своп нет: `firefox-memd` удалён 30.09 — держа Firefox на 2 ГБ,
+  он выталкивал в своп то, что страницы тут же тянули обратно. Userscripts и фильтры
   для картинок/YouTube — `assets/browser/` (ставятся вручную в Violentmonkey/uBlock).
 - **Избранное** («яблоко» → Favorites, `deskd-favorites`): автозапуск при входе, запуск всех,
   закрепление программ за областями (`~/.config/deskd/apps.conf` → правила `assign` в

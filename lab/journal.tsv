@@ -576,3 +576,7 @@
 2026-09-30T16:22:47+03:00	50-panel-spacing	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-60/update-period -t int -s 1000	
 2026-09-30T20:38:50+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.lYZfPi.bak
 2026-09-30T20:39:06+03:00	50-panel-spacing	backup	/boot/loader/entries/arch-lts.conf	/home/fanatic/ai/claude/setup/lab/backups/_boot_loader_entries_arch-lts.conf.e3FsRI.bak
+2026-09-30T22:46:17+03:00	50-panel-spacing	cmd	systemctl --user enable --now firefox-memd.service	
+2026-09-30T22:46:17+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/firefox-memd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_firefox-memd.2VyQlE.bak
+2026-09-30T22:46:17+03:00	50-panel-spacing	backup	/home/fanatic/.config/systemd/user/firefox-memd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_firefox-memd.service.9WAaP8.bak
+2026-09-30T22:46:54+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/firefox-mem	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_firefox-mem.6QCqwG.bak

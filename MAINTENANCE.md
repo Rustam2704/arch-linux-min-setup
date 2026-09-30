@@ -5,7 +5,7 @@
 ```bash
 make status                         # система совпадает с деревом? (норма: 0 files differ)
 lab/lab status                      # что применено, по экспериментам
-systemctl --user status deskd osd netqd firefox-memd sky-stars
+systemctl --user status deskd osd netqd sky-stars
 journalctl --user -u deskd -n 50    # логи любой службы
 firefox-mem                         # потолок Firefox, цель, сколько в свопе
 deskd-ctl maximize-on|maximize-off  # то же, что жесты 4 пальцами
