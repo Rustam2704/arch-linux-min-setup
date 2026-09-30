@@ -77,6 +77,8 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
   `showZoomWindowInSharing=true` в `zoomus.conf` — проверка с другим учеником ожидается (25.09).
   Разрыв кадра у зрителя — от захвата экрана в самом Zoom, picom его не лечит (`use-damage`
   выключать нельзя: 8 % CPU в простое).
+- Своп без сжатия: `zswap.enabled=0` в `/boot/loader/entries/arch-lts.conf` (через lab, 30.09, решение
+  пользователя; было zstd, пул 20 %). Вернуть: `lab/lab rollback` или правка строки загрузчика.
 - Firefox: `user.js` профиля (`~/.config/mozilla/firefox/<profile>/`) держит настройки памяти и
   видео (VA-API, без VP9/AV1 — на Haswell в железе только H.264); файл вне дерева, записан через lab.
 - Звонки: эхоподавление — переключатель в меню динамика (модуль PipeWire по требованию). Если в

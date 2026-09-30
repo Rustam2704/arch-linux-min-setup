@@ -67,6 +67,9 @@ DISMISS = {("Sublime_text", "Update - Sublime Text")}
 # window classes kept out of the dock (_NET_WM_STATE_SKIP_TASKBAR, which docklike
 # honours and i3 4.25 leaves alone): Telegram has its own panel indicator instead
 NO_DOCK = {"TelegramDesktop"}
+# apps whose main windows drop their title bar through a Motif hint; they get it back
+TITLED_CLASSES = {"zoom"}
+UNTITLED_TITLES = {"annotate_toolbar", "zoom_linux_float_video_window", "cpt_frame_xcb_window"}
 TARGET_MARGIN = 40            # px the drop-target overlay extends past the workspace strip
 # Zoom's screen-share border: while it is up picom bypasses the compositor and every
 # translucent overlay of ours would be a solid black box - so none is shown
@@ -1017,6 +1020,12 @@ class Deskd:
             con = ev.get("container", {})
             if con.get("sticky") and change in ("new", "floating", "focus"):
                 self.unstick(con)
+            if change in ("new", "title", "focus") and con.get("border") == "none" and \
+                    ((con.get("window_properties") or {}).get("class") or "").lower() in TITLED_CLASSES and \
+                    con.get("window_type") == "normal" and con.get("name") not in UNTITLED_TITLES:
+                # the app asked for no decorations (Motif hint): no title bar means no
+                # buttons, nothing to drag - it could be neither moved nor minimized
+                self.cmd(f'[con_id={con["id"]}] border normal 2')
             if change in ("new", "title"):
                 props = con.get("window_properties") or {}
                 if (props.get("class"), con.get("name")) in DISMISS:
