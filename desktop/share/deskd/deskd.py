@@ -652,7 +652,7 @@ class Deskd:
         self.xs.root.change_attributes(event_mask=root_mask)
         self.A = {n: self.xs.atom(n) for n in (
             "WM_CHANGE_STATE", "_NET_WM_STATE", "_NET_WM_STATE_MAXIMIZED_VERT",
-            "_NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_PID", "_NET_ACTIVE_WINDOW")}
+            "_NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_MODAL", "_NET_WM_PID", "_NET_ACTIVE_WINDOW")}
         GLib.io_add_watch(self.xs.d.fileno(), GLib.PRIORITY_DEFAULT, GLib.IO_IN, self.on_x)
         self.monitors = Monitors(self.xs)
         self.sub = i3ipc.Subscription(["window", "workspace", "output", "binding", "shutdown", "tick", "mode"],
@@ -1205,22 +1205,42 @@ class Deskd:
             # each configure comes back as ConfigureNotify and another refresh.
             clients = {n["window"]: n for n, _ in walk(workspace) if n.get("window")}
             for wid in clients:
-                try:
-                    client = self.xs.d.create_resource_object("window", wid)
-                    owner = client.get_wm_transient_for()
-                except error.XError:
-                    continue
-                if owner is None or owner.id not in clients or owner.id == wid:
-                    continue
-                child, parent = self.frame_of(wid), self.frame_of(owner.id)
-                if not child or not parent:
-                    continue
-                order = [w.id for w in self.xs.root.query_tree().children]
-                if child[0].id in order and parent[0].id in order and \
-                        order.index(child[0].id) < order.index(parent[0].id):
-                    child[0].configure(sibling=parent[0], stack_mode=X.Above)
+                for owner_id in self.dialog_owners(wid, clients):
+                    child, parent = self.frame_of(wid), self.frame_of(owner_id)
+                    if not child or not parent:
+                        continue
+                    order = [w.id for w in self.xs.root.query_tree().children]
+                    if child[0].id in order and parent[0].id in order and \
+                            order.index(child[0].id) < order.index(parent[0].id):
+                        child[0].configure(sibling=parent[0], stack_mode=X.Above)
         except error.XError:
             pass
+
+    def dialog_owners(self, wid, clients):
+        """The windows a dialog must stay above. Normally its WM_TRANSIENT_FOR. A modal
+        dialog without one (Parole's "Additional software required" had none) belongs to
+        every window of the same program: while it is open they take no input, so one of
+        them coming to the front hid the only thing that could be clicked."""
+        try:
+            client = self.xs.d.create_resource_object("window", wid)
+            owner = client.get_wm_transient_for()
+        except error.XError:
+            return []
+        if owner is not None:
+            return [owner.id] if owner.id in clients and owner.id != wid else []
+        node = clients[wid]
+        if node.get("window_type") != "dialog":
+            return []
+        try:
+            state = client.get_full_property(self.A["_NET_WM_STATE"], Xatom.ATOM)
+        except error.XError:
+            return []
+        if not state or self.A["_NET_WM_STATE_MODAL"] not in state.value:
+            return []
+        cls = (node.get("window_properties") or {}).get("class")
+        return [w for w, n in clients.items()
+                if w != wid and cls and (n.get("window_properties") or {}).get("class") == cls
+                and n.get("window_type") != "dialog"]
 
     def dock_frames(self):
         """The frames i3 gave to dock windows - the panel. Looked up again every few
