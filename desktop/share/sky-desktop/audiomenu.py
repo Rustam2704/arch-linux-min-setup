@@ -11,34 +11,17 @@ import sys
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import GLib, Gtk  # noqa: E402
 
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
-from sky_theme import THEME, css  # noqa: E402
+from popmenu import PopMenu  # noqa: E402
 
-PANEL, GAP = 66, 6
 SLIDER = 480                    # px: four times the Xfce plugin's
 ICON = 48                       # px: twice the plugin's
 LIMIT = 150                     # percent, the same ceiling the volume keys have
 KEYSOUND = os.path.expanduser("~/.config/sky-desktop/keysound")
 ICONS = os.path.expanduser("~/.local/share/icons/Sky-Dark-Icons/scalable/status")
 FIFO = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "osd.fifo")
-
-STYLE = css("""
-#audio-menu { background-color: @COLOUR_BACKGROUND@; border: 1px solid @COLOUR_BORDER@; border-radius: 8px; }
-#audio-menu * { font-family: @FONT@; color: @COLOUR_FOREGROUND@; }
-#audio-menu .row-label { color: @COLOUR_MUTED@; font-size: 9pt; }
-#audio-menu scale trough { min-height: 8px; background-color: @COLOUR_SURFACE@; border: 1px solid @COLOUR_BORDER@; }
-#audio-menu scale highlight { background-color: @COLOUR_LIGHT@; border-color: @COLOUR_LIGHT@; }
-#audio-menu scale slider { min-width: 22px; min-height: 22px; background-color: @COLOUR_FOREGROUND@; border: none; }
-#audio-menu button { background: @COLOUR_SURFACE@; border: 1px solid @COLOUR_BORDER@; border-radius: 8px; padding: 6px 12px; box-shadow: none; }
-#audio-menu button:hover { border-color: @COLOUR_LIGHT@; }
-#audio-menu button:checked { background: @COLOUR_ACCENT@; color: @COLOUR_BACKGROUND@; }
-#audio-menu switch { background-color: @COLOUR_SURFACE@; border: 1px solid @COLOUR_BORDER@; }
-#audio-menu switch:checked { background-color: @COLOUR_ACCENT@; }
-#audio-menu switch slider { background-color: @COLOUR_FOREGROUND@; }
-""")
-
 
 def pactl(*args):
     try:
@@ -99,39 +82,16 @@ def keysound_on():
         return True
 
 
-_state = {"win": None}
-
-
 def toggle():
     """Open the menu under the panel's speaker, or close it if it is open."""
-    win = _state["win"]
-    if win is not None:
-        close()
-        return
-    win = build()
-    _state["win"] = win
+    MENU.toggle()
 
 
 def close(*_):
-    win = _state.pop("win", None)
-    _state["win"] = None
-    if win is not None:
-        try:
-            Gdk.Display.get_default().get_default_seat().ungrab()
-        except Exception:                                   # noqa: BLE001
-            pass
-        win.destroy()
-    return False
+    return MENU.close()
 
 
-def build():
-    win = Gtk.Window(type=Gtk.WindowType.POPUP)
-    win.set_name("audio-menu")
-    provider = Gtk.CssProvider()
-    provider.load_from_data(STYLE.encode())
-    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-    grid = Gtk.Grid(column_spacing=14, row_spacing=12, margin=16)
-    win.add(grid)
+def fill(grid, close):
 
     gi.require_version("GdkPixbuf", "2.0")
     from gi.repository import GdkPixbuf
@@ -205,40 +165,6 @@ def build():
     mixer = Gtk.Button(label="Audio mixer…")
     mixer.connect("clicked", lambda *_: (subprocess.Popen(["pavucontrol"], start_new_session=True), close()))
     grid.attach(mixer, 0, 4, 3, 1)
-    win.show_all()
-
-    display = Gdk.Display.get_default()
-    seat = display.get_default_seat()
-    _, px, py = seat.get_pointer().get_position()
-    monitor = display.get_monitor_at_point(px, py).get_geometry()
-    width = win.get_preferred_width()[1]
-    win.move(max(monitor.x, min(px - width // 2, monitor.x + monitor.width - width)), monitor.y + PANEL + GAP)
-
-    tries = {"n": 0}
-
-    def grab(*_):
-        # the grab is what closes the menu on a click outside; when it fails (another
-        # grab still active - the panel click that opened us, a menu closing) it is
-        # retried, and if it never takes, the menu closes on its own after a while
-        status = seat.grab(win.get_window(), Gdk.SeatCapabilities.ALL, True, None, None, None, None)
-        if status == Gdk.GrabStatus.SUCCESS or _state["win"] is not win:
-            return False
-        tries["n"] += 1
-        if tries["n"] < 20:
-            GLib.timeout_add(50, grab)
-        else:
-            GLib.timeout_add(8000, close)
-        return False
-
-    def pressed(_w, event):
-        inside = 0 <= event.x < win.get_allocated_width() and 0 <= event.y < win.get_allocated_height()
-        if not inside:
-            close()
-        return not inside
-
-    win.connect("map-event", grab)
-    win.connect("button-press-event", pressed)
-    win.connect("key-press-event", lambda _w, e: close() if e.keyval == Gdk.KEY_Escape else None)
-    return win
 
 
+MENU = PopMenu("audio-menu", fill)

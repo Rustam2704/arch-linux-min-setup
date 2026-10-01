@@ -44,6 +44,7 @@ import sky_text  # noqa: E402
 import xfpanel  # noqa: E402
 import netmenu  # noqa: E402  (imported now: the menus must pop up warm)
 import audiomenu  # noqa: E402
+import powermenu  # noqa: E402
 ACCENT = THEME["light"]
 PANEL_FONT_FAMILY = THEME["panel_font"].rsplit(" ", 1)[0]   # the badge is set in the panel font
 OVER = THEME["warning"]     # above 100%
@@ -685,6 +686,7 @@ def main():
     osd = Osd()
     layouts = Layouts(osd)
     threading.Thread(target=audiomenu.apply_echo, daemon=True).start()   # the saved echo-cancel state
+    threading.Thread(target=powermenu.apply, daemon=True).start()        # the saved power mode
     jobs = queue.Queue()
 
     def worker():                      # one command at a time, in order
@@ -701,6 +703,8 @@ def main():
                     do_brightness(osd, arg)
                 elif kind == "menu" and arg == "audio":   # the sound menu: one, toggled
                     GLib.idle_add(lambda: (audiomenu.toggle(), False)[1])
+                elif kind == "menu" and arg == "power":   # the power menu under the battery
+                    GLib.idle_add(lambda: (powermenu.toggle(), False)[1])
                 elif kind == "menu":                # the network menus, hosted here so
                     GLib.idle_add(lambda a=arg: (netmenu.menu(wifi_only=a != "info", hosted=True), False)[1])
                 elif kind == "layout" and arg == "next":

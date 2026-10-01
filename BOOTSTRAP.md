@@ -32,23 +32,26 @@
 5. **Группы и вход**: `sudo groupadd -r autologin; sudo gpasswd -a $USER autologin;
    sudo systemctl enable lightdm`. Автовход настроен drop-in-файлом из дерева: сессия
    `xfce-i3`, без выбора сессии. `/boot/loader/loader.conf` — `timeout 0` (systemd-boot).
-6. **Службы**: `systemctl --user enable netqd sky-stars`; `deskd` и `osd`
+6. **Питание**: `sudo systemctl enable --now tlp`; меню батареи переключает профили через
+   `sudo -n tlp …` — пользователю нужен sudo без пароля хотя бы для `/usr/bin/tlp`
+   (например, `/etc/sudoers.d/tlp`: `<user> ALL=(root) NOPASSWD: /usr/bin/tlp`, права 0440).
+7. **Службы**: `systemctl --user enable netqd sky-stars`; `deskd` и `osd`
    запускает i3 (`exec` в конфиге, юниты `desktop/config/systemd/user/`). Touchégg:
    `sudo systemctl enable --now touchegg` (системная часть; клиент стартует из сессии).
-7. **Шрифты**: `fc-cache -f` после установки (в дереве лежит `Diablo.ttf`; Inter, JetBrainsMono
+8. **Шрифты**: `fc-cache -f` после установки (в дереве лежит `Diablo.ttf`; Inter, JetBrainsMono
    Nerd Font и DSEG7 приходят пакетами).
-8. **GTK-модуль дока**: собранный `libdock-rtl.so` лежит в дереве (x86_64). На другой
+9. **GTK-модуль дока**: собранный `libdock-rtl.so` лежит в дереве (x86_64). На другой
    архитектуре или после смены GTK — `make -C assets/dock-rtl` и `make apply`.
-9. **Плагин Qt для жестов**: `assets/qt-scroll-phases/install.sh` (cmake; пересобирать после
+10. **Плагин Qt для жестов**: `assets/qt-scroll-phases/install.sh` (cmake; пересобирать после
    обновления Qt).
-10. **Личное, вне дерева** (создать руками):
+11. **Личное, вне дерева** (создать руками):
     - `~/.config/sky-desktop/weather` — `"<lat> <lon>"` для погоды (иначе центр Житомира);
     - `~/.config/sky-desktop/keysound` — `off`, чтобы выключить звуки клавиш (по умолчанию включены);
     - ключи календаря `~/.config/light-year/` (Google OAuth Desktop, Zoom Server-to-Server) и
       кнопка **Connect Google** в календаре;
     - `~/.config/zoomus.conf`: `showZoomWindowInSharing=true` в `[General]` (Zoom не штрихует
       свои окна у зрителя демонстрации).
-11. **Перезагрузка** в сессию. Проверка: `make status` должен печатать
+12. **Перезагрузка** в сессию. Проверка: `make status` должен печатать
     `0 files and 0 xfconf properties differ from the declared desktop`.
 
 ## Что ещё знать агенту

@@ -77,6 +77,8 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
   `showZoomWindowInSharing=true` в `zoomus.conf` — проверка с другим учеником ожидается (25.09).
   Разрыв кадра у зрителя — от захвата экрана в самом Zoom, picom его не лечит (`use-damage`
   выключать нельзя: 8 % CPU в простое).
+- Питание: профили TLP настраиваются в `desktop/system/etc/tlp.d/50-sky-desktop.conf`; выбор из меню
+  батареи — `~/.config/sky-desktop/power-mode`, текущий профиль — `/run/tlp/last_pwr` (0/1/2).
 - Большие страницы памяти только по запросу: `transparent_hugepage=madvise` там же (30.09).
 - Своп без сжатия: `zswap.enabled=0` в `/boot/loader/entries/arch-lts.conf` (через lab, 30.09, решение
   пользователя; было zstd, пул 20 %). Вернуть: `lab/lab rollback` или правка строки загрузчика.

@@ -105,4 +105,5 @@ print('<css>* { background-color: transparent; background-image: none; box-shado
 print(f"<img>{ICON}</img>")
 print(f'<txt><span font_features="tnum" foreground="{colour}">'
       f'<span alpha="1">{room}</span>{digits}</span></txt>')
+print(f"<click>{os.path.expanduser('~/.local/bin/osd')} menu power</click>")
 print(f"<tool>Battery: {shown}% ({status}){health}</tool>")
