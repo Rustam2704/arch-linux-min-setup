@@ -449,32 +449,6 @@ class DateField(Gtk.Entry):
             return None
 
 
-def ask_scope(parent, verb):
-    """Recurring event: which occurrences? Returns "this", "following", "all" or None."""
-    dlg = Gtk.Dialog(title=f"{verb} recurring event", transient_for=parent, modal=True)
-    dlg.get_style_context().add_class("ly")
-    box = dlg.get_content_area()
-    box.set_spacing(8)
-    box.set_border_width(16)
-    choices = [("this", "This event"), ("following", "This and following events"), ("all", "All events")]
-    first = None
-    buttons = {}
-    for key, label in choices:
-        b = Gtk.RadioButton.new_with_label_from_widget(first, label)
-        first = first or b
-        buttons[key] = b
-        box.pack_start(b, False, False, 0)
-    dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
-    ok = dlg.add_button(verb, Gtk.ResponseType.OK)
-    ok.get_style_context().add_class("danger" if verb == "Delete" else "primary")
-    dlg.set_default_response(Gtk.ResponseType.OK)
-    dlg.show_all()
-    resp = dlg.run()
-    scope = next((k for k, b in buttons.items() if b.get_active()), "this")
-    dlg.destroy()
-    return scope if resp == Gtk.ResponseType.OK else None
-
-
 class EventDialog(Gtk.Dialog):
     def __init__(self, parent, day, event=None, zoom_available=False):
         super().__init__(title="Edit event" if event else "New event", transient_for=parent, modal=True)
@@ -548,7 +522,7 @@ class EventDialog(Gtk.Dialog):
             self.scope.append(key, caption)
         self.scope.set_active_id("this")
         if event and event.get("recurring_id"):
-            label("Apply changes to")
+            label("Save or delete applies to")      # one choice for both, no second popup
             box.pack_start(self.scope, False, False, 4)
         self.show_all()
 
@@ -981,9 +955,7 @@ class Window(Gtk.ApplicationWindow):
                 closing = True
                 continue
             if resp == 2 and event:
-                scope = ask_scope(dlg, "Delete") if event.get("recurring_id") else "this"
-                if scope is None:
-                    continue
+                scope = dlg.scope.get_active_id() if event.get("recurring_id") else "this"
                 self.mutate(lambda e=event, sc=scope: api.delete_occurrence(e, sc))
                 break
             if resp != Gtk.ResponseType.OK:
@@ -1024,15 +996,13 @@ class Window(Gtk.ApplicationWindow):
             return
         start = dt.datetime.combine(day, e["start"].time().replace(tzinfo=None))
         end = start + (e["end"] - e["start"])
-        # ask after the drag has fully finished (a dialog inside the drop handler breaks it)
+        # after the drag has fully finished (work inside the drop handler breaks it)
         GLib.idle_add(self.finish_drop, e, start, end)
 
     def finish_drop(self, e, start, end):
+        # a drag moves only this occurrence - the series is moved from the event window,
+        # where "this / following / all" is chosen, the same as for saving and deleting
         scope = "this"
-        if e.get("recurring_id"):
-            scope = ask_scope(self, "Move")
-            if scope is None:
-                return False
         original = dict(e)
         e["start"], e["end"] = start.astimezone(), end.astimezone()    # show it moved right away
         self.draw()
