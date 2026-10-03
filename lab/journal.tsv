@@ -598,3 +598,5 @@
 2026-10-01T22:12:36+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.udcUEM.bak
 2026-10-01T22:12:44+03:00	50-panel-spacing	cmd	sudo pacman -S --needed --noconfirm parole	
 2026-10-02T23:17:10+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.6xNGuL.bak
+2026-10-03T15:44:09+03:00	50-panel-spacing	backup	/usr/lib/firefox-developer-edition/distribution/policies.json	/home/fanatic/ai/claude/setup/lab/backups/_usr_lib_firefox-developer-edition_distribution_policies.json.AqFFVC.bak
+2026-10-03T15:44:09+03:00	50-panel-spacing	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.SOLhin.bak
