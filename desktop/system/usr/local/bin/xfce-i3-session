@@ -31,6 +31,7 @@ touchegg &                                      # gesture client (daemon is a sy
 # window cost Xorg+compositor+Firefox 88 % of a core under our picom.conf and 29-36 % here
 # (picom holds the window buffers, so Firefox itself repainted three times dearer). Shadows
 # and fades as before; no vsync (Xorg's modesetting has no TearFree), no rules, no unredirect.
+"$HOME/.local/bin/root-black"                  # black, not xcompmgr's grey, where nothing painted
 xcompmgr -c -C -f -r 14 -o 0.45 -l -14 -t -10 -I 0.06 -O 0.06 -D 8 &
 dex -a -s "$HOME/.config/autostart" >/dev/null 2>&1 &
 

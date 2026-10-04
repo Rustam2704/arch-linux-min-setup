@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""root-black - a black "wallpaper" pixmap for the compositor.
+
+xcompmgr paints the root from _XROOTPMAP_ID / _XSETROOT_ID and, when neither is set,
+fills it grey (0x8080). Anywhere nothing has painted yet - a window before its first
+frame (Zoom), the moment between workspace switches - that grey showed through; picom
+filled black. This sets a 1x1 black pixmap the usual way (like hsetroot): kept after we
+exit (RetainPermanent), the previous one freed, the compositor notified by the property
+change. The starry sky is still sky-stars' own window above this."""
+from Xlib import X, Xatom, display
+
+d = display.Display()
+screen = d.screen()
+root = screen.root
+props = [d.intern_atom(n) for n in ("_XROOTPMAP_ID", "ESETROOT_PMAP_ID")]
+
+old = root.get_full_property(props[1], Xatom.PIXMAP)
+if old and old.value and old.value[0]:
+    try:
+        d.kill_client(old.value[0])           # the previous retained pixmap
+    except Exception:                         # noqa: BLE001
+        pass
+
+pixmap = root.create_pixmap(1, 1, screen.root_depth)
+gc = pixmap.create_gc(foreground=screen.black_pixel)
+pixmap.fill_rectangle(gc, 0, 0, 1, 1)
+for atom in props:
+    root.change_property(atom, Xatom.PIXMAP, 32, [pixmap.id])
+root.change_attributes(background_pixmap=pixmap)
+root.clear_area(0, 0, 0, 0)
+d.set_close_down_mode(X.RetainPermanent)
+d.sync()
