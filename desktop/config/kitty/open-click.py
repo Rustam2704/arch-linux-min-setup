@@ -38,6 +38,17 @@ def text_around_click(lines, row):
     return list(dict.fromkeys(text for text in candidates if text))
 
 
+def visible_lines(window):
+    """The rows exactly as they are on screen now, scrollback position included.
+
+    The mouse row counts from the top of what is shown, but plain as_text() is the live
+    bottom screen: after scrolling back (a long Claude session) the click landed on an
+    unrelated row and nothing opened. screen.visual_line(y) is kitty's own accessor for
+    the displayed row y (it is what @first-line-on-screen uses)."""
+    screen = window.screen
+    return [str(screen.visual_line(y) or "") for y in range(screen.lines)]
+
+
 def main(args):
     pass
 
@@ -51,7 +62,7 @@ def handle_result(args, screen_text, target_window_id, boss):
     if pos is None:
         return
 
-    lines = window.as_text(add_wrap_markers=True).splitlines()
+    lines = visible_lines(window)
     helper = load_open_path()
     cwd = window.cwd_of_child or os.path.expanduser("~")
     for text in text_around_click(lines, pos["cell_y"]):
