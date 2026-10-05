@@ -4,6 +4,10 @@
 # Soft limit (MemoryHigh): nothing is ever killed, allocation just slows down at the ceiling.
 # Settings live in ~/.config/firefox-memory.conf and are changed with `firefox-mem`.
 BIN=/usr/lib/firefox-developer-edition/firefox
+# Touchpad pinch on X11 needs XInput2 events, still opt-in in Firefox: without it a pinch
+# never reaches the page, so Google Maps, OLX photos and the like could not be zoomed
+# (the server speaks XI 2.4, the touchpad is on the libinput driver).
+export MOZ_USE_XINPUT2=1
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-memory.conf"
 ENABLED=1; LIMIT=4G
 [ -r "$CONF" ] && . "$CONF"
