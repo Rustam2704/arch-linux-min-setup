@@ -602,3 +602,7 @@
 2026-10-03T15:44:09+03:00	50-panel-spacing	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.SOLhin.bak
 2026-10-04T19:47:04+03:00	50-panel-spacing	file	/home/fanatic/.local/bin/root-black	
 2026-10-04T19:47:04+03:00	50-panel-spacing	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.qI4vjL.bak
+2026-10-05T09:40:19+03:00	50-panel-spacing	pkg	noto-fonts-cjk	
+2026-10-05T09:40:44+03:00	50-panel-spacing	cmd	rmdir -- /home/fanatic/.config/fontconfig	
+2026-10-05T09:40:44+03:00	50-panel-spacing	cmd	rmdir -- /home/fanatic/.config/fontconfig/conf.d	
+2026-10-05T09:40:44+03:00	50-panel-spacing	file	/home/fanatic/.config/fontconfig/conf.d/60-cjk.conf	

@@ -46,6 +46,7 @@ python-gobject
 python-cairo
 # Fonts
 inter-font
+noto-fonts-cjk                  # Chinese, Japanese, Korean (without it: boxes with hex codes)
 ttf-jetbrains-mono-nerd
 ttf-dseg                    # the panel clock
 # Build and test only
