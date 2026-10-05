@@ -4,6 +4,7 @@
 import importlib.machinery
 import importlib.util
 import os
+import unicodedata
 
 from kitty.fast_data_types import click_mouse_url
 from kittens.tui.handler import result_handler
@@ -49,6 +50,49 @@ def visible_lines(window):
     return [str(screen.visual_line(y) or "") for y in range(screen.lines)]
 
 
+def cell_width(ch):
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+
+def token_at(row, x):
+    """(start cell, end cell, text) of the run of non-space characters under cell x."""
+    cells = []                                   # cell -> character index
+    for i, ch in enumerate(row):
+        cells.extend([i] * cell_width(ch))
+    if not 0 <= x < len(cells) or row[cells[x]].isspace():
+        return None
+    i = j = cells[x]
+    while i and not row[i - 1].isspace():
+        i -= 1
+    while j + 1 < len(row) and not row[j + 1].isspace():
+        j += 1
+    start = sum(cell_width(c) for c in row[:i])
+    end = start + sum(cell_width(c) for c in row[i:j + 1])
+    return start, end, row[i:j + 1]
+
+
+def click_candidates(rows, y, x, columns):
+    """The word under the click first. It is glued to the next or previous row only when
+    it runs into the window edge - a path the terminal or a TUI wrapped. Whole-paragraph
+    guesses come last: with a list of paths one per row, gluing the rows made every click
+    open the first path of the list."""
+    hit = token_at(rows[y], x) if 0 <= y < len(rows) else None
+    if not hit:
+        return []
+    start, end, word = hit
+    out = []
+    if end >= columns - 1 and y + 1 < len(rows):            # runs off the right edge
+        nxt = rows[y + 1].lstrip()
+        if nxt:
+            out.append(word + nxt.split()[0])
+    if start <= 2 and y > 0:                                # starts at the left edge
+        prev = rows[y - 1].rstrip()
+        if prev and len(prev) >= columns - 2:
+            out.append(prev.split()[-1] + word)
+    out.append(word)
+    return out
+
+
 def main(args):
     pass
 
@@ -65,7 +109,8 @@ def handle_result(args, screen_text, target_window_id, boss):
     lines = visible_lines(window)
     helper = load_open_path()
     cwd = window.cwd_of_child or os.path.expanduser("~")
-    for text in text_around_click(lines, pos["cell_y"]):
+    first = click_candidates(lines, pos["cell_y"], pos["cell_x"], window.screen.columns)
+    for text in first + [t for t in text_around_click(lines, pos["cell_y"]) if t not in first]:
         path, line = helper.resolve(text, cwd=cwd)
         if path:
             helper.open_it(path, line)
