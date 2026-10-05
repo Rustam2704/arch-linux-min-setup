@@ -9,7 +9,10 @@
           "https://ptb.discord.com",
           "https://canary.discord.com",
           "https://app.zoom.us",
-          "https://meet.google.com"
+          "https://meet.google.com",
+          "https://www.youtube.com",
+          "https://m.youtube.com",
+          "https://music.youtube.com"
         ]
       }
     }

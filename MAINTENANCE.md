@@ -82,6 +82,11 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 - Большие страницы памяти только по запросу: `transparent_hugepage=madvise` там же (30.09).
 - Своп без сжатия: `zswap.enabled=0` в `/boot/loader/entries/arch-lts.conf` (через lab, 30.09, решение
   пользователя; было zstd, пул 20 %). Вернуть: `lab/lab rollback` или правка строки загрузчика.
+- uBlock Origin — «средний режим» (сторонние скрипты и фреймы заблокированы, настройки расширения,
+  вне дерева) с исключением для YouTube: `www.youtube.com google.com * noop`,
+  `www.youtube.com doubleclick.net * noop` (без него не грузится видео — BotGuard). Если сайт
+  ломается, в панели uBlock кликнуть по серой строке нужного домена. Проверка YouTube —
+  `tools/yt-lab/ytlab.py` (инструкция в его шапке).
 - Firefox: `user.js` профиля (`~/.config/mozilla/firefox/<profile>/`) держит настройки памяти и
   видео (VA-API, без VP9/AV1 — на Haswell в железе только H.264); файл вне дерева, записан через lab.
 - Звонки: эхоподавление — переключатель в меню динамика (модуль PipeWire по требованию). Если в
