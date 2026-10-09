@@ -549,7 +549,8 @@ class Layouts:
     def panel_markup(self, name):
         """The code in its colour, padded to the width of the widest one: the panel
         font is proportional, and a change of layout must not nudge its neighbours."""
-        font = sky_text.panel_font(PANEL_LAYOUT_PLUGIN.split("-")[1])
+        ids = xfpanel.plugin_ids("panel-layout")          # every copy shares the main panel's font
+        font = sky_text.panel_font(ids[0]) if ids else sky_text.THEME["panel_font"]
         widest = max(sky_text.width(n, font) for n in self.names)
         colour = LAYOUT_COLOURS.get(name, THEME["muted"])
         return sky_text.pad_to(f'<span foreground="{colour}">{name}</span>', widest, font, align="center", after="")

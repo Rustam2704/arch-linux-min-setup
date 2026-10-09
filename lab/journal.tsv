@@ -634,3 +634,4 @@
 2026-10-09T18:19:52+03:00	deskd-monitor-panel	cmd	rmdir -- /home/fanatic/.config/xfce4/panel/launcher-98	
 2026-10-09T18:19:52+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/launcher-98/power-menu.desktop	
 2026-10-09T18:21:18+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.RWKFiJ.bak
+2026-10-09T18:24:46+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.985b4x.bak
