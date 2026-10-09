@@ -4,13 +4,14 @@
 What it adds (all event driven; idle cost is zero):
   * title bar buttons on every window: minimize / maximize / close as coloured
     circles on the right (yellow, green, red), drawn inside i3's own frame;
-  * resize by dragging the gap between windows, or the edge of a floating window,
-    with no modifier key;
-  * right click on a title bar: tiled <-> floating;
-    right drag on a title bar: the window follows the pointer, and dropping it on
-    the top edge maximizes it, on the left/right edge tiles it as a half, on a
-    workspace number in the panel moves it there (blue preview while dragging);
-  * maximize keeps the panel visible; restore puts a tiled window back exactly
+  * every window floats, as in Windows (i3 tiles nothing: ~/.config/i3/config);
+    resize by dragging any edge or corner, with no modifier key;
+  * drag a title bar with either button: the window follows the pointer, and
+    dropping it on the top edge maximizes it, on the left/right edge snaps it to
+    that half of the screen, on a workspace number in the panel moves it there
+    (blue preview while dragging); dragging a maximized or snapped window away
+    gives it its previous size back;
+  * maximize and snap keep the panel visible; restore puts the window back exactly
     where it was; app buttons (Telegram, ...) asking to minimize/maximize are obeyed;
   * Windows keys: Super+Up/Down/Left/Right, Alt+Tab (focus within the workspace);
   * every screen has its own workspaces 1..5; when a screen goes away its
@@ -89,6 +90,7 @@ PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote ma
 DEBUG = bool(os.environ.get("DESKD_DEBUG"))
 
 MARK_MAX = "_deskd_max"
+MARK_SNAP = "_deskd_snap"     # + "left"/"right": the window fills that half of the screen
 MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
@@ -888,8 +890,8 @@ class Deskd:
 
     def unstick(self, con):
         """An ordinary window asked to be on every workspace (EWMH _NET_WM_DESKTOP = -1;
-        Firefox did it during a full-screen video) and i3 made it sticky and floating:
-        it then showed on every workspace. Only small overlays are allowed that -
+        Firefox did it during a full-screen video) and i3 made it sticky: it then
+        showed on every workspace. Only small overlays are allowed that -
         picture-in-picture, notifications, dialogs - everything else goes back."""
         props = con.get("window_properties") or {}
         title = con.get("name") or ""
@@ -897,7 +899,7 @@ class Deskd:
                 or props.get("transient_for") or "Picture-in-Picture" in title:
             return
         log("unsticking", props.get("class"), title[:40])
-        self.cmd(f'[con_id={con["id"]}] sticky disable, floating disable')
+        self.cmd(f'[con_id={con["id"]}] sticky disable')
 
     def skip_dock(self, wid):
         """Mark a client window as not for task lists, so the dock ignores it."""
@@ -1382,9 +1384,8 @@ class Deskd:
             s.destroy()
         if con.get("window"):
             self.frames.pop(con["window"], None)
-        saved = self.saved(cid)
-        if saved:
-            self.drop_saved(cid, saved)
+        if self.saved(cid):
+            self.set_saved(cid, None)
 
     # ------------------------------------------------------------ resize handles
     def visible_workspaces(self, workspaces):
@@ -1396,27 +1397,6 @@ class Deskd:
         for ws in self.visible_workspaces(workspaces):
             if any(n.get("fullscreen_mode") and n.get("window") for n, _ in walk(ws)):
                 continue
-            for node, _ in walk(ws):
-                kids = node.get("nodes", [])
-                if node.get("layout") in ("splith", "splitv") and len(kids) > 1:
-                    for a, b in zip(kids, kids[1:]):
-                        ra, rb = a["rect"], b["rect"]
-                        if node["layout"] == "splith":
-                            x1, x2 = ra["x"] + ra["width"], rb["x"]
-                            if x2 - x1 < 6:
-                                x1, x2 = x1 - 3, x1 + 3
-                            y = min(ra["y"], rb["y"])
-                            h = max(ra["y"] + ra["height"], rb["y"] + rb["height"]) - y
-                            specs.append(((x1, y, x2 - x1, h), "h", {"kind": "split", "con": a["id"],
-                                          "axis": "width", "start": ra["width"], "origin": ra["x"]}))
-                        else:
-                            y1, y2 = ra["y"] + ra["height"], rb["y"]
-                            if y2 - y1 < 6:
-                                y1, y2 = y1 - 3, y1 + 3
-                            x = min(ra["x"], rb["x"])
-                            w = max(ra["x"] + ra["width"], rb["x"] + rb["width"]) - x
-                            specs.append(((x, y1, w, y2 - y1), "v", {"kind": "split", "con": a["id"],
-                                          "axis": "height", "start": ra["height"], "origin": ra["y"]}))
             for fl in ws.get("floating_nodes", []):
                 r = fl["rect"]
                 x, y, w, h, t = r["x"], r["y"], r["width"], r["height"], HANDLE
@@ -1446,16 +1426,14 @@ class Deskd:
             key = (geom, cur, info.get("frame"))
             if h[2] != key:
                 w.change_attributes(cursor=self.xs.cursors[cur])
-                if info["kind"] == "float" and info.get("frame"):
+                if info.get("frame"):
                     w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh),
                                 sibling=info["frame"], stack_mode=X.Above)
                 else:
-                    w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh), stack_mode=X.Below)
+                    w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh))
                 h[2] = key
             if h[1] is None:
                 w.map()
-                if info["kind"] != "float":
-                    w.configure(stack_mode=X.Below)
             h[1] = info
             self.handle_by_win[w.id] = h
 
@@ -1571,7 +1549,7 @@ class Deskd:
             return
         if e.type == X.ButtonPress and e.detail == 1:
             if DEBUG:
-                log("handle press", info["kind"], info.get("edges") or info.get("axis"), info["con"], e.root_x, e.root_y)
+                log("handle press", info["edges"], info["con"], e.root_x, e.root_y)
             self.resizing = {"info": info, "x": e.root_x, "y": e.root_y, "last": None}
         elif e.type == X.MotionNotify and self.resizing:
             self.resizing["pos"] = (e.root_x, e.root_y)
@@ -1593,37 +1571,25 @@ class Deskd:
         info = r["info"]
         px, py = r["pos"]
         dx, dy = px - r["x"], py - r["y"]
-        if info["kind"] == "split":
-            # move only the edge under the pointer: grow/shrink towards the neighbour
-            # behind it (resize set would take space from every sibling)
-            target = max(60, info["start"] + (dx if info["axis"] == "width" else dy))
-            if final:
-                node, _ = find(self.i3.tree(), info["con"])
-                have = node["rect"][info["axis"]] if node else target
-            else:
-                have = r["last"] if r["last"] is not None else info["start"]
-            step = target - have
-            if step:
-                side = "right" if info["axis"] == "width" else "down"
-                verb = "grow" if step > 0 else "shrink"
-                self.cmd(f'[con_id={info["con"]}] resize {verb} {side} {abs(step)} px')
-            r["last"] = target
-        else:
-            rect, edges = info["rect"], info["edges"]
-            x, y, w, h = rect["x"], rect["y"], rect["width"], rect["height"]
-            if "l" in edges:
-                x, w = x + dx, w - dx
-            if "r" in edges:
-                w = w + dx
-            if "t" in edges:
-                y, h = y + dy, h - dy
-            if "b" in edges:
-                h = h + dy
-            w, h = max(160, w), max(100, h)
-            key = (x, y, w, h)
-            if key != r["last"]:
-                self.cmd(f'[con_id={info["con"]}] resize set {w} px {h} px, move position {x} px {y} px')
-                r["last"] = key
+        rect, edges = info["rect"], info["edges"]
+        x, y, w, h = rect["x"], rect["y"], rect["width"], rect["height"]
+        if "l" in edges:
+            x, w = x + dx, w - dx
+        if "r" in edges:
+            w = w + dx
+        if "t" in edges:
+            y, h = y + dy, h - dy
+        if "b" in edges:
+            h = h + dy
+        w, h = max(160, w), max(100, h)
+        key = (x, y, w, h)
+        if key != r["last"]:
+            if r["last"] is None:
+                # a maximized / snapped window being resized by hand is neither any more
+                self.cmd(f'[con_id={info["con"]}] {self.unfit(info["con"])}')
+                self.set_saved(info["con"], None)
+            self.cmd(f'[con_id={info["con"]}] resize set {w} px {h} px, move position {x} px {y} px')
+            r["last"] = key
         self.pump()
         return False
 
@@ -1692,60 +1658,53 @@ class Deskd:
                 return node
         return None
 
-    def remember(self, cid, placeholder=False):
-        """Record where a window lives now, so restore can put it back exactly.
-
-        placeholder=True (maximize, pulling a tile out): an empty i3 container takes
-        the window's place, so the layout does not change at all and restore is a swap.
-        Otherwise (minimize) a neighbour is marked, and the space is given to others."""
-        tree = self.i3.tree()
-        node, parent = find(tree, cid)
-        if node is None:
+    def remember(self, cid):
+        """Where the window is now (its floating frame), so restore can put it back."""
+        node, parent = find(self.i3.tree(), cid)
+        if node is None or not parent or parent.get("type") != "floating_con":
             return None
-        if parent and parent.get("type") == "floating_con":
-            r = parent["rect"]
-            return {"mode": "floating", "rect": [r["x"], r["y"], r["width"], r["height"]]}
-        if placeholder:
-            mark = f"_deskd_p{cid}"
-            self.cmd(f"[con_id={cid}] focus")
-            self.cmd(f"open, mark --add {mark}")
-            ph = self.find_mark(mark)
-            if ph:
-                self.cmd(f"[con_id={cid}] swap container with con_id {ph['id']}")
-                return {"mode": "tiled", "placeholder": mark}
-        siblings = [n for n in parent.get("nodes", [])] if parent else []
-        idx = next((i for i, n in enumerate(siblings) if n["id"] == cid), -1)
-        entry = {"mode": "tiled", "percent": node.get("percent"),
-                 "axis": "width" if parent and parent.get("layout") == "splith" else "height"}
-        if len(siblings) > 1 and idx >= 0:
-            if idx > 0:
-                anchor, entry["place"] = siblings[idx - 1], "after"
-            else:
-                anchor, entry["place"] = siblings[idx + 1], "before"
-            mark = f"_deskd_a{cid}"
-            self.cmd(f'[con_id={anchor["id"]}] mark --add {mark}')
-            entry["anchor_mark"], entry["anchor"] = mark, anchor["id"]
-            entry["anchor_leaf"] = bool(anchor.get("window"))
-        return entry
+        r = parent["rect"]
+        return {"mode": "floating", "rect": [r["x"], r["y"], r["width"], r["height"]]}
+
+    def unfit(self, cid):
+        """The i3 commands that make a window plain again: neither maximized nor snapped."""
+        return f"unmark {MARK_MAX}_{cid}, unmark {MARK_SNAP}left_{cid}, unmark {MARK_SNAP}right_{cid}"
+
+    def fit(self, cid, rect, mark, saved=None):
+        """ONE engine for maximize and for snapping to a half of the screen: the window
+        becomes a floating one filling `rect`, carrying `mark`; where it was before is
+        kept so that restore - or dragging it away - gives that place back. Going from
+        maximized to a half (or back) keeps the original place, as Windows does."""
+        node, _ = find(self.i3.tree(), cid)
+        if node is None:
+            return
+        if node.get("fullscreen_mode"):
+            self.cmd(f"[con_id={cid}] fullscreen disable")
+        if saved is None:
+            saved = self.saved(cid) if self.is_fitted(node) else self.remember(cid)
+        self.set_saved(cid, saved)
+        x, y, w, h = rect
+        self.cmd(f"[con_id={cid}] floating enable, {self.unfit(cid)}, mark --add {mark}_{cid}, "
+                 f"move position {x} px {y} px, resize set {w} px {h} px")
+        self.fit_floating(cid, (x, y, w, h))
+        self.cmd(f"[con_id={cid}] focus")
 
     def maximize(self, cid, saved=None):
         output = self.con_output(cid)
         area = self.workarea(output) if output else None
+        if area:
+            self.fit(cid, (area["x"], area["y"], area["width"], area["height"]), MARK_MAX, saved)
+
+    def snap(self, cid, side, saved=None):
+        """The window fills the left or right half of the work area (Super+Left/Right,
+        or dropped at that edge of the screen)."""
+        output = self.con_output(cid)
+        area = self.workarea(output) if output else None
         if not area:
             return
-        node, parent = find(self.i3.tree(), cid)
-        if node and node.get("fullscreen_mode"):
-            self.cmd(f"[con_id={cid}] fullscreen disable")
-        if saved is None:
-            saved = self.remember(cid, placeholder=True)
-        self.set_saved(cid, saved)
-        x, y, w, h = area["x"], area["y"], area["width"], area["height"]
-        self.cmd(f"[con_id={cid}] floating enable, mark --add {MARK_MAX}_{cid}, "
-                 f"move position {x} px {y} px, resize set {w} px {h} px")
-        self.fit_floating(cid, (x, y, w, h))
-        # remember() opened an empty placeholder, and i3 gives a new container the
-        # focus - so the window that fills the screen would be the one without it
-        self.cmd(f"[con_id={cid}] focus")
+        half = area["width"] // 2
+        x = area["x"] if side == "left" else area["x"] + area["width"] - half
+        self.fit(cid, (x, area["y"], half, area["height"]), MARK_SNAP + side, saved)
 
     def fit_floating(self, cid, target):
         """i3 sizes floating windows without decorations; correct once to the exact frame."""
@@ -1761,6 +1720,17 @@ class Deskd:
     def is_maximized(self, node):
         return any(m.startswith(MARK_MAX) for m in (node.get("marks") or []))
 
+    def snapped_side(self, node):
+        """"left" / "right" for a window snapped to that half of the screen, else None."""
+        for m in node.get("marks") or []:
+            if m.startswith(MARK_SNAP):
+                return m[len(MARK_SNAP):].split("_", 1)[0]
+        return None
+
+    def is_fitted(self, node):
+        """Maximized or snapped: filling a rectangle of the screen rather than its own."""
+        return self.is_maximized(node) or self.snapped_side(node) is not None
+
     def toggle_maximize(self, cid):
         node, _ = find(self.i3.tree(), cid)
         if node is None:
@@ -1770,40 +1740,22 @@ class Deskd:
         else:
             self.maximize(cid)
 
-    def restore(self, cid, keep_floating=False):
-        saved = self.saved(cid) or {"mode": "tiled"}
-        self.cmd(f"[con_id={cid}] unmark {MARK_MAX}_{cid}, unmark {MARK_MIN}_{cid}")
-        if saved.get("mode") == "floating" or keep_floating:
-            if saved.get("rect"):
-                x, y, w, h = saved["rect"]
-                self.cmd(f"[con_id={cid}] floating enable, resize set {w} px {h} px, move position {x} px {y} px")
-                self.fit_floating(cid, (x, y, w, h))
-        elif saved.get("placeholder"):
-            ph = self.find_mark(saved["placeholder"])
-            self.cmd(f"[con_id={cid}] floating disable")
-            if ph:
-                self.cmd(f"[con_id={cid}] swap container with con_id {ph['id']}")
-                self.cmd(f"[con_id={ph['id']}] kill")
-        else:
-            self.cmd(f"[con_id={cid}] floating disable")
-            mark = saved.get("anchor_mark")
-            if mark:
-                res = self.cmd(f"[con_id={cid}] move container to mark {mark}")
-                if res and res[0].get("success"):
-                    horizontal = saved.get("axis", "width") == "width"
-                    if saved.get("anchor_leaf", True):
-                        # a window: we land right after it; "before" means swap
-                        if saved.get("place") == "before":
-                            self.cmd(f'[con_id={cid}] swap container with con_id {saved["anchor"]}')
-                    else:
-                        # a container: we land inside it; step out on the right side
-                        after = saved.get("place") == "after"
-                        step = ("right" if after else "left") if horizontal else ("down" if after else "up")
-                        self.cmd(f"[con_id={cid}] move {step}")
-                self.cmd(f"unmark {mark}")
-            if saved.get("percent") and mark:          # only when it shared the space
-                pct = max(5, min(95, round(saved["percent"] * 100)))
-                self.cmd(f'[con_id={cid}] resize set {saved.get("axis", "width")} {pct} ppt')
+    def restore(self, cid):
+        """Back to the place and size the window had before maximize / snap / minimize.
+        A window with nothing remembered (it was never anywhere else) gets a sensible
+        size in the middle of its screen."""
+        saved = self.saved(cid)
+        rect = saved.get("rect") if saved else None
+        if not rect:
+            area = self.workarea(self.con_output(cid))
+            if not area:
+                return
+            w, h = int(area["width"] * 0.6), int(area["height"] * 0.7)
+            rect = [area["x"] + (area["width"] - w) // 2, area["y"] + (area["height"] - h) // 2, w, h]
+        x, y, w, h = rect
+        self.cmd(f"[con_id={cid}] {self.unfit(cid)}, unmark {MARK_MIN}_{cid}, floating enable, "
+                 f"resize set {w} px {h} px, move position {x} px {y} px")
+        self.fit_floating(cid, (x, y, w, h))
         self.set_saved(cid, None)
         self.cmd(f"[con_id={cid}] focus")
 
@@ -1836,9 +1788,11 @@ class Deskd:
         if node is None or not any(m.startswith(MARK_MIN) for m in (node.get("marks") or [])):
             return
         self.cmd(f"[con_id={cid}] unmark {MARK_MIN}_{cid}")
+        side = self.snapped_side(node)
         if self.is_maximized(node):
-            saved = self.saved(cid)
-            self.maximize(cid, saved)
+            self.maximize(cid, self.saved(cid))
+        elif side:
+            self.snap(cid, side, self.saved(cid))
         else:
             self.restore(cid)
         # its dialogs come back with it, on top
@@ -1857,44 +1811,10 @@ class Deskd:
                 return
         self.cmd("scratchpad show")
 
-    # ------------------------------------------------------------ snap half
-    def snap(self, cid, side):
-        """Tile the window at the left or right half of its workspace; other windows
-        keep their arrangement in the other half."""
-        node, parent = find(self.i3.tree(), cid)
-        if node is None:
-            return
-        if parent and parent.get("type") == "floating_con":
-            self.cmd(f"[con_id={cid}] unmark {MARK_MAX}_{cid}, floating disable")
-        self.drop_saved(cid, self.saved(cid))
-        direction = "left" if side == "left" else "right"
-        last = None
-        for _ in range(12):
-            tree = self.i3.tree()
-            node, parent = find(tree, cid)
-            ws = i3ipc.workspace_of(tree, cid)
-            if node is None or ws is None:
-                return
-            tiles = ws.get("nodes", [])
-            if len(i3ipc.leaves({"nodes": tiles, "floating_nodes": []})) <= 1:
-                return                      # alone: nothing to share the screen with
-            at_root = parent is ws and ws.get("layout") == "splith"
-            edge = tiles[0]["id"] if side == "left" else tiles[-1]["id"]
-            if at_root and edge == cid:
-                break
-            sig = json.dumps([parent["id"] if parent else 0, [n["id"] for n in tiles]])
-            if sig == last:
-                break                       # no progress (would jump to another screen)
-            last = sig
-            self.cmd(f"[con_id={cid}] move {direction}")
-        self.cmd(f"[con_id={cid}] resize set width 50 ppt, focus")
-
     # ------------------------------------------------------------ title bar: clicks and drags
-    # ONE engine for every title bar drag (left or right button, tiled or floating):
-    #   left button on a tiled window -> "tile" mode: rearrange tiles, blue preview on the target
-    #   right button, or a floating window -> "float" mode: the window follows the pointer
-    # In both modes the same zones apply: top edge = maximize, left/right edge = half,
-    # a workspace number in any panel = move there. Fixes here apply to all of them.
+    # ONE engine for every title bar drag (left or right button): the window follows the
+    # pointer; top edge = maximize, left/right edge = that half of the screen, a workspace
+    # number in any panel = move there. Fixes here apply to both buttons.
     def titlebar_press(self, button, attempt=0):
         tree = self.i3.tree()
         target = next((n for n, _ in walk(tree) if MARK_CLICK in (n.get("marks") or [])), None)
@@ -1909,32 +1829,22 @@ class Deskd:
             self.titlebar_click(target["id"], button, x, y)
             return
         _, parent = find(tree, target["id"])
-        floating = parent is not None and parent.get("type") == "floating_con"
-        frame = parent["rect"] if floating else target["rect"]
+        frame = parent["rect"] if parent is not None and parent.get("type") == "floating_con" else target["rect"]
         self.drag = {"con": target["id"], "x0": x, "y0": y, "moving": False, "zone": None,
-                     "button": button, "mask": bmask, "floating": floating,
-                     "rect": dict(frame), "max": self.is_maximized(target)}
+                     "button": button, "mask": bmask,
+                     "rect": dict(frame), "fitted": self.is_fitted(target)}
         GLib.timeout_add(POLL_MS, self.drag_poll)
 
     def titlebar_click(self, cid, button, x, y):
-        """Right click: tiled <-> floating. Left double click: maximize <-> restore."""
-        node, parent = find(self.i3.tree(), cid)
-        if node is None:
+        """Left double click: maximize <-> restore. A right click only focuses (i3 did that)."""
+        if button != 1:
             return
-        if button == 1:
-            now, last = time.monotonic(), self.last_click
-            self.last_click = (cid, now, x, y)
-            if last and last[0] == cid and now - last[1] < DOUBLE_CLICK_S \
-                    and abs(x - last[2]) + abs(y - last[3]) < 12:
-                self.last_click = None
-                self.toggle_maximize(cid)
-            return
-        if self.is_maximized(node):
-            self.restore(cid)
-        elif parent and parent.get("type") == "floating_con":
-            self.cmd(f"[con_id={cid}] floating disable")
-        else:
-            self.cmd(f"[con_id={cid}] floating enable")
+        now, last = time.monotonic(), self.last_click
+        self.last_click = (cid, now, x, y)
+        if last and last[0] == cid and now - last[1] < DOUBLE_CLICK_S \
+                and abs(x - last[2]) + abs(y - last[3]) < 12:
+            self.last_click = None
+            self.toggle_maximize(cid)
 
     def drag_poll(self):
         d = self.drag
@@ -1948,11 +1858,10 @@ class Deskd:
             if abs(x - d["x0"]) + abs(y - d["y0"]) < DRAG_START:
                 return True
             self.drag_begin(x, y)
-        if d["mode"] == "float":
-            nx, ny = self.inside_workarea(x - d["off_x"], y - d["off_y"])
-            if (nx, ny) != d.get("pos"):
-                self.cmd(f'[con_id={d["con"]}] move position {nx} px {ny} px')
-                d["pos"] = (nx, ny)
+        nx, ny = self.inside_workarea(x - d["off_x"], y - d["off_y"])
+        if (nx, ny) != d.get("pos"):
+            self.cmd(f'[con_id={d["con"]}] move position {nx} px {ny} px')
+            d["pos"] = (nx, ny)
         self.drag_zone(x, y)
         self.pump()
         return True
@@ -1975,24 +1884,20 @@ class Deskd:
         cid, r = d["con"], d["rect"]
         d["area"] = self.workarea(self.con_output(cid))     # measured once, used every frame
         d["height"] = r["height"]
-        tiled = not d["floating"] and not d["max"]
-        d["mode"] = "tile" if (d["button"] == 1 and tiled) else "float"
         d["saved"] = None
-        if d["mode"] == "float":
-            if d["max"]:
-                d["saved"] = self.saved(cid)          # dropping it again restores to this
-                w, h = max(400, int(r["width"] * 0.6)), max(300, int(r["height"] * 0.6))
-                self.cmd(f"[con_id={cid}] unmark {MARK_MAX}_{cid}, resize set {w} px {h} px")
-            elif tiled:
-                d["saved"] = self.remember(cid, placeholder=True)
-                area = self.workarea(self.con_output(cid)) or r
-                w = min(r["width"], int(area["width"] * 0.6))
-                h = min(r["height"], int(area["height"] * 0.7))
-                self.cmd(f"[con_id={cid}] floating enable, resize set {w} px {h} px")
+        w, h = r["width"], r["height"]
+        if d["fitted"]:
+            # a maximized / snapped window pulled away gets its previous size back under
+            # the pointer, as in Windows; dropping it at an edge again restores to the same place
+            d["saved"] = self.saved(cid)
+            rect = (d["saved"] or {}).get("rect")
+            if rect:
+                w, h = rect[2], rect[3]
             else:
-                w, h = r["width"], r["height"]
-            frac = (d["x0"] - r["x"]) / max(1, r["width"])
-            d["off_x"], d["off_y"] = int(w * frac), d["y0"] - r["y"]
+                w, h = max(400, int(r["width"] * 0.6)), max(300, int(r["height"] * 0.6))
+            self.cmd(f"[con_id={cid}] {self.unfit(cid)}, resize set {w} px {h} px")
+        frac = (d["x0"] - r["x"]) / max(1, r["width"])
+        d["off_x"], d["off_y"] = int(w * frac), d["y0"] - r["y"]
         self.show_targets()
 
     def drag_zone(self, x, y):
@@ -2013,31 +1918,10 @@ class Deskd:
             elif x >= o["x"] + o["width"] - 1 - EDGE:
                 half = area["width"] // 2
                 zone, rect = ("right",), (area["x"] + area["width"] - half, area["y"], half, area["height"])
-            elif d["mode"] == "tile":
-                zone, rect = self.tile_zone(x, y, d["con"])
         if zone != d["zone"]:
             d["zone"] = zone
             self.show_preview(rect)
             self.draw_targets(zone[1] if zone and zone[0] == "ws" else None)
-
-    def tile_zone(self, x, y, cid):
-        """Over another tiled window: its nearest side (or its centre = swap)."""
-        for ws in self.visible_workspaces(self.workspaces()):
-            for leaf in i3ipc.leaves({"nodes": ws.get("nodes", []), "floating_nodes": []}):
-                r = leaf["rect"]
-                if leaf["id"] == cid or not (r["x"] <= x < r["x"] + r["width"] and r["y"] <= y < r["y"] + r["height"]):
-                    continue
-                rx, ry = (x - r["x"]) / r["width"], (y - r["y"]) / r["height"]
-                sides = {"left": rx, "right": 1 - rx, "top": ry, "bottom": 1 - ry}
-                side = min(sides, key=sides.get)
-                if sides[side] > 0.3:
-                    side = "center"
-                X0, Y0, W, H = r["x"], r["y"], r["width"], r["height"]
-                rect = {"left": (X0, Y0, W // 2, H), "right": (X0 + W - W // 2, Y0, W // 2, H),
-                        "top": (X0, Y0, W, H // 2), "bottom": (X0, Y0 + H - H // 2, W, H // 2),
-                        "center": (X0, Y0, W, H)}[side]
-                return ("tile", leaf["id"], side), rect
-        return None, None
 
     def drag_end(self, x, y):
         d, self.drag = self.drag, None
@@ -2051,68 +1935,15 @@ class Deskd:
         if kind == "max":
             self.maximize(cid, saved)
         elif kind in ("left", "right"):
-            if saved:
-                self.set_saved(cid, saved)
-            self.snap(cid, kind)
+            self.snap(cid, kind, saved)
         elif kind == "ws":
             self.cmd(f"[con_id={cid}] move container to workspace number {zone[1]}")
-            if saved and saved.get("mode") == "tiled":
-                self.cmd(f"[con_id={cid}] floating disable")
-            self.drop_saved(cid, saved)
-        elif kind == "tile":
-            self.tile_move(cid, zone[1], zone[2])
-        elif self.over_dock(x, y):
-            # let go over the panel but not on a workspace number: the window is already
-            # held inside the work area by the drag, so it simply stays where it is,
-            # right under the panel at the point it was let go
-            self.drop_saved(cid, saved)
-        elif d["mode"] == "float":
-            self.drop_saved(cid, saved)         # dropped in the open: stays floating right there
-        elif d["mode"] == "tile" and self.drop_on_other_screen(cid, x, y):
-            pass
+            self.set_saved(cid, None)
+        else:
+            # let go in the open (or over the panel but not on a workspace number: the
+            # drag already keeps the window inside the work area): it stays right there
+            self.set_saved(cid, None)
         self.schedule_refresh()
-
-    def drop_on_other_screen(self, cid, x, y):
-        """A tiled window let go over another screen where no tile caught it (an empty
-        workspace there): it joins that screen's visible workspace, tiled - not left
-        hanging where it was."""
-        out = self.output_rect_at(x, y)
-        here = self.con_output(cid)
-        if not out or out.get("name") == here:
-            return False
-        ws = next((w for w in self.i3.workspaces() if w["output"] == out["name"] and w["visible"]), None)
-        if not ws:
-            return False
-        self.cmd(f'[con_id={cid}] move container to workspace "{ws["name"]}", floating disable')
-        self.cmd(f'[con_id={cid}] focus')
-        return True
-
-    def drop_saved(self, cid, saved):
-        """Forget where a window came from: close its placeholder / unmark its anchor."""
-        if saved and saved.get("placeholder"):
-            ph = self.find_mark(saved["placeholder"])
-            if ph:
-                self.cmd(f"[con_id={ph['id']}] kill")
-        if saved and saved.get("anchor_mark"):
-            self.cmd(f'unmark {saved["anchor_mark"]}')
-        self.set_saved(cid, None)
-
-    def tile_move(self, cid, tid, side):
-        """Put tiled window cid next to tile tid (or swap them for the centre)."""
-        if side == "center":
-            self.cmd(f"[con_id={cid}] swap container with con_id {tid}")
-            return
-        _, parent = find(self.i3.tree(), tid)
-        want = "splith" if side in ("left", "right") else "splitv"
-        if not parent or parent.get("layout") != want:
-            self.cmd(f"[con_id={tid}] split {'h' if want == 'splith' else 'v'}")
-        mark = f"_deskd_t{cid}"
-        self.cmd(f"[con_id={tid}] mark --add {mark}")
-        self.cmd(f"[con_id={cid}] move container to mark {mark}")      # lands after tid
-        if side in ("left", "top"):
-            self.cmd(f"[con_id={cid}] swap container with con_id {tid}")
-        self.cmd(f"unmark {mark}")
-        self.cmd(f"[con_id={cid}] focus")
 
     def clamp_floating(self, cid):
         """A window that just became floating must be reachable: title bar below the
@@ -2120,7 +1951,7 @@ class Deskd:
         if self.drag:
             return False
         node, parent = find(self.i3.tree(), cid)
-        if not parent or parent.get("type") != "floating_con" or self.is_maximized(node):
+        if not parent or parent.get("type") != "floating_con" or self.is_fitted(node):
             return False
         area = self.workarea(self.con_output(cid))
         if not area:
@@ -2729,7 +2560,7 @@ class Deskd:
         elif what == "restore":
             if node.get("fullscreen_mode"):
                 self.cmd(f"[con_id={cid}] fullscreen disable")
-            elif self.is_maximized(node):
+            elif self.is_fitted(node):
                 self.restore(cid)
         elif what == "minimize":
             self.minimize(cid)
@@ -2741,7 +2572,7 @@ class Deskd:
             elif k == "down":
                 if node.get("fullscreen_mode"):
                     self.cmd(f"[con_id={cid}] fullscreen disable")
-                elif self.is_maximized(node):
+                elif self.is_fitted(node):
                     self.restore(cid)
                 else:
                     self.minimize(cid)

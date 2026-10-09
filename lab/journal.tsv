@@ -635,3 +635,8 @@
 2026-10-09T18:19:52+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/launcher-98/power-menu.desktop	
 2026-10-09T18:21:18+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.RWKFiJ.bak
 2026-10-09T18:24:46+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.985b4x.bak
+2026-10-09T20:56:16+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/docklike-86.rc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_docklike-86.rc.rmvR0z.bak
+2026-10-09T20:56:16+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/launcher-98/power-menu.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-98_power-menu.desktop.0cWfL3.bak
+2026-10-09T23:08:33+03:00	52-floating-windows	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.IOH2ik.bak
+2026-10-09T23:08:33+03:00	52-floating-windows	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.rN3UDb.bak
+2026-10-09T23:08:33+03:00	52-floating-windows	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.FMA9AU.bak

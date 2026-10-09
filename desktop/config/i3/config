@@ -9,13 +9,10 @@ set $dim      @COLOUR_MUTED@
 font pango:Inter 11
 
 # --- look ---------------------------------------------------------------
-# title bars on every window; deskd draws minimize / maximize / close on the right
+# Windows style: every window floats (see the window rules), nothing is tiled.
+# Title bars on every window; deskd draws minimize / maximize / close on the right
 default_border normal 2
 default_floating_border normal 2
-hide_edge_borders smart
-gaps inner 10
-gaps outer 0
-smart_gaps on
 title_align center
 
 #                       border    background  text     indicator  child_border
@@ -28,16 +25,13 @@ client.urgent           $inactive $bg         $dim     $inactive  $inactive
 client.background       $bg
 
 # --- mouse ------------------------------------------------------------
-# Super + left-drag moves a floating window, Super + right-drag resizes it;
-# Super + left-drag on a tiled window moves it to another spot in the layout
+# Super + left-drag moves a window, Super + right-drag resizes it
 floating_modifier $mod
 # Super + right-drag anywhere inside a window: the nearest edge follows the mouse
 bindsym --whole-window $mod+button3 exec --no-startup-id ~/.local/bin/i3-mouse-resize
-tiling_drag modifier
-# title bars (deskd, one engine for both buttons):
-#   left drag: rearrange tiles / move a floating window;  right drag: pull the window out
-#   drop at the top edge = maximize, left/right edge = half, on a panel number = that workspace
-#   left double click = maximize <-> restore;  right click = tiled <-> floating
+# title bars (deskd, one engine for both buttons): drag = move the window;
+#   drop at the top edge = maximize, left/right edge = that half of the screen,
+#   on a panel number = that workspace;  left double click = maximize <-> restore
 bindsym button1 mark --add _deskd_click, focus, nop deskd titlebar 1
 bindsym button3 mark --add _deskd_click, focus, nop deskd titlebar 3
 
@@ -72,17 +66,8 @@ bindsym $mod+Shift+Down move down
 bindsym $mod+Shift+Up move up
 bindsym $mod+Shift+Right move right
 
-# --- layout -------------------------------------------------------------
-bindsym $mod+b split h
-bindsym $mod+v split v
 # maximize keeps the panel visible; an app's own fullscreen (F11, video) stays real
 bindsym $mod+f nop deskd maximize
-bindsym $mod+s layout stacking
-bindsym $mod+w layout tabbed
-bindsym $mod+g layout toggle split
-bindsym $mod+Shift+space floating toggle
-bindsym $mod+space focus mode_toggle
-bindsym $mod+a focus parent
 
 # --- workspaces ---------------------------------------------------------
 # Each screen has its own workspaces 1..9 (deskd): Super+N goes to N on the focused
@@ -178,21 +163,15 @@ focus_on_window_activation focus
 focus_follows_mouse no
 
 # --- window rules -------------------------------------------------------
-# Apps like kitty ask for "no decorations" and i3 obeys, leaving them with no border
-# at all. Force a title bar + thin border on everything first.
-for_window [class=".*"] border normal 2
-for_window [class="Xfce4-panel"] floating enable, border none
-for_window [window_role="pop-up"] floating enable
-for_window [class="Pavucontrol|Xfce4-appfinder|Nm-connection-editor"] floating enable
-# Zoom: main and meeting windows tile like everything else; only its popups float
-# (dialogs and utility windows already float by default)
-for_window [class="(?i)zoom" window_type="notification"] floating enable
-# (not "zoom": every Zoom window starts with that title before renaming itself)
-for_window [class="(?i)zoom" title="^(Settings|Participants|Chat)$"] floating enable
-# During a screen share Zoom pops its annotation toolbar and the small self-view as
-# "normal" windows; tiled, they split the workspace. They are overlays: float them
-# without a frame and never take the focus for them.
-for_window [class="(?i)zoom" title="^(annotate_toolbar|zoom_linux_float_video_window)$"] floating enable, border none
+# Every window opens floating, at the size it asks for, in the middle of the screen
+# (deskd keeps it under the panel and no bigger than the screen). Apps like kitty
+# ask for "no decorations" and i3 obeys, leaving them with no border at all:
+# force a title bar + thin border on everything first.
+for_window [all] floating enable, border normal 2
+for_window [class="Xfce4-panel"] border none
+# Zoom's screen-share overlays (annotation toolbar, the small self-view) get no
+# frame and never take the focus
+for_window [class="(?i)zoom" title="^(annotate_toolbar|zoom_linux_float_video_window)$"] border none
 no_focus [class="(?i)zoom" title="^(annotate_toolbar|zoom_linux_float_video_window)$"]
 for_window [title="Flameshot"] floating enable, border none
 for_window [class="btop-float"] floating enable, resize set 70 ppt 75 ppt, move position center
