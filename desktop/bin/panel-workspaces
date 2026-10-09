@@ -1,4 +1,11 @@
 #!/bin/sh
 # Workspaces for the panel (genmon): rendered by deskd on every change (per screen,
-# clickable), this only reads it.
-cat "${XDG_RUNTIME_DIR:-/tmp}/deskd-workspaces.txt" 2>/dev/null || echo "<txt>…</txt>"
+# clickable), this only reads it. The laptop panel runs it without an argument; the
+# panel deskd copies onto another screen passes that screen's name (HDMI-2 ...) and
+# gets that screen's own workspaces.
+RUN="${XDG_RUNTIME_DIR:-/tmp}"
+if [ -n "$1" ] && [ -r "$RUN/deskd-workspaces-$1.txt" ]; then
+    cat "$RUN/deskd-workspaces-$1.txt"
+else
+    cat "$RUN/deskd-workspaces.txt" 2>/dev/null || echo "<txt>…</txt>"
+fi

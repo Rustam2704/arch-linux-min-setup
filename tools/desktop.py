@@ -100,9 +100,16 @@ def xfconf_live(channel):
     return xfconf_parse(path.read_text()) if path.exists() else {}
 
 
-def xfconf_same(a, b):
+# Arrays the session extends at run time: deskd appends a panel for every extra screen to
+# xfce4-panel's /panels. The declared items must lead the live list; more after them is fine.
+XFCONF_GROWING = {("xfce4-panel", "/panels")}
+
+
+def xfconf_same(a, b, growing=False):
     if a is None or b is None or a[0] != b[0]:
         return False
+    if growing and a[0] == "array":
+        return b[1][:len(a[1])] == a[1]
     if a[0] == "double":
         return float(a[1]) == float(b[1])
     return a[1] == b[1]
@@ -114,7 +121,7 @@ def xfconf_differences():
     for channel, wanted in xfconf_channels().items():
         live = xfconf_live(channel)
         for path, value in wanted.items():
-            if not xfconf_same(value, live.get(path)):
+            if not xfconf_same(value, live.get(path), (channel, path) in XFCONF_GROWING):
                 out.append((channel, path, value, live.get(path)))
     return out
 

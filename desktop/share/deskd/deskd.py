@@ -629,11 +629,11 @@ class Deskd:
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
         self.sharing = False        # Zoom's share frame is up: no overlays at all
-        self.audio_geom = None          # where the sound indicator's layer sits
+        self.audio_geoms = {}           # plugin id -> where its sound-wheel layer sits
         self.passthrough_frame = None   # the remote desktop's frame while it is focused
         self.passthrough_client = None
 
-        self.audio_layer = None     # InputOnly window over panel-audio: wheel = volume, middle = mute
+        self.audio_layers = {}      # plugin id -> InputOnly window over panel-audio: wheel = volume, middle = mute
         self.veils = {}             # dock frame id -> the dimming veil over that panel
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
         self.panel_windows = set()  # panel windows we watch the pointer on
@@ -681,36 +681,34 @@ class Deskd:
             log("power watch failed:", e)
 
     def refresh_plugin(self, command):
-        """Make one genmon plugin run its script now."""
-        cache = self.__dict__.setdefault("plugin_ids", {})
-        if command not in cache:                     # one xfconf query, then remembered
-            for key, value in panels.read_all().items():
-                if key.endswith("/command") and os.path.basename(value.strip()) == command:
-                    cache[command] = key.split("/")[2].split("-")[1]
-        if command in cache:
-            xfpanel.plugin_event(f"genmon-{cache[command]}")
+        """Make every genmon plugin running `command` (one per panel) run it now."""
+        xfpanel.refresh(command)
 
     def place_audio_layer(self):
         """genmon gets left clicks only; the wheel and the middle button over the sound
         indicator go through a transparent window of ours (the plugin sits under it)."""
-        commands = {}
-        for key, value in panels.read_all().items():
-            if key.endswith("/command") and os.path.basename(value.strip()) == "panel-audio":
-                commands[key.split("/")[2].split("-")[1]] = value
-        if not commands:
-            return
-        pid = int(next(iter(commands)))
-        geom = self.plugin_geometry(pid)
-        if not geom:
-            return
-        if self.audio_layer is None:
-            win = self.xs.window(self.xs.root, *geom, input_only=True,
-                                 events=X.ButtonPressMask, cursor=self.xs.cursors["hand"])
-            self.audio_layer = win
-        self.audio_layer.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
-        self.audio_geom = geom
-        out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + 2)
-        self.show_layer(self.audio_layer, (out or {}).get("name") not in self.busy_outputs)
+        # one layer per speaker: the second screen's panel has its own
+        pids = [int(k.split("/")[2].split("-")[1]) for k, v in panels.read_all().items()
+                if k.endswith("/command") and os.path.basename(v.strip()) == "panel-audio"]
+        for pid in pids:
+            geom = self.plugin_geometry(pid)
+            if not geom:
+                continue
+            win = self.audio_layers.get(pid)
+            if win is None:
+                win = self.xs.window(self.xs.root, *geom, input_only=True,
+                                     events=X.ButtonPressMask, cursor=self.xs.cursors["hand"])
+                self.audio_layers[pid] = win
+            win.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
+            self.audio_geoms[pid] = geom
+            out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + 2)
+            self.show_layer(win, (out or {}).get("name") not in self.busy_outputs)
+        for pid in [p for p in self.audio_layers if p not in pids]:   # a panel that went away
+            try:
+                self.audio_layers.pop(pid).destroy()
+            except error.XError:
+                pass
+            self.audio_geoms.pop(pid, None)
 
     def audio_click(self, e):
         if e.detail in (4, 5):
@@ -1487,7 +1485,7 @@ class Deskd:
                 if t in (X.MotionNotify, X.EnterNotify):
                     return self.panel_pointer(e.root_x, e.root_y)
                 return None
-            if self.audio_layer is not None and wid == self.audio_layer.id:
+            if any(wid == w.id for w in self.audio_layers.values()):
                 if t == X.ButtonPress:
                     return self.audio_click(e)
                 return None
@@ -2070,7 +2068,24 @@ class Deskd:
             self.drop_saved(cid, saved)
         elif d["mode"] == "float":
             self.drop_saved(cid, saved)         # dropped in the open: stays floating right there
+        elif d["mode"] == "tile" and self.drop_on_other_screen(cid, x, y):
+            pass
         self.schedule_refresh()
+
+    def drop_on_other_screen(self, cid, x, y):
+        """A tiled window let go over another screen where no tile caught it (an empty
+        workspace there): it joins that screen's visible workspace, tiled - not left
+        hanging where it was."""
+        out = self.output_rect_at(x, y)
+        here = self.con_output(cid)
+        if not out or out.get("name") == here:
+            return False
+        ws = next((w for w in self.i3.workspaces() if w["output"] == out["name"] and w["visible"]), None)
+        if not ws:
+            return False
+        self.cmd(f'[con_id={cid}] move container to workspace "{ws["name"]}", floating disable')
+        self.cmd(f'[con_id={cid}] focus')
+        return True
 
     def drop_saved(self, cid, saved):
         """Forget where a window came from: close its placeholder / unmark its anchor."""
@@ -2379,9 +2394,11 @@ class Deskd:
         for pid, win in self.click_layers.items():
             out = self.click_by_win.get(win.id, (None, None))[1]
             self.show_layer(win, self.strip_output(out) not in busy)
-        if self.audio_layer is not None and self.audio_geom:
-            out = self.output_rect_at(self.audio_geom[0] + self.audio_geom[2] // 2, self.audio_geom[1] + 2)
-            self.show_layer(self.audio_layer, (out or {}).get("name") not in busy)
+        for pid, win in self.audio_layers.items():
+            geom = self.audio_geoms.get(pid)
+            if geom:
+                out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + 2)
+                self.show_layer(win, (out or {}).get("name") not in busy)
 
     def sync_active_mark(self, focused=None):
         """Put the pentagram over the number of the workspace in front of you. The
@@ -2660,11 +2677,13 @@ class Deskd:
         names = [o["name"] for o in outs]
         if not names or os.environ.get("DESKD_NO_PANELS"):     # tests in a nested X server
             return
-        add, drop, props = panels.plan(names, names[0])
+        width = {o["name"]: o["rect"]["width"] for o in outs}
+        narrow = {n for n in names[1:] if width.get(n, 0) < width.get(names[0], 0)}
+        add, drop, props = panels.plan(names, names[0], narrow)
         if not add and not drop:
             return
-        log("panels: adding", add, "dropping", drop)
-        panels.apply(add, drop, props, lambda: self.cmd("exec --no-startup-id xfce4-panel"))
+        log("panels: adding", add, "dropping", drop, "narrow", sorted(narrow))
+        panels.apply(add, drop, props, lambda: self.cmd("exec --no-startup-id xfce4-panel"), narrow)
         self._strips = None
         self.last_ws_text = {}
 

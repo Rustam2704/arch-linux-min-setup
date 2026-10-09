@@ -614,3 +614,23 @@
 2026-10-06T00:31:16+03:00	50-panel-spacing	backup	/usr/lib/firefox-developer-edition/distribution/policies.json	/home/fanatic/ai/claude/setup/lab/backups/_usr_lib_firefox-developer-edition_distribution_policies.json.L3Py2z.bak
 2026-10-06T00:31:16+03:00	50-panel-spacing	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.w0kXaO.bak
 2026-10-06T00:31:37+03:00	50-panel-spacing	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/prefs.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_prefs.js.pbAsIc.bak
+2026-10-09T18:09:46+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/docklike-65.rc	
+2026-10-09T18:17:10+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.IGen43.bak
+2026-10-09T18:17:10+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.V1Ly0n.bak
+2026-10-09T18:17:10+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/panels.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_panels.py.le1xRK.bak
+2026-10-09T18:17:10+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/sky-desktop/xfpanel.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_xfpanel.py.1Qix9d.bak
+2026-10-09T18:17:10+03:00	50-panel-spacing	cmd	xfconf-query -c xfce4-panel -p /panels -a -t int -s 1 -t int -s 2	
+2026-10-09T18:17:12+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/docklike-69.rc	
+2026-10-09T18:17:13+03:00	deskd-monitor-panel	cmd	rmdir -- /home/fanatic/.config/xfce4/panel/launcher-83	
+2026-10-09T18:17:13+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/launcher-83/power-menu.desktop	
+2026-10-09T18:17:49+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/docklike-65.rc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_docklike-65.rc.h1n9fR.bak
+2026-10-09T18:19:23+03:00	50-panel-spacing	backup	/home/fanatic/.local/bin/panel-workspaces	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-workspaces.VOoBDN.bak
+2026-10-09T18:19:23+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.9s1ujp.bak
+2026-10-09T18:19:24+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/panels.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_panels.py.wxplcC.bak
+2026-10-09T18:19:49+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/panels.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_panels.py.V3ASax.bak
+2026-10-09T18:19:50+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/docklike-69.rc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_docklike-69.rc.Urnblw.bak
+2026-10-09T18:19:51+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/launcher-83/power-menu.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-83_power-menu.desktop.UEDqeL.bak
+2026-10-09T18:19:51+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/docklike-86.rc	
+2026-10-09T18:19:52+03:00	deskd-monitor-panel	cmd	rmdir -- /home/fanatic/.config/xfce4/panel/launcher-98	
+2026-10-09T18:19:52+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/launcher-98/power-menu.desktop	
+2026-10-09T18:21:18+03:00	50-panel-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.RWKFiJ.bak

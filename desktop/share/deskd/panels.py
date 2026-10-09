@@ -1,8 +1,11 @@
 """Panels per screen for xfce4-panel, driven through xfconf.
 
-The laptop panel (panel-1) is the user's own. Every other connected screen gets a
-panel made here: its workspace strip, its windows (tasklist limited to that screen)
-and the clock. Panels of screens that went away are removed again.
+The laptop panel (panel-1) is the user's own. Every other connected screen gets a copy
+of it made here, plugin by plugin with all their settings: the workspace strip is told
+its screen, the dock lists only that screen's windows, and the tray is left out (X has
+one tray per display; a second one would steal it). A copy that no longer matches the
+main panel (a plugin added or removed there) is rebuilt; panels of screens that went
+away are removed again.
 
 xfce4-panel rewrites its settings when it exits, so changes are made with the panel
 stopped, and it is started again through i3 (so it lives in the session, not in
@@ -14,6 +17,11 @@ import time
 
 STRIP = os.path.expanduser("~/.local/bin/panel-workspaces")
 MAIN_PANEL = 1
+# The whole X screen is drawn at 1.5x, so a 1920-px monitor cannot hold the 2560-px laptop
+# panel. On a screen narrower than the laptop's the copy leaves out the two widest
+# number readouts (ping, CPU/RAM/SWAP: ~460 px; the laptop panel still shows them) and
+# keeps everything else, with room for the dock to grow.
+SKIP_ON_NARROW = ("panel-net", "panel-sys")
 
 
 def q(*args):
@@ -80,35 +88,137 @@ def screen_panels(props):
 XML = os.path.expanduser("~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml")
 
 
-def copy_plugin(props, src, dst):
-    """Copy a plugin's settings with their exact xfconf types (read from the channel XML;
-    the live values come from xfconf-query)."""
+def _xml_node(*path):
     import xml.etree.ElementTree as ET
     try:
-        root = ET.parse(XML).getroot()
+        node = ET.parse(XML).getroot()
     except (OSError, ET.ParseError):
-        return
-    plugins = next((p for p in root if p.get("name") == "plugins"), None)
-    node = next((p for p in (plugins if plugins is not None else []) if p.get("name") == f"plugin-{src}"), None)
+        return None
+    for name in path:
+        node = next((c for c in node if c.get("name") == name), None)
+        if node is None:
+            return None
+    return node
+
+
+def copy_props(props, src_base, dst_base, node, skip=()):
+    """Copy every property under an XML node with its exact type, arrays included
+    (live values from xfconf-query win over the file for plain ones)."""
     if node is None:
         return
     for child in node:
         name, typ = child.get("name"), child.get("type")
-        if typ in ("array", "empty") or not name:
+        if not name or name in skip or typ == "empty":
             continue
-        val = props.get(f"/plugins/plugin-{src}/{name}", child.get("value"))
-        set_prop(f"/plugins/plugin-{dst}/{name}", typ, val)
+        if typ == "array":
+            values = [v for v in child if v.tag == "value"]
+            if values:
+                args = ["-p", f"{dst_base}/{name}", "-n", "-a"]
+                for v in values:
+                    args += ["-t", v.get("type"), "-s", v.get("value")]
+                q(*args)
+            continue
+        val = props.get(f"{src_base}/{name}", child.get("value"))
+        set_prop(f"{dst_base}/{name}", typ, val)
 
 
-def plan(outputs, primary):
-    """What should change: ([outputs needing a panel], [panel ids to drop])."""
+def copy_plugin(props, src, dst):
+    copy_props(props, f"/plugins/plugin-{src}", f"/plugins/plugin-{dst}", _xml_node("plugins", f"plugin-{src}"))
+
+
+def skipped(props, plugin, narrow):
+    """Plugins of the main panel that a screen copy leaves out."""
+    kind = props.get(f"/plugins/plugin-{plugin}", "")
+    if kind == "systray":
+        return True
+    cmd = os.path.basename(props.get(f"/plugins/plugin-{plugin}/command", "").split(" ")[0])
+    return narrow and cmd in SKIP_ON_NARROW
+
+
+def signature(props, pid, narrow=False):
+    """What a panel is made of: the plugin types and scripts, in order, without the ones a
+    copy leaves out (narrow: as a copy for a narrower screen should be). A copy as it is
+    must equal the main panel's narrow-or-not signature, or it is rebuilt."""
+    sig = []
+    for p in int_list(props.get(f"/panels/panel-{pid}/plugin-ids", "")):
+        if skipped(props, p, narrow):
+            continue
+        kind = props.get(f"/plugins/plugin-{p}", "")
+        cmd = os.path.basename(props.get(f"/plugins/plugin-{p}/command", "").split(" ")[0])
+        sig.append(f"{kind}:{cmd}" if cmd else kind)
+    return ",".join(sig)
+
+
+def plan(outputs, primary, narrow=()):
+    """What should change: ([outputs needing a panel], [panel ids to drop]).
+    narrow: the outputs narrower than the primary one."""
     props = read_all()
     have = screen_panels(props)
     want = [o for o in outputs if o != primary]
-    return [o for o in want if o not in have], [pid for o, pid in have.items() if o not in want], props
+    stale = [o for o, pid in have.items()
+             if o in want and signature(props, pid) != signature(props, MAIN_PANEL, o in narrow)]
+    add = [o for o in want if o not in have or o in stale]
+    drop = [pid for o, pid in have.items() if o not in want or o in stale]
+    return add, drop, props
 
 
-def apply(add, drop, props, restart):
+PANEL_DIR = os.path.expanduser("~/.config/xfce4/panel")
+
+
+def _copy_rc(src, dst, only_this_screen=False):
+    """A plugin's rc file for its copy, through the lab journal like every desktop file."""
+    from pathlib import Path
+    path = Path(PANEL_DIR) / src
+    if not path.exists():
+        return
+    text = path.read_text()
+    if only_this_screen:
+        import configparser
+        import io
+        cp = configparser.ConfigParser()
+        cp.optionxform = str
+        cp.read_string(text)
+        if "user" not in cp:
+            cp["user"] = {}
+        cp["user"]["onlyDisplayScreen"] = "true"
+        stream = io.StringIO()
+        cp.write(stream)
+        text = stream.getvalue()
+    subprocess.run([os.environ["SKY_LAB"], "write", "deskd-monitor-panel", str(Path(PANEL_DIR) / dst)],
+                   input=text, text=True, check=True)
+
+
+def _copy_dir(src, dst):
+    from pathlib import Path
+    target = Path(PANEL_DIR) / dst
+    if not target.exists():
+        target.mkdir(parents=True)
+        subprocess.run([os.environ["SKY_LAB"], "undo", "deskd-monitor-panel", f"rmdir -- {target}"], check=False)
+    for f in sorted((Path(PANEL_DIR) / src).glob("*")):
+        if f.is_file():
+            subprocess.run([os.environ["SKY_LAB"], "write", "deskd-monitor-panel",
+                            str(Path(PANEL_DIR) / dst / f.name)], input=f.read_text(), text=True, check=True)
+
+
+def _remove_files(kind, pid):
+    """The rc file or launcher folder a dropped copy left behind."""
+    from pathlib import Path
+    lab = os.environ["SKY_LAB"]
+    for name in (f"{kind}-{pid}.rc",):
+        path = Path(PANEL_DIR) / name
+        if path.exists():
+            subprocess.run([lab, "remove", "deskd-monitor-panel", str(path)], check=False)
+    folder = Path(PANEL_DIR) / f"{kind}-{pid}"
+    if folder.is_dir():
+        for f in folder.glob("*"):
+            subprocess.run([lab, "remove", "deskd-monitor-panel", str(f)], check=False)
+        try:
+            folder.rmdir()
+        except OSError:
+            pass
+
+
+def apply(add, drop, props, restart, narrow=()):
     """Stop the panel, rewrite xfconf, start it again with restart()."""
     subprocess.run(["xfce4-panel", "-q"], capture_output=True)
     for _ in range(30):
@@ -121,7 +231,6 @@ def apply(add, drop, props, restart):
     next_plugin = max(plugin_ids + [0]) + 1
     main_plugins = int_list(props.get(f"/panels/panel-{MAIN_PANEL}/plugin-ids", ""))
     tasklist = next((p for p in main_plugins if props.get(f"/plugins/plugin-{p}") in ("tasklist", "docklike")), None)
-    clock = next((p for p in main_plugins if props.get(f"/plugins/plugin-{p}") == "clock"), None)
     task_kind = props.get(f"/plugins/plugin-{tasklist}", "tasklist")
     if tasklist and task_kind == "tasklist":       # every panel lists only its own screen
         set_prop(f"/plugins/plugin-{tasklist}/include-all-monitors", "bool", "false")
@@ -129,74 +238,39 @@ def apply(add, drop, props, restart):
     for pid in drop:
         for p in int_list(props.get(f"/panels/panel-{pid}/plugin-ids", "")):
             remove(f"/plugins/plugin-{p}")
+            _remove_files(props.get(f"/plugins/plugin-{p}", ""), p)
         remove(f"/panels/panel-{pid}")
         panels.remove(pid)
 
-    main = f"/panels/panel-{MAIN_PANEL}"
+    main_node = _xml_node("panels", f"panel-{MAIN_PANEL}")
     for out in add:
         pid = max(panels + [0]) + 1
         panels.append(pid)
         base = f"/panels/panel-{pid}"
+        copy_props(props, f"/panels/panel-{MAIN_PANEL}", base, main_node, skip=("output-name", "plugin-ids"))
         set_prop(base + "/output-name", "string", out)
-        set_prop(base + "/position", "string", "p=6;x=0;y=0")
-        set_prop(base + "/position-locked", "bool", "true")
-        set_prop(base + "/length", "double", "100")
-        set_prop(base + "/length-adjust", "bool", "true")
-        set_prop(base + "/size", "uint", props.get(main + "/size", "44"))
-        set_prop(base + "/icon-size", "uint", props.get(main + "/icon-size", "32"))
-        set_prop(base + "/nrows", "uint", "1")
-        set_prop(base + "/mode", "uint", "0")
-        set_prop(base + "/enable-struts", "bool", "true")
         set_prop(base + "/span-monitors", "bool", "false")
-        set_prop(base + "/enter-opacity", "uint", "100")
-        set_prop(base + "/leave-opacity", "uint", "100")
         ids = []
-        strip = next_plugin
-        set_prop(f"/plugins/plugin-{strip}", "string", "genmon")
-        for k, t, v in (("command", "string", f"{STRIP} {out}"), ("update-period", "int", "5000"),
-                        ("use-label", "bool", "false"), ("text", "string", ""),
-                        ("font", "string", "Inter 15"), ("enable-single-row", "bool", "true")):
-            set_prop(f"/plugins/plugin-{strip}/{k}", t, v)
-        ids.append(strip)
-        sep = strip + 1
-        set_prop(f"/plugins/plugin-{sep}", "string", "separator")
-        set_prop(f"/plugins/plugin-{sep}/style", "uint", "0")
-        ids.append(sep)
-        nid = sep + 1
-        if tasklist:
-            set_prop(f"/plugins/plugin-{nid}", "string", task_kind)
-            copy_plugin(props, tasklist, nid)
-            if task_kind == "tasklist":
+        for src in main_plugins:
+            kind = props.get(f"/plugins/plugin-{src}", "")
+            if not kind or skipped(props, src, out in narrow):
+                continue
+            nid = next_plugin
+            next_plugin += 1
+            set_prop(f"/plugins/plugin-{nid}", "string", kind)
+            copy_plugin(props, src, nid)
+            command = props.get(f"/plugins/plugin-{src}/command", "")
+            if kind == "genmon" and command.startswith(STRIP):
+                set_prop(f"/plugins/plugin-{nid}/command", "string", f"{STRIP} {out}")
+            elif kind == "docklike":
+                _copy_rc(f"docklike-{src}.rc", f"docklike-{nid}.rc", only_this_screen=True)
+            elif kind == "tasklist":
                 set_prop(f"/plugins/plugin-{nid}/include-all-monitors", "bool", "false")
-            else:
-                # Docklike uses an rc file rather than xfconf properties.
-                import configparser
-                from pathlib import Path
-                cp = configparser.ConfigParser()
-                cp.optionxform = str
-                cp.read(Path.home() / f".config/xfce4/panel/docklike-{tasklist}.rc")
-                if "user" not in cp:
-                    cp["user"] = {}
-                cp["user"]["onlyDisplayScreen"] = "true"
-                import io
-                stream = io.StringIO()
-                cp.write(stream)
-                subprocess.run([os.environ["SKY_LAB"], "write", "deskd-monitor-panel",
-                                str(Path.home() / f".config/xfce4/panel/docklike-{nid}.rc")],
-                               input=stream.getvalue(), text=True, check=True)
+            elif kind == "launcher":
+                _copy_dir(f"launcher-{src}", f"launcher-{nid}")
+            elif kind == "whiskermenu":
+                _copy_rc(f"whiskermenu-{src}.rc", f"whiskermenu-{nid}.rc")
             ids.append(nid)
-            nid += 1
-        set_prop(f"/plugins/plugin-{nid}", "string", "separator")
-        set_prop(f"/plugins/plugin-{nid}/style", "uint", "0")
-        set_prop(f"/plugins/plugin-{nid}/expand", "bool", "true")
-        ids.append(nid)
-        nid += 1
-        if clock:
-            set_prop(f"/plugins/plugin-{nid}", "string", "clock")
-            copy_plugin(props, clock, nid)
-            ids.append(nid)
-            nid += 1
         set_array(base + "/plugin-ids", "int", ids)
-        next_plugin = nid
     set_array("/panels", "int", panels)
     restart()

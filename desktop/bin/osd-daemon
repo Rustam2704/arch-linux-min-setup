@@ -51,7 +51,6 @@ OVER = THEME["warning"]     # above 100%
 LAYOUT_COLOURS = THEME["layouts"]   # one colour per language, the same as in the panel
 VOL_STEP = 5
 VOL_LIMIT = 150            # percent; the bar shows "over" above 100
-PANEL_LAYOUT_PLUGIN = "genmon-55"
 
 GLYPH = {
     "vol-high": "", "vol-low": "", "vol-mute": "\U000f075f",
@@ -476,20 +475,6 @@ def watch_audio():
         m = re.search(r"(\d+)%", out)
         return int(m.group(1)) if m else 0
 
-    plugin = {"id": None}
-
-    def plugin_id():
-        if plugin["id"] is None:
-            try:
-                out = subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-l", "-v"], capture_output=True, text=True).stdout
-                for line in out.splitlines():
-                    key, _, value = line.partition(" ")
-                    if key.endswith("/command") and value.strip().endswith("panel-audio"):
-                        plugin["id"] = key.split("/")[2].split("-")[1]
-            except OSError:
-                pass
-        return plugin["id"]
-
     last = None
 
     def publish():
@@ -511,9 +496,7 @@ def watch_audio():
             os.replace(AUDIO_STATE + ".tmp", AUDIO_STATE)
         except OSError:
             return
-        pid = plugin_id()
-        if pid:
-            xfpanel.plugin_event(f"genmon-{pid}")
+        xfpanel.refresh("panel-audio")
 
     publish()
     while True:
@@ -559,7 +542,7 @@ class Layouts:
             os.replace(LAYOUT_MARKUP + ".tmp", LAYOUT_MARKUP)
         except OSError:
             pass
-        xfpanel.plugin_event(PANEL_LAYOUT_PLUGIN)
+        xfpanel.refresh("panel-layout")
         if show:
             GLib.idle_add(self.osd.badge, name)
 
