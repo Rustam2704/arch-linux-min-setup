@@ -14,7 +14,7 @@ What it adds (all event driven; idle cost is zero):
   * maximize and snap keep the panel visible; restore puts the window back exactly
     where it was; app buttons (Telegram, ...) asking to minimize/maximize are obeyed;
   * Windows keys: Super+Up/Down/Left/Right, Alt+Tab (focus within the workspace);
-  * every screen has its own workspaces 1..5; when a screen goes away its
+  * every screen has its own workspaces 1..6 (7..9 while they exist); when a screen goes away its
     workspaces join the laptop screen, and move to the next screen plugged in;
   * the panel's workspace strip (rendered here, clickable).
 
@@ -84,7 +84,6 @@ DRAG_START = 8                # px of movement before a right press becomes a dr
 EDGE = 3                      # px from a screen edge that counts as "at the edge"
 POLL_MS = 16
 PANEL_FONT = THEME["panel_font"]
-POPUP_APPS = "firefox-developer-edition"   # default for [settings] popup_apps
 CURSOR_PNG = os.path.expanduser("~/.local/share/sky-desktop/cursor-diablo.png")   # the game's pointer, 1.5x
 PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote machine       # genmon font of the workspace strip
 DEBUG = bool(os.environ.get("DESKD_DEBUG"))
@@ -1074,17 +1073,30 @@ class Deskd:
         self.schedule_refresh()
         self.pump()
 
-    def popup_classes(self):
-        """Apps whose extra windows follow the app (sign-in pop-ups and the like)."""
+    def apps_conf(self):
+        import configparser
+        cp = configparser.ConfigParser(interpolation=None, inline_comment_prefixes=("#",))
+        cp.optionxform = str
+        cp.read(os.path.expanduser("~/.config/deskd/apps.conf"))
+        return cp
+
+    def favorite_homes(self):
+        """{window class (lower): workspace N} of the favourites pinned to a workspace
+        (the Apple-button menu writes ~/.config/deskd/apps.conf). The N-th workspace of
+        the screen in front of the user; this used to be an i3 `assign` rule, which
+        sent *every* window of the app there - a Telegram call panel included."""
+        homes = {}
         try:
-            import configparser
-            cp = configparser.ConfigParser(interpolation=None, inline_comment_prefixes=("#",))
-            cp.optionxform = str
-            cp.read(os.path.expanduser("~/.config/deskd/apps.conf"))
-            raw = cp["settings"].get("popup_apps", POPUP_APPS)
-        except Exception:
-            raw = POPUP_APPS
-        return {c.strip().lower() for c in raw.split(",") if c.strip()}
+            cp = self.apps_conf()
+            for name in cp.sections():
+                if name == "settings":
+                    continue
+                cls, ws = cp[name].get("class", "").strip().lower(), cp[name].get("workspace", "").strip()
+                if cls and ws.isdigit():
+                    homes[cls] = int(ws)
+        except Exception as e:                       # noqa: BLE001 - no homes, no harm
+            log("apps.conf:", e)
+        return homes
 
     def place_new_window(self, con):
         """A second window of an app (a Telegram call or media viewer, a sign-in
@@ -1110,8 +1122,14 @@ class Deskd:
                       if n.get("window") and n["id"] != cid
                       and ((n.get("window_properties") or {}).get("class") or "").lower() == cls]
             if not others:
+                home = self.favorite_homes().get(cls)       # the app's first window: its home, if pinned
+                if home:
+                    here = i3ipc.workspace_of(tree, cid)
+                    want = self.target_ws(home)
+                    if here and here.get("num") != want:
+                        self.cmd(f"[con_id={cid}] move container to workspace number {want}")
                 self.clamp_floating(cid)
-                return False                                # the app's first window: leave it
+                return False
             visible = {w["name"] for w in self.i3.workspaces() if w["visible"]}
 
             def rank(n):
@@ -2625,7 +2643,27 @@ class Deskd:
                     self.minimize(cid)
             elif k in ("left", "right"):
                 self.snap(cid, k)
+            elif k in ("shift-left", "shift-right"):
+                self.to_output(cid, k.split("-")[1])
         self.schedule_refresh()
+
+    def to_output(self, cid, direction):
+        """Super+Shift+Left/Right as in Windows: the window goes to the screen on that
+        side, and stays maximized / snapped there if it was."""
+        node, _ = find(self.i3.tree(), cid)
+        if node is None:
+            return
+        before = self.con_output(cid)
+        self.cmd(f"[con_id={cid}] move container to output {direction}, focus")
+        if self.con_output(cid) == before:
+            return
+        side = self.snapped_side(node)
+        if self.is_maximized(node):
+            self.maximize(cid, self.saved(cid))
+        elif side:
+            self.snap(cid, side, self.saved(cid))
+        else:
+            self.clamp_floating(cid)
 
     def cycle(self, tree, step):
         node, _ = i3ipc.focused(tree)

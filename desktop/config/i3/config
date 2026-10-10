@@ -25,10 +25,9 @@ client.urgent           $inactive $bg         $dim     $inactive  $inactive
 client.background       $bg
 
 # --- mouse ------------------------------------------------------------
-# Super + left-drag moves a window, Super + right-drag resizes it
+# Super + left-drag moves a window, Super + right-drag resizes it from the nearest
+# corner (both i3's own; the edges and corners without a key are deskd's handles)
 floating_modifier $mod
-# Super + right-drag anywhere inside a window: the nearest edge follows the mouse
-bindsym --whole-window $mod+button3 exec --no-startup-id ~/.local/bin/i3-mouse-resize
 # title bars (deskd, one engine for both buttons): drag = move the window;
 #   drop at the top edge = maximize, left/right edge = that half of the screen,
 #   on a panel number = that workspace;  left double click = maximize <-> restore
@@ -44,33 +43,23 @@ bindsym $mod+e exec thunar
 bindsym $mod+c exec --no-startup-id ~/.local/bin/light-year
 bindsym $mod+q kill
 
-# --- focus / move -------------------------------------------------------
-# focus on j k l ; — where the right hand already rests
-bindsym $mod+j focus left
-bindsym $mod+k focus down
-bindsym $mod+l focus up
-bindsym $mod+semicolon focus right
-# Super+arrows as in Windows: maximize / restore-or-minimize / left half / right half
+# --- windows, as in Windows ----------------------------------------------
+# Super+arrows: maximize / restore-or-minimize / left half / right half;
+# Super+Shift+Left/Right: the window goes to the screen on that side
 bindsym $mod+Up    nop deskd key up
 bindsym $mod+Down  nop deskd key down
 bindsym $mod+Left  nop deskd key left
 bindsym $mod+Right nop deskd key right
-
-bindsym $mod+Shift+j move left
-bindsym $mod+Shift+k move down
-bindsym $mod+Shift+l move up
-bindsym $mod+Shift+semicolon move right
-bindsym $mod+Shift+Left move left
-bindsym $mod+Shift+Down move down
-bindsym $mod+Shift+Up move up
-bindsym $mod+Shift+Right move right
+bindsym $mod+Shift+Left  nop deskd key shift-left
+bindsym $mod+Shift+Right nop deskd key shift-right
 
 # maximize keeps the panel visible; an app's own fullscreen (F11, video) stays real
 bindsym $mod+f nop deskd maximize
 
 # --- workspaces ---------------------------------------------------------
-# Each screen has its own workspaces 1..9 (deskd): Super+N goes to N on the focused
-# screen. Unplugged screens' workspaces join the laptop screen and move back later.
+# Each screen has its own workspaces 1..6, 7..9 while they exist (deskd): Super+N goes to
+# N on the focused screen. Unplugged screens' workspaces join the laptop screen and move back later.
+# A favourite's first window goes to its home workspace (Apple menu, ~/.config/deskd/apps.conf).
 bindsym $mod+1 nop deskd ws 1
 bindsym $mod+2 nop deskd ws 2
 bindsym $mod+3 nop deskd ws 3
@@ -136,6 +125,8 @@ mode "passthrough" {
     bindsym button1 mark --add _deskd_click, focus, nop deskd titlebar 1
     bindsym button3 mark --add _deskd_click, focus, nop deskd titlebar 3
     # the remote machine gets every other key; moving the window itself must still work
+    bindsym $mod+Shift+Left  nop deskd key shift-left
+    bindsym $mod+Shift+Right nop deskd key shift-right
     bindsym $mod+Shift+1 nop deskd move 1
     bindsym $mod+Shift+2 nop deskd move 2
     bindsym $mod+Shift+3 nop deskd move 3
@@ -180,10 +171,6 @@ for_window [class="deskd-menu"] floating enable, border none
 exec --no-startup-id systemctl --user import-environment DISPLAY XAUTHORITY && systemctl --user start osd.service deskd.service
 # favorites, if "Launch favorites at login" is on in the Apple-button menu
 exec --no-startup-id ~/.local/bin/deskd-favorites --login
-
-# --- generated ------------------------------------------------------------
-# App -> workspace rules and other generated pieces (see ~/.config/deskd/)
-include ~/.config/i3/generated/*.conf
 
 # Native Astra starfield, started only after the graphical session environment is ready.
 exec_always --no-startup-id sh -c 'systemctl --user import-environment DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS; systemctl --user start sky-stars.service'

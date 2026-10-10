@@ -675,3 +675,15 @@
 2026-10-10T19:12:36+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.FTkZyL.bak
 2026-10-10T19:13:21+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.6zFsYw.bak
 2026-10-10T19:13:57+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.hNydMl.bak
+2026-10-10T19:18:41+03:00	56-audit-phase2	backup	/home/fanatic/.codex/AGENTS.md	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.codex_AGENTS.md.2NOtA0.bak
+2026-10-10T19:18:42+03:00	56-audit-phase2	backup	/home/fanatic/.config/picom/picom.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_picom.conf.T9Ydfa.bak
+2026-10-10T19:18:42+03:00	56-audit-phase2	backup	/home/fanatic/.config/picom/shaders/smart-invert.glsl	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_picom_shaders_smart-invert.glsl.IVEmC8.bak
+2026-10-10T19:18:42+03:00	56-audit-phase2	backup	/home/fanatic/.local/bin/i3-mouse-resize	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_i3-mouse-resize.2qFRcy.bak
+2026-10-10T19:18:42+03:00	56-audit-phase2	backup	/home/fanatic/.config/i3/generated/apps.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_generated_apps.conf.VnH8kA.bak
+2026-10-10T19:18:42+03:00	56-audit-phase2	backup	/home/fanatic/.config/i3/generated/README.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_generated_README.conf.Ziu061.bak
+2026-10-10T19:18:42+03:00	56-audit-phase2	cmd	sudo pacman -S --noconfirm picom	
+2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.local/bin/deskd-favorites	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-favorites.F3wOz9.bak
+2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.config/deskd/apps.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_deskd_apps.conf.JUFrOX.bak
+2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.VbHirB.bak
+2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.B2wSIg.bak
+2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.QA25pA.bak

@@ -1,11 +1,10 @@
 ━━ WINDOWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Title bar  🟡 🟢 🔴                    minimize / maximize (panel stays) / close
 Alt + Tab   (Alt + Shift + Tab)       next / previous window on this workspace
-Super + J K L ;                       focus left / down / up / right
-Super + Shift + J K L ;  (or arrows)  move the window in that direction
 Super + ↑                             maximize (the panel stays visible)
 Super + ↓                             restore; if not maximized: minimize
 Super + ← / →                         snap to the left / right half of the screen
+Super + Shift + ← / →                 move the window to the screen on that side
 Super + F                             maximize on / off (app fullscreen: off)
 Super + Q                             close window
 ━━ MOUSE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -16,7 +15,7 @@ drag a title bar (either button)      move the window (a maximized one gets its 
     on a workspace number in a panel = move it there
 click a number in the panel           go to that workspace (every screen has its panel)
 Super + left-drag                     move a window without a title bar
-Super + right-drag (inside window)    the nearest edge follows the mouse
+Super + right-drag (inside window)    resize from the nearest corner
 ━━ RESIZE (keyboard) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Super + Ctrl + ← →   (or J ;)         narrower / wider
 Super + Ctrl + ↑ ↓   (or L K)         shorter / taller
@@ -24,7 +23,7 @@ Super + Ctrl + ↑ ↓   (or L K)         shorter / taller
 Super + minus                         minimize
 Super + Shift + minus                 bring the last minimized window back
 ━━ WORKSPACES (every screen has its own) ━━━━━━━━━━━━━━━━━━━━━━━━
-Super + 1 … 9                         go to workspace N on this screen
+Super + 1 … 6  (7 … 9 while they exist)  go to workspace N on this screen
 Super + Shift + 1 … 9                 send the window there
 3 fingers  ← →                        previous / next workspace on this screen
 ━━ LAUNCH ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

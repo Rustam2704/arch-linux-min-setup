@@ -24,7 +24,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 | `bin/panel-*` | ничего: genmon перечитывает скрипт при следующем запуске команды |
 | `config/gtk-3.0/gtk.css` | GTK читает при старте программы: панель — `xfce4-panel -r` (через i3 при пересоздании) |
 | `config/kitty/kitty.conf` | `kill -USR1` работающим kitty или новое окно |
-| `config/picom/picom.conf`, `config/rofi/*`, `config/touchegg/*` | при следующем запуске программы (`touchegg` — `systemctl restart touchegg` + клиент из сессии) |
+| `config/rofi/*`, `config/touchegg/*` | при следующем запуске программы (`touchegg` — `systemctl restart touchegg` + клиент из сессии) |
 | `share/light-year/*` | закрыть и открыть календарь (`Super+C`) |
 | `xfconf/xfce4-panel.xml` | `make apply` ставит свойства живьём; шрифты genmon — только после перезапуска панели (`xfce4-panel -q; i3-msg 'exec --no-startup-id xfce4-panel'`) |
 | `config/Thunar/*` | `thunar -q` **до** `make apply` (при выходе Thunar переписывает `accels.scm` из памяти), потом `i3-msg 'exec --no-startup-id Thunar --daemon'`; открытые окна Thunar закроются |
@@ -73,10 +73,9 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 - Подключение/отключение HP по HDMI вживую не проверялось (логика проверена на подменённом i3).
 - Zoom: `annotate_toolbar` и плавающее самовидео при демонстрации теперь плавают без рамки и
   не берут фокус (правило i3, 25.09); подтверждение от пользователя ожидается.
-- Zoom, демонстрация экрана: композитор не выключать (`unredir-if-possible-exclude` для окон Zoom),
-  `showZoomWindowInSharing=true` в `zoomus.conf` — проверка с другим учеником ожидается (25.09).
-  Разрыв кадра у зрителя — от захвата экрана в самом Zoom, picom его не лечит (`use-damage`
-  выключать нельзя: 8 % CPU в простое).
+- Zoom, демонстрация экрана: `showZoomWindowInSharing=true` в `zoomus.conf` — проверка с другим
+  учеником ожидается (25.09). Разрыв кадра у зрителя — от захвата экрана в самом Zoom, композитор
+  его не лечит (xcompmgr unredirect не делает, выключать ничего не надо).
 - Питание: профили TLP настраиваются в `desktop/system/etc/tlp.d/50-sky-desktop.conf`; выбор из меню
   батареи — `~/.config/sky-desktop/power-mode`, текущий профиль — `/run/tlp/last_pwr` (0/1/2).
 - Большие страницы памяти только по запросу: `transparent_hugepage=madvise` там же (30.09).
@@ -92,7 +91,6 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 - Звонки: эхоподавление — переключатель в меню динамика (модуль PipeWire по требованию). Если в
   программе выбран не «Default», а физический микрофон, выбрать «Microphone-echo-cancelled».
 - Приложение в Zoom Marketplace всё ещё называется `mini-calendar`.
-- У окон во вкладках (tabbed/stacked) цветных кнопок в шапке нет — заголовки там служат вкладками.
-- Правый клик в терминале ничего не делает; альтернативы (меню пути и т. п.) — решение за пользователем.
+- Правый клик в терминале ничего не делает (глушится в kitty); средняя кнопка — меню пути.
 - Шумоподавление микрофона по голосу отложено пользователем.
 - `~/.codex/AGENTS.md` дублирует правила из README для Codex — при смене правил править в двух местах.
