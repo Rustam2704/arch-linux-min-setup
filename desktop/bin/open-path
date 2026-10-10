@@ -45,9 +45,23 @@ def candidates(text, cwd=None):
             yield os.path.join(project_dir, text)
 
 
+TRAILING = ".:,;!?"      # sentence punctuation glued to a path: "see `/x/y.md`." - the path is /x/y.md
+
+
 def resolve_one(text, cwd=None):
-    """Resolve one candidate that is expected to be mostly path text."""
+    """Resolve one candidate that is expected to be mostly path text. A path at the end
+    of a sentence carries the full stop with it; the text is tried as written first,
+    then without the trailing punctuation."""
     text = text.strip().strip("'\"“”`,;()[]<>")
+    for form in (text, text.rstrip(TRAILING).rstrip("'\"“”`)")):
+        if form:
+            path, line = _resolve_form(form, cwd)
+            if path:
+                return path, line
+    return None, None
+
+
+def _resolve_form(text, cwd=None):
     if re.match(r"^(?:https?|mailto):", text):
         return text, None
     if text.startswith("file://"):
@@ -88,14 +102,18 @@ def candidate_texts(text):
         yield form
 
 
-def resolve(text, cwd=None):
-    """(path, line) from a clicked logical line or manual selection."""
+def resolve(text, cwd=None, near=None):
+    """(path, line) from a clicked logical line or manual selection. With `near` (the
+    word under the click), only a candidate containing that word counts: a paragraph
+    with two paths in it used to open the first one whatever was clicked."""
     seen = set()
     for candidate in candidate_texts(text):
         candidate = candidate.strip("'\"“”`,;()[]<>")
         if not candidate or candidate in seen:
             continue
         seen.add(candidate)
+        if near and near not in candidate:
+            continue
         path, line = resolve_one(candidate, cwd)
         if path:
             return path, line

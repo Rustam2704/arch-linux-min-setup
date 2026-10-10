@@ -110,8 +110,17 @@ def handle_result(args, screen_text, target_window_id, boss):
     helper = load_open_path()
     cwd = window.cwd_of_child or os.path.expanduser("~")
     first = click_candidates(lines, pos["cell_y"], pos["cell_x"], window.screen.columns)
-    for text in first + [t for t in text_around_click(lines, pos["cell_y"]) if t not in first]:
+    for text in first:
         path, line = helper.resolve(text, cwd=cwd)
+        if path:
+            helper.open_it(path, line)
+            return
+    # the wider guesses (a wrapped paragraph) may hold several paths: only the one the
+    # clicked word belongs to may open, never the first path of the paragraph
+    hit = token_at(lines[pos["cell_y"]], pos["cell_x"]) if 0 <= pos["cell_y"] < len(lines) else None
+    word = hit[2].strip("'\"“”`,;()[]<>.:!?") if hit else ""
+    for text in [t for t in text_around_click(lines, pos["cell_y"]) if t not in first]:
+        path, line = helper.resolve(text, cwd=cwd, near=word or None)
         if path:
             helper.open_it(path, line)
             return

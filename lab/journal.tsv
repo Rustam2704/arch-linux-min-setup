@@ -706,3 +706,5 @@
 2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-55/update-period -t int -s 30000	
 2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-60/update-period -t int -s 3000	
 2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-62/update-period -t int -s 5000	
+2026-10-10T21:51:06+03:00	58-open-path-punct	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.MA5sai.bak
+2026-10-10T21:51:06+03:00	58-open-path-punct	backup	/home/fanatic/.config/kitty/open-click.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_open-click.py.Pk8NNn.bak
