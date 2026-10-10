@@ -18,6 +18,11 @@ import sys
 from urllib.parse import unquote
 
 FILE_MANAGER = "thunar"
+# window class of the app behind a desktop entry: its window is brought to the front
+# after the file is handed to it. Sublime Text opens a file in its existing window
+# and never raises that window itself - minimized, or on another workspace, the
+# click looked like it did nothing.
+WINDOW_CLASS = {"sublime_text.desktop": "Sublime_text"}
 
 
 def candidates(text, cwd=None):
@@ -97,13 +102,38 @@ def resolve(text, cwd=None):
     return None, None
 
 
+def handler_class(path):
+    """Window class of the default app for this file, if it is one we know."""
+    try:
+        mime = subprocess.run(["xdg-mime", "query", "filetype", path], capture_output=True,
+                              text=True, timeout=2).stdout.strip()
+        entry = subprocess.run(["xdg-mime", "query", "default", mime], capture_output=True,
+                               text=True, timeout=2).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return WINDOW_CLASS.get(entry)
+
+
+def bring_up(window_class):
+    """Show the app's window a moment later, once it has taken the file: i3's focus
+    brings a minimized window back from the scratchpad and switches to its workspace.
+    Detached, so a click in the terminal never waits on it."""
+    subprocess.Popen(["sh", "-c", f"sleep 0.4; i3-msg -q '[class=\"^{window_class}$\"] focus'"],
+                     start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def open_it(path, line):
     if os.path.isdir(path):
         subprocess.Popen([FILE_MANAGER, path], start_new_session=True)
-    elif line:
+        return
+    if line:
         subprocess.Popen(["subl", f"{path}:{line}"], start_new_session=True)
+        window_class = WINDOW_CLASS["sublime_text.desktop"]
     else:
         subprocess.Popen(["xdg-open", path], start_new_session=True)
+        window_class = handler_class(path)
+    if window_class:
+        bring_up(window_class)
 
 
 def reveal(path):

@@ -1426,12 +1426,12 @@ class Deskd:
             key = (geom, cur, info.get("frame"))
             if h[2] != key:
                 w.change_attributes(cursor=self.xs.cursors[cur])
-                if info.get("frame"):
-                    w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh),
-                                sibling=info["frame"], stack_mode=X.Above)
-                else:
-                    w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh))
+                w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh))
                 h[2] = key
+            if info.get("frame"):
+                # every time: i3 restacks frames on each focus change, and a handle
+                # left above a frame that is now higher would take that window's clicks
+                w.configure(sibling=info["frame"], stack_mode=X.Above)
             if h[1] is None:
                 w.map()
             h[1] = info
@@ -1748,7 +1748,9 @@ class Deskd:
         rect = saved.get("rect") if saved else None
         if not rect:
             area = self.workarea(self.con_output(cid))
-            if not area:
+            if not area:                      # still in the scratchpad: show it where it was
+                self.cmd(f"[con_id={cid}] {self.unfit(cid)}, unmark {MARK_MIN}_{cid}, scratchpad show, focus")
+                self.set_saved(cid, None)
                 return
             w, h = int(area["width"] * 0.6), int(area["height"] * 0.7)
             rect = [area["x"] + (area["width"] - w) // 2, area["y"] + (area["height"] - h) // 2, w, h]
