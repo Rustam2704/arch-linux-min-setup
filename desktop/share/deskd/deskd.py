@@ -1083,15 +1083,17 @@ class Deskd:
         return {c.strip().lower() for c in raw.split(",") if c.strip()}
 
     def place_new_window(self, con):
-        """A second window of an app (a sign-in pop-up, "open in new window"):
-        put it where that app already is - or where the user asked for it with
-        Ctrl on a panel button - and let it float, as such windows expect."""
+        """A second window of an app (a Telegram call or media viewer, a sign-in
+        pop-up, "open in new window") goes where that app already is - the i3 assign
+        rule of a favourite would send it to the app's home workspace even when the
+        user has moved the app elsewhere, and a call panel opened there was simply
+        never seen. Ctrl on a panel button asks for the window right here instead."""
         cid = con.get("id")
         cls = ((con.get("window_properties") or {}).get("class") or "").lower()
-        if not cls or cls not in self.popup_classes():
+        if not cls:
             return False
         tree = self.i3.tree()
-        node, parent = find(tree, cid)
+        node, _ = find(tree, cid)
         if node is None:
             return False
         want = None
@@ -1104,14 +1106,19 @@ class Deskd:
                       and ((n.get("window_properties") or {}).get("class") or "").lower() == cls]
             if not others:
                 return False                                # the app's first window: leave it
-            others.sort(key=lambda n: n.get("focused", False), reverse=True)
+            visible = {w["name"] for w in self.i3.workspaces() if w["visible"]}
+
+            def rank(n):
+                ws = i3ipc.workspace_of(tree, n["id"])
+                return (ws is not None and ws["name"] in visible, bool(n.get("focused")))
+            others.sort(key=rank, reverse=True)
             ws = i3ipc.workspace_of(tree, others[0]["id"])
             want = ws["num"] if ws else None
         here = i3ipc.workspace_of(tree, cid)
         if want and here and here.get("num") != want:
             self.cmd(f"[con_id={cid}] move container to workspace number {want}")
-        if not (parent and parent.get("type") == "floating_con"):
-            self.cmd(f"[con_id={cid}] floating enable")
+            if any(w["num"] == want and w["visible"] for w in self.i3.workspaces()):
+                self.cmd(f"[con_id={cid}] focus")
         GLib.timeout_add(120, lambda: self.clamp_floating(cid))
         return False
 
@@ -1397,6 +1404,7 @@ class Deskd:
         for ws in self.visible_workspaces(workspaces):
             if any(n.get("fullscreen_mode") and n.get("window") for n, _ in walk(ws)):
                 continue
+            area = ws["rect"]                     # the work area: handles stop at the panel
             for fl in ws.get("floating_nodes", []):
                 r = fl["rect"]
                 x, y, w, h, t = r["x"], r["y"], r["width"], r["height"], HANDLE
@@ -1406,8 +1414,14 @@ class Deskd:
                         ((x + w, y + h, t, t), "br", "br"), ((x, y + h, w, t), "b", "b"),
                         ((x - t, y + h, t, t), "bl", "bl"), ((x - t, y, t, h), "l", "l")]
                 for geom, cur, edges in ring:
-                    specs.append((geom, cur, {"kind": "float", "con": fl["id"], "edges": edges,
-                                              "rect": dict(r), "frame": frame}))
+                    gx, gy, gw, gh = geom
+                    cx, cy = max(gx, area["x"]), max(gy, area["y"])
+                    cw = min(gx + gw, area["x"] + area["width"]) - cx
+                    ch = min(gy + gh, area["y"] + area["height"]) - cy
+                    if cw <= 0 or ch <= 0:
+                        continue              # a maximized window's edge: nothing to grab there
+                    specs.append(((cx, cy, cw, ch), cur, {"kind": "float", "con": fl["id"], "edges": edges,
+                                                          "rect": dict(r), "frame": frame}))
         # reuse windows; create or destroy the difference
         while len(self.handles) < len(specs):
             w = self.xs.window(self.xs.root, 0, 0, 1, 1, input_only=True,
@@ -1959,6 +1973,11 @@ class Deskd:
         if not area:
             return False
         r = parent["rect"]
+        if r["width"] >= area["width"] * 0.95 and r["height"] >= area["height"] * 0.95 \
+                and not self.saved(cid):
+            # it remembers being maximized (Firefox, Thunar, Telegram...): give it that
+            self.maximize(cid)
+            return False
         w, h = min(r["width"], int(area["width"] * 0.9)), min(r["height"], int(area["height"] * 0.9))
         x = min(max(r["x"], area["x"]), area["x"] + area["width"] - w)
         y = min(max(r["y"], area["y"]), area["y"] + area["height"] - h)
@@ -2502,7 +2521,23 @@ class Deskd:
         if moved and focused:
             self.cmd(f"workspace {focused}")
         self.sync_panels(outs)
+        GLib.timeout_add(600, self.refit_all)
         self.schedule_refresh()
+        return False
+
+    def refit_all(self):
+        """Maximized and snapped windows fill the screen they are on now: when a screen
+        goes away or arrives, i3 moves workspaces and leaves such windows at their old
+        size - they looked restored while deskd still held them as maximized."""
+        self._ws_snap = None
+        for node, _ in walk(self.i3.tree()):
+            if not node.get("window"):
+                continue
+            side = self.snapped_side(node)
+            if self.is_maximized(node):
+                self.maximize(node["id"], self.saved(node["id"]))
+            elif side:
+                self.snap(node["id"], side, self.saved(node["id"]))
         return False
 
     def sync_panels(self, outs):
@@ -2549,6 +2584,8 @@ class Deskd:
             self.expect[args[1].lower()] = (int(args[2]), time.monotonic())
         elif what == "unminimize":
             self.unminimize_last()
+        elif what == "refit":
+            self.refit_all()
         elif cid is None:
             return
         elif what == "maximize":

@@ -642,3 +642,11 @@
 2026-10-09T23:08:33+03:00	52-floating-windows	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.FMA9AU.bak
 2026-10-10T10:51:20+03:00	53-open-path-raise	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.In4Vyx.bak
 2026-10-10T10:51:20+03:00	53-open-path-raise	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.H8X6PO.bak
+2026-10-10T13:12:56+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/docklike-65.rc	
+2026-10-10T13:12:58+03:00	deskd-monitor-panel	cmd	rmdir -- /home/fanatic/.config/xfce4/panel/launcher-77	
+2026-10-10T13:12:58+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/launcher-77/power-menu.desktop	
+2026-10-10T17:04:55+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/docklike-65.rc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_docklike-65.rc.t7bRSo.bak
+2026-10-10T17:04:55+03:00	deskd-monitor-panel	backup	/home/fanatic/.config/xfce4/panel/launcher-77/power-menu.desktop	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_panel_launcher-77_power-menu.desktop.CnSTmP.bak
+2026-10-10T17:14:28+03:00	54-floating-fixes	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.aXoGYz.bak
+2026-10-10T17:14:59+03:00	54-floating-fixes	backup	/home/fanatic/.local/bin/deskd-ctl	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-ctl.RTHL6O.bak
+2026-10-10T17:14:59+03:00	54-floating-fixes	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.fymZrG.bak
