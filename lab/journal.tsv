@@ -687,3 +687,22 @@
 2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.VbHirB.bak
 2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.B2wSIg.bak
 2026-10-10T19:18:49+03:00	56-audit-phase2	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.QA25pA.bak
+2026-10-10T19:25:19+03:00	57-audit-phase3	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.rwq77u.bak
+2026-10-10T19:25:19+03:00	57-audit-phase3	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.VmmVFi.bak
+2026-10-10T19:25:19+03:00	57-audit-phase3	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.Zy1StW.bak
+2026-10-10T19:25:19+03:00	57-audit-phase3	file	/home/fanatic/.local/share/sky-desktop/screensaver.py	
+2026-10-10T19:25:19+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-45/update-period -t int -s 5000	
+2026-10-10T19:25:19+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-44/update-period -t int -s 10000	
+2026-10-10T19:25:19+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-55/update-period -t int -s 30000	
+2026-10-10T19:25:19+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-60/update-period -t int -s 3000	
+2026-10-10T19:25:19+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-62/update-period -t int -s 5000	
+2026-10-10T19:26:01+03:00	57-audit-phase3	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.joYutP.bak
+2026-10-10T19:30:45+03:00	57-audit-phase3	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.wIZN5o.bak
+2026-10-10T19:30:45+03:00	57-audit-phase3	backup	/home/fanatic/.local/share/sky-desktop/i3ipc.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_i3ipc.py.4i9qkL.bak
+2026-10-10T19:34:00+03:00	57-audit-phase3	backup	/home/fanatic/.local/share/sky-desktop/i3ipc.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_i3ipc.py.tGqB35.bak
+2026-10-10T19:34:00+03:00	57-audit-phase3	backup	/home/fanatic/.local/share/sky-desktop/screensaver.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_screensaver.py.FFwcNh.bak
+2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-45/update-period -t int -s 5000	
+2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-44/update-period -t int -s 10000	
+2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-55/update-period -t int -s 30000	
+2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-60/update-period -t int -s 3000	
+2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-62/update-period -t int -s 5000	

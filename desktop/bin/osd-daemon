@@ -45,6 +45,7 @@ import xfpanel  # noqa: E402
 import netmenu  # noqa: E402  (imported now: the menus must pop up warm)
 import audiomenu  # noqa: E402
 import powermenu  # noqa: E402
+import screensaver  # noqa: E402  (org.freedesktop.ScreenSaver -> power manager's inhibit)
 ACCENT = THEME["light"]
 PANEL_FONT_FAMILY = THEME["panel_font"].rsplit(" ", 1)[0]   # the badge is set in the panel font
 OVER = THEME["warning"]     # above 100%
@@ -669,6 +670,7 @@ class Layouts:
 def main():
     osd = Osd()
     layouts = Layouts(osd)
+    screensaver.start()                # "keep the screen on" requests from videos and calls
     threading.Thread(target=audiomenu.apply_echo, daemon=True).start()   # the saved echo-cancel state
     threading.Thread(target=powermenu.apply, daemon=True).start()        # the saved power mode
     jobs = queue.Queue()

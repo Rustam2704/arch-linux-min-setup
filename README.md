@@ -50,6 +50,7 @@ make check                 # синтаксис, токены, отсутств�
 make status                # чем установленная система отличается от дерева (норма: 0)
 make diff                  # то же, но с диффами
 make test                  # check + unit-тесты + GTK smoke на Xvfb
+make test-deskd            # оконный движок deskd на вложенном X (Xephyr :9), ~20 с
 make apply EXP=33-name     # test + установка изменённых файлов через lab (журнал под этим именем)
 make packages              # каких пакетов из packages.txt нет
 make rollback EXP=33-name  # откат эксперимента

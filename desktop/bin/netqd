@@ -32,6 +32,7 @@ import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME, icon
 import sky_text  # noqa: E402
+import xfpanel  # noqa: E402
 ACCENT, WARN, CRIT, DIM, TEXT = (THEME[k] for k in ("light", "warning", "danger", "muted", "foreground"))
 GAP = '<span size="50%"> </span>'      # half a space: a word and its number belong together
 NERD = "JetBrainsMono Nerd Font Propo"
@@ -342,6 +343,7 @@ def main():
     iface = gw = None
     prev = None
     last_route_check = 0.0
+    last_wifi_out = None
     while True:
         t0 = time.monotonic()
         if t0 - last_route_check > 5:
@@ -401,9 +403,13 @@ def main():
         wifi_out = (f"{picture}<click>{menu} wifi</click>\n"
                     f"<txtclick>{menu} wifi</txtclick>\n<tool>{link_tip}\nClick: Wi-Fi networks</tool>\n")
         wifi_path = os.path.join(RUN, "netq-wifi.txt")
-        with open(wifi_path + ".tmp", "w") as stream:
-            stream.write(wifi_out)
-        os.replace(wifi_path + ".tmp", wifi_path)
+        if wifi_out != last_wifi_out:
+            with open(wifi_path + ".tmp", "w") as stream:
+                stream.write(wifi_out)
+            os.replace(wifi_path + ".tmp", wifi_path)
+            if last_wifi_out is not None:          # the plugin polls only once a minute now
+                xfpanel.refresh("panel-wifi")
+            last_wifi_out = wifi_out
         out = (f"<txt>{text}</txt>\n<txtclick>{menu} info</txtclick>\n"
                f"<tool>{tip}</tool>\n")
         with open(OUT + ".tmp", "w") as f:

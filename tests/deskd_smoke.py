@@ -233,6 +233,14 @@ half = {"x": 0, "y": 0, "width": area["width"] // 2, "height": area["height"]}
 check("left edge drop snaps to the left half", fills(f, half) and "_deskd_snapleft_%d" % cid in marks(n),
       json.dumps(f) + " " + str(marks(n)))
 
+# ------------------------------------------------------------------ 4b. a corner = a quarter
+drag(cid, 2, SIZE[1] - 2)
+release()
+n, _, f = window(cid)
+quarter = {"x": 0, "y": area["height"] - area["height"] // 2, "width": area["width"] // 2, "height": area["height"] // 2}
+check("bottom-left corner drop snaps to that quarter", fills(f, quarter) and "_deskd_snapbl_%d" % cid in marks(n),
+      json.dumps(f) + " " + str(marks(n)))
+
 # ------------------------------------------------------------------ 5. restore (Super+Down)
 msg(f"[con_id={cid}] focus")
 tick("key down")
@@ -256,6 +264,24 @@ procs.append(subprocess.Popen(["kitty", "--class", "smoke", "--title", "smoke-2"
 w = wait_windows(2)
 check("second window opened on the app's workspace", len(w) == 2 and all(ws == "1" for _, ws, _ in w),
       str([ws for _, ws, _ in w]))
+other = next(n["id"] for n, _, _ in w if n["id"] != cid)
+f1, f2 = window(cid)[2], window(other)[2]
+check("second window is not exactly on top of the first (cascade)", (f1["x"], f1["y"]) != (f2["x"], f2["y"]),
+      json.dumps(f1) + " " + json.dumps(f2))
+
+# ------------------------------------------------------------------ 7b. Alt+Tab: most recently used first
+msg(f"[con_id={cid}] focus")
+time.sleep(0.3)
+msg(f"[con_id={other}] focus")
+time.sleep(0.3)
+tick("cycle")
+time.sleep(0.4)
+focused = next((n["id"] for n, _, _ in windows() if n.get("focused")), None)
+check("Alt+Tab goes to the previously used window", focused == cid, str(focused))
+tick("cycle")
+time.sleep(0.4)
+focused = next((n["id"] for n, _, _ in windows() if n.get("focused")), None)
+check("a quick second Alt+Tab walks on down the same list", focused == other, str(focused))
 
 # ------------------------------------------------------------------ 8. screen size change with a maximized window
 msg(f"[con_id={cid}] focus")

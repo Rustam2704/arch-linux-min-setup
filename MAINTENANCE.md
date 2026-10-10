@@ -26,7 +26,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 | `config/kitty/kitty.conf` | `kill -USR1` работающим kitty или новое окно |
 | `config/rofi/*`, `config/touchegg/*` | при следующем запуске программы (`touchegg` — `systemctl restart touchegg` + клиент из сессии) |
 | `share/light-year/*` | закрыть и открыть календарь (`Super+C`) |
-| `xfconf/xfce4-panel.xml` | `make apply` ставит свойства живьём; шрифты genmon — только после перезапуска панели (`xfce4-panel -q; i3-msg 'exec --no-startup-id xfce4-panel'`) |
+| `xfconf/xfce4-panel.xml` | `make apply` ставит свойства живьём; шрифты и периоды опроса genmon — только после перезапуска панели (`xfce4-panel -q; i3-msg 'exec --no-startup-id xfce4-panel'`) |
 | `config/Thunar/*` | `thunar -q` **до** `make apply` (при выходе Thunar переписывает `accels.scm` из памяти), потом `i3-msg 'exec --no-startup-id Thunar --daemon'`; открытые окна Thunar закроются |
 | `config/systemd/user/*` | `systemctl --user daemon-reload && systemctl --user restart <служба>` |
 | `system/*` (сессия) | следующий вход |

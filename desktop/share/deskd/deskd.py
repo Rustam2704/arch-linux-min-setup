@@ -8,9 +8,11 @@ What it adds (all event driven; idle cost is zero):
     resize by dragging any edge or corner, with no modifier key;
   * drag a title bar with either button: the window follows the pointer, and
     dropping it on the top edge maximizes it, on the left/right edge snaps it to
-    that half of the screen, on a workspace number in the panel moves it there
-    (blue preview while dragging); dragging a maximized or snapped window away
-    gives it its previous size back;
+    that half of the screen, in a corner to that quarter, on a workspace number in
+    the panel moves it there (blue preview while dragging); dragging a maximized or
+    snapped window away gives it its previous size back;
+  * Alt+Tab walks the workspace's windows most recently used first; a second window
+    of an app opens beside its sibling (cascade), never exactly on top of it;
   * maximize and snap keep the panel visible; restore puts the window back exactly
     where it was; app buttons (Telegram, ...) asking to minimize/maximize are obeyed;
   * Windows keys: Super+Up/Down/Left/Right, Alt+Tab (focus within the workspace);
@@ -89,11 +91,14 @@ PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote ma
 DEBUG = bool(os.environ.get("DESKD_DEBUG"))
 
 MARK_MAX = "_deskd_max"
-MARK_SNAP = "_deskd_snap"     # + "left"/"right": the window fills that half of the screen
+MARK_SNAP = "_deskd_snap"     # + a kind: the window fills that half / quarter of the screen
+SNAP_KINDS = ("left", "right", "tl", "tr", "bl", "br")
 MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
 DRAG_KEEP = 60                # px of a dragged window that must stay above the bottom of the screen
+ALT_TAB_S = 1.5               # Alt+Tab presses closer than this walk the same list
+CASCADE = 40                  # px a new window of an app is offset from one sitting at the same spot
 STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both sides of each workspace number
 STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with the tray's invisible
                               # 18 px next to it, 15 px from the sixth number's pentagram to the line
@@ -651,6 +656,9 @@ class Deskd:
         self.last_ws_text = {}
         self.passthrough = False
         self.expect = {}            # class -> (workspace, when): "open the next window here"
+        self.focus_order = []       # con ids, most recently focused first (Alt+Tab walks it)
+        self.alt_tab = None         # the Alt+Tab round in progress: (window list, index, when)
+        self.x_counts = {}          # DESKD_DEBUG: X events per type, logged every 10 s
 
         root_mask = X.SubstructureNotifyMask | X.PropertyChangeMask
         self.xs.root.change_attributes(event_mask=root_mask)
@@ -670,7 +678,15 @@ class Deskd:
         GLib.timeout_add_seconds(20, self.recheck_strips)
         GLib.timeout_add(1500, lambda: (self.watch_panel_items(), False)[1])
         self.watch_power()
+        if DEBUG:
+            GLib.timeout_add_seconds(10, self.log_x_counts)
         self.pump()
+
+    def log_x_counts(self):
+        """Where the wake-ups come from: X events per type over the last 10 s."""
+        log("x events/10s:", dict(sorted(self.x_counts.items(), key=lambda kv: -kv[1])))
+        self.x_counts = {}
+        return True
 
     def watch_power(self):
         """The kernel reports the cable the moment it moves (udev, power_supply); the
@@ -989,7 +1005,11 @@ class Deskd:
     def pump(self):
         try:
             while self.xs.d.pending_events():
-                self.handle_x(self.xs.d.next_event())
+                e = self.xs.d.next_event()
+                if DEBUG:
+                    key = type(e).__name__
+                    self.x_counts[key] = self.x_counts.get(key, 0) + 1
+                self.handle_x(e)
         except (error.ConnectionClosedError, BrokenPipeError):
             log("X connection lost")
             loop.quit()
@@ -1005,6 +1025,9 @@ class Deskd:
             GLib.timeout_add(delay, self.refresh)
 
     def on_i3(self, name, ev):
+        if DEBUG:
+            key = "i3:" + name + ":" + str(ev.get("change", ""))
+            self.x_counts[key] = self.x_counts.get(key, 0) + 1
         if name == "shutdown":
             log("i3 went away:", ev.get("change"))
             if ev.get("change") == "restart":
@@ -1046,7 +1069,13 @@ class Deskd:
                 GLib.timeout_add(100, lambda c=con: self.place_new_window(c))
             elif change == "close":
                 self.forget(con)
+                if con.get("id") in self.focus_order:
+                    self.focus_order.remove(con["id"])
             elif change == "focus":
+                if con.get("id") in self.focus_order:
+                    self.focus_order.remove(con["id"])
+                self.focus_order.insert(0, con.get("id"))
+                del self.focus_order[40:]
                 if any(m.startswith(MARK_MIN) for m in (con.get("marks") or [])):
                     GLib.idle_add(lambda cid=con["id"]: self.unminimize(cid) and False)
                 self.passthrough_for(con)
@@ -1144,7 +1173,35 @@ class Deskd:
             if any(w["num"] == want and w["visible"] for w in self.i3.workspaces()):
                 self.cmd(f"[con_id={cid}] focus")
         self.clamp_floating(cid)
+        self.cascade(cid)
         return False
+
+    def cascade(self, cid):
+        """A second window of an app opening exactly where one already sits (kitty, Thunar:
+        same size, centred) steps down and right by CASCADE px, as Windows does, so both
+        can be seen and grabbed."""
+        tree = self.i3.tree()
+        node, parent = find(tree, cid)
+        if not node or not parent or parent.get("type") != "floating_con" or self.is_fitted(node):
+            return
+        ws = i3ipc.workspace_of(tree, cid)
+        area = self.workarea(self.con_output(cid))
+        if not ws or not area:
+            return
+        taken = []
+        for n, p in walk(ws):
+            if n.get("window") and n["id"] != cid and p and p.get("type") == "floating_con":
+                taken.append((p["rect"]["x"], p["rect"]["y"]))
+        r = parent["rect"]
+        x, y = r["x"], r["y"]
+        for _ in range(8):
+            if not any(abs(x - tx) < 8 and abs(y - ty) < 8 for tx, ty in taken):
+                break
+            x, y = x + CASCADE, y + CASCADE
+            if x + r["width"] > area["x"] + area["width"] or y + r["height"] > area["y"] + area["height"]:
+                x, y = area["x"] + CASCADE, area["y"] + CASCADE
+        if (x, y) != (r["x"], r["y"]):
+            self.cmd(f"[con_id={cid}] move position {x} px {y} px")
 
     def passthrough_for(self, con):
         """RustDesk focused: every key (Super+...) goes to the remote machine - but only
@@ -1706,7 +1763,7 @@ class Deskd:
 
     def unfit(self, cid):
         """The i3 commands that make a window plain again: neither maximized nor snapped."""
-        return f"unmark {MARK_MAX}_{cid}, unmark {MARK_SNAP}left_{cid}, unmark {MARK_SNAP}right_{cid}"
+        return ", ".join([f"unmark {MARK_MAX}_{cid}"] + [f"unmark {MARK_SNAP}{k}_{cid}" for k in SNAP_KINDS])
 
     def fit(self, cid, rect, mark, saved=None):
         """ONE engine for maximize and for snapping to a half of the screen: the window
@@ -1727,22 +1784,30 @@ class Deskd:
         self.fit_floating(cid, (x, y, w, h))
         self.cmd(f"[con_id={cid}] focus")
 
+    @staticmethod
+    def fit_rect(area, kind):
+        """The rectangle a window fills for a kind of fit: the whole work area, a half
+        (left/right) or a quarter (tl/tr/bl/br - a corner of the screen, as in Windows)."""
+        x, y, w, h = area["x"], area["y"], area["width"], area["height"]
+        hw, hh = w // 2, h // 2
+        return {"max": (x, y, w, h),
+                "left": (x, y, hw, h), "right": (x + w - hw, y, hw, h),
+                "tl": (x, y, hw, hh), "tr": (x + w - hw, y, hw, hh),
+                "bl": (x, y + h - hh, hw, hh), "br": (x + w - hw, y + h - hh, hw, hh)}[kind]
+
     def maximize(self, cid, saved=None):
         output = self.con_output(cid)
         area = self.workarea(output) if output else None
         if area:
-            self.fit(cid, (area["x"], area["y"], area["width"], area["height"]), MARK_MAX, saved)
+            self.fit(cid, self.fit_rect(area, "max"), MARK_MAX, saved)
 
     def snap(self, cid, side, saved=None):
-        """The window fills the left or right half of the work area (Super+Left/Right,
-        or dropped at that edge of the screen)."""
+        """The window fills a half (Super+Left/Right, or dropped at that edge) or a
+        quarter (dropped in a corner) of the work area."""
         output = self.con_output(cid)
         area = self.workarea(output) if output else None
-        if not area:
-            return
-        half = area["width"] // 2
-        x = area["x"] if side == "left" else area["x"] + area["width"] - half
-        self.fit(cid, (x, area["y"], half, area["height"]), MARK_SNAP + side, saved)
+        if area:
+            self.fit(cid, self.fit_rect(area, side), MARK_SNAP + side, saved)
 
     def fit_floating(self, cid, target):
         """i3 sizes floating windows without decorations; correct once to the exact frame."""
@@ -1953,13 +2018,25 @@ class Deskd:
         elif out:
             o = out["rect"]
             area = self.workarea(out["name"]) or o
-            if y <= o["y"] + EDGE:
-                zone, rect = ("max",), (area["x"], area["y"], area["width"], area["height"])
-            elif x <= o["x"] + EDGE:
-                zone, rect = ("left",), (area["x"], area["y"], area["width"] // 2, area["height"])
-            elif x >= o["x"] + o["width"] - 1 - EDGE:
-                half = area["width"] // 2
-                zone, rect = ("right",), (area["x"] + area["width"] - half, area["y"], half, area["height"])
+            top, bottom = y <= o["y"] + EDGE, y >= o["y"] + o["height"] - 1 - EDGE
+            left, right = x <= o["x"] + EDGE, x >= o["x"] + o["width"] - 1 - EDGE
+            kind = None
+            if top and left:
+                kind = "tl"
+            elif top and right:
+                kind = "tr"
+            elif bottom and left:
+                kind = "bl"
+            elif bottom and right:
+                kind = "br"
+            elif top:
+                kind = "max"
+            elif left:
+                kind = "left"
+            elif right:
+                kind = "right"
+            if kind:
+                zone, rect = (kind,), self.fit_rect(area, kind)
         if zone != d["zone"]:
             d["zone"] = zone
             self.show_preview(rect)
@@ -1976,7 +2053,7 @@ class Deskd:
         kind = zone[0] if zone else None
         if kind == "max":
             self.maximize(cid, saved)
-        elif kind in ("left", "right"):
+        elif kind in ("left", "right", "tl", "tr", "bl", "br"):
             self.snap(cid, kind, saved)
         elif kind == "ws":
             self.cmd(f"[con_id={cid}] move container to workspace number {zone[1]}")
@@ -2666,6 +2743,10 @@ class Deskd:
             self.clamp_floating(cid)
 
     def cycle(self, tree, step):
+        """Alt+Tab as in Windows: the windows of this workspace in the order they were
+        last used. One press goes to the previous window; presses within ALT_TAB_S of
+        each other walk further down the same list (the list is frozen for the round,
+        so the windows it passes through do not reshuffle it), Alt+Shift+Tab walks back."""
         node, _ = i3ipc.focused(tree)
         ws = i3ipc.workspace_of(tree, node["id"]) if node else None
         if not ws:
@@ -2673,8 +2754,17 @@ class Deskd:
         wins = i3ipc.leaves(ws)
         if len(wins) < 2:
             return
-        cur = next((i for i, w in enumerate(wins) if w.get("focused")), -1)
-        self.cmd(f'[con_id={wins[(cur + step) % len(wins)]["id"]}] focus')
+        now = time.monotonic()
+        if self.alt_tab and now - self.alt_tab[2] < ALT_TAB_S and \
+                {w["id"] for w in wins} == {cid for cid in self.alt_tab[0]}:
+            order, idx, _ = self.alt_tab
+            idx += step
+        else:
+            rank = {cid: i for i, cid in enumerate(self.focus_order)}
+            order = [w["id"] for w in sorted(wins, key=lambda w: rank.get(w["id"], len(rank)))]
+            idx = step
+        self.alt_tab = (order, idx, now)
+        self.cmd(f'[con_id={order[idx % len(order)]}] focus')
 
 
 if __name__ == "__main__":
