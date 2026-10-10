@@ -708,3 +708,5 @@
 2026-10-10T19:35:58+03:00	57-audit-phase3	cmd	xfconf-query -c xfce4-panel -p /plugins/plugin-62/update-period -t int -s 5000	
 2026-10-10T21:51:06+03:00	58-open-path-punct	backup	/home/fanatic/.local/bin/open-path	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_open-path.MA5sai.bak
 2026-10-10T21:51:06+03:00	58-open-path-punct	backup	/home/fanatic/.config/kitty/open-click.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_open-click.py.Pk8NNn.bak
+2026-10-10T22:17:28+03:00	59-memory-relief	cmd	sh -c 'printf power-saver > /home/fanatic/.config/sky-desktop/power-mode; sudo -n /usr/bin/tlp power-saver'	
+2026-10-10T22:17:41+03:00	59-memory-relief	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.sEq8pw.bak
