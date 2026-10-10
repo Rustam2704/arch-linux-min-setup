@@ -650,3 +650,28 @@
 2026-10-10T17:14:28+03:00	54-floating-fixes	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.aXoGYz.bak
 2026-10-10T17:14:59+03:00	54-floating-fixes	backup	/home/fanatic/.local/bin/deskd-ctl	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-ctl.RTHL6O.bak
 2026-10-10T17:14:59+03:00	54-floating-fixes	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.fymZrG.bak
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt>F1' -n -t string -s 'xfce4-popup-applicationsmenu'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt>F2' -n -t string -s 'xfce4-appfinder --collapsed'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt>F2/startup-notify' -n -t bool -s 'true'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt>F3' -n -t string -s 'xfce4-appfinder'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt>F3/startup-notify' -n -t bool -s 'true'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt>Print' -n -t string -s 'xfce4-screenshooter -w'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Alt><Super>s' -n -t string -s 'orca'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/HomePage' -n -t string -s 'exo-open --launch WebBrowser'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Primary><Alt>Delete' -n -t string -s 'xfce4-session-logout'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Primary><Alt>Escape' -n -t string -s 'xkill'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Primary><Alt>f' -n -t string -s 'thunar'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Primary><Alt>l' -n -t string -s 'xflock4'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Primary><Alt>t' -n -t string -s 'exo-open --launch TerminalEmulator'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Primary><Shift>Escape' -n -t string -s 'xfce4-taskmanager'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Shift>Print' -n -t string -s 'xfce4-screenshooter -r'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Super>p' -n -t string -s 'xfce4-display-settings --minimal'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/XF86Display' -n -t string -s 'xfce4-display-settings --minimal'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/XF86Mail' -n -t string -s 'exo-open --launch MailReader'	
+2026-10-10T19:09:31+03:00	55-audit-phase1	cmd	xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/XF86WWW' -n -t string -s 'exo-open --launch WebBrowser'	
+2026-10-10T19:09:32+03:00	55-audit-phase1	cmd	sudo pacman -S --noconfirm xfce4-appfinder xfce4-screenshooter xfce4-taskmanager	
+2026-10-10T19:09:40+03:00	55-audit-phase1	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.yJcypE.bak
+2026-10-10T19:09:40+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.xNPZR8.bak
+2026-10-10T19:12:36+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.FTkZyL.bak
+2026-10-10T19:13:21+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.6zFsYw.bak
+2026-10-10T19:13:57+03:00	55-audit-phase1	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.hNydMl.bak

@@ -43,7 +43,6 @@ bindsym $mod+Tab exec --no-startup-id ~/.local/bin/rofi-toggle window
 bindsym $mod+e exec thunar
 bindsym $mod+c exec --no-startup-id ~/.local/bin/light-year
 bindsym $mod+q kill
-bindsym $mod+Shift+q kill
 
 # --- focus / move -------------------------------------------------------
 # focus on j k l ; — where the right hand already rests
@@ -81,7 +80,6 @@ bindsym $mod+6 nop deskd ws 6
 bindsym $mod+7 nop deskd ws 7
 bindsym $mod+8 nop deskd ws 8
 bindsym $mod+9 nop deskd ws 9
-bindsym $mod+0 nop deskd ws 10
 bindsym $mod+Shift+1 nop deskd move 1
 bindsym $mod+Shift+2 nop deskd move 2
 bindsym $mod+Shift+3 nop deskd move 3
@@ -91,7 +89,6 @@ bindsym $mod+Shift+6 nop deskd move 6
 bindsym $mod+Shift+7 nop deskd move 7
 bindsym $mod+Shift+8 nop deskd move 8
 bindsym $mod+Shift+9 nop deskd move 9
-bindsym $mod+Shift+0 nop deskd move 10
 
 # --- resize -------------------------------------------------------------
 # Direct, no mode to get stuck in: Super+Ctrl + arrows (or j k l ;)
@@ -122,7 +119,8 @@ bindsym $mod+Shift+s exec --no-startup-id ~/.local/bin/snip area
 # Alt+Tab: next window on this workspace (one hand, no arrows); Alt+Shift+Tab: previous
 bindsym Mod1+Tab nop deskd cycle
 bindsym Mod1+Shift+Tab nop deskd cycle prev
-# Ctrl+Shift+Esc: system monitor
+# Ctrl+Shift+Esc: system monitor (Xfce's own key list is empty - desktop/xfconf/xfce4-keyboard-shortcuts.xml -
+# so xfsettingsd does not grab this one for xfce4-taskmanager first)
 bindsym Ctrl+Shift+Escape exec --no-startup-id kitty --class btop-float -e btop
 
 # --- "minimize": i3 has none, the scratchpad is its equivalent ------------
@@ -147,7 +145,6 @@ mode "passthrough" {
     bindsym $mod+Shift+7 nop deskd move 7
     bindsym $mod+Shift+8 nop deskd move 8
     bindsym $mod+Shift+9 nop deskd move 9
-    bindsym $mod+Shift+0 nop deskd move 10
 }
 
 # --- session ------------------------------------------------------------

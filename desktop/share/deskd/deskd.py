@@ -94,6 +94,7 @@ MARK_SNAP = "_deskd_snap"     # + "left"/"right": the window fills that half of 
 MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
+DRAG_KEEP = 60                # px of a dragged window that must stay above the bottom of the screen
 STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both sides of each workspace number
 STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with the tray's invisible
                               # 18 px next to it, 15 px from the sixth number's pentagram to the line
@@ -554,6 +555,8 @@ class Monitors:
 
     @staticmethod
     def run(*args):
+        if os.environ.get("DESKD_NO_PANELS"):      # a nested X server (tests): never touch autorandr
+            return ""
         try:
             return subprocess.run(["autorandr", *args], capture_output=True, text=True, timeout=20).stdout
         except (OSError, subprocess.TimeoutExpired):
@@ -895,7 +898,8 @@ class Deskd:
         picture-in-picture, notifications, dialogs - everything else goes back."""
         props = con.get("window_properties") or {}
         title = con.get("name") or ""
-        if con.get("window_type") in ("dialog", "utility", "notification", "tooltip", "popup_menu") \
+        if con.get("window_type") in ("dialog", "utility", "notification", "tooltip", "popup_menu", "dock",
+                                      "unknown") \
                 or props.get("transient_for") or "Picture-in-Picture" in title:
             return
         log("unsticking", props.get("class"), title[:40])
@@ -1038,11 +1042,11 @@ class Deskd:
                 # in the title) would otherwise cost a full tree refresh every 100 ms
                 return
             if change == "new":
-                GLib.timeout_add(60, lambda c=con: self.place_new_window(c))
+                # one path for every new window: its workspace, then its place and size,
+                # 100 ms later - after the app's own first resize (Qt and Zoom do one)
+                GLib.timeout_add(100, lambda c=con: self.place_new_window(c))
             elif change == "close":
                 self.forget(con)
-            elif change == "floating" and str(con.get("floating", "")).endswith("_on"):
-                GLib.timeout_add(80, lambda cid=con["id"]: self.clamp_floating(cid))
             elif change == "focus":
                 if any(m.startswith(MARK_MIN) for m in (con.get("marks") or [])):
                     GLib.idle_add(lambda cid=con["id"]: self.unminimize(cid) and False)
@@ -1090,11 +1094,12 @@ class Deskd:
         never seen. Ctrl on a panel button asks for the window right here instead."""
         cid = con.get("id")
         cls = ((con.get("window_properties") or {}).get("class") or "").lower()
-        if not cls:
-            return False
         tree = self.i3.tree()
         node, _ = find(tree, cid)
         if node is None:
+            return False
+        if not cls:
+            self.clamp_floating(cid)
             return False
         want = None
         hint = self.expect.pop(cls, None)
@@ -1105,6 +1110,7 @@ class Deskd:
                       if n.get("window") and n["id"] != cid
                       and ((n.get("window_properties") or {}).get("class") or "").lower() == cls]
             if not others:
+                self.clamp_floating(cid)
                 return False                                # the app's first window: leave it
             visible = {w["name"] for w in self.i3.workspaces() if w["visible"]}
 
@@ -1119,7 +1125,7 @@ class Deskd:
             self.cmd(f"[con_id={cid}] move container to workspace number {want}")
             if any(w["num"] == want and w["visible"] for w in self.i3.workspaces()):
                 self.cmd(f"[con_id={cid}] focus")
-        GLib.timeout_add(120, lambda: self.clamp_floating(cid))
+        self.clamp_floating(cid)
         return False
 
     def passthrough_for(self, con):
@@ -1883,24 +1889,26 @@ class Deskd:
         return True
 
     def inside_workarea(self, x, y):
-        """Where a dragged window is allowed to be: the panel is always on top, so a
-        window pushed against it stops at its edge instead of sliding underneath.
-        The area and the window's height are worked out once, when the drag starts -
-        this runs on every frame of the drag."""
+        """Where a dragged window is allowed to be: its title bar stays on the screen.
+        The panel is always on top, so a window pushed against it stops at its edge
+        instead of sliding underneath; at the bottom the window may hang off the
+        screen, as in Windows, as long as DRAG_KEEP px of it stay reachable. (Keeping
+        the whole window inside meant a window nearly as tall as the screen could
+        hardly be moved down at all.) The area is measured once, when the drag starts."""
         d = self.drag
         area = d.get("area") if d else None
         if not area:
             return x, y
-        bottom = area["y"] + area["height"] - max(60, min(d.get("height", 0), area["height"]))
-        return x, max(area["y"], min(y, bottom))
+        return x, max(area["y"], min(y, area["y"] + area["height"] - DRAG_KEEP))
 
     def drag_begin(self, x, y):
         d = self.drag
         d["moving"] = True
         cid, r = d["con"], d["rect"]
         d["area"] = self.workarea(self.con_output(cid))     # measured once, used every frame
-        d["height"] = r["height"]
-        d["saved"] = None
+        # where the window was when it was picked up: dropped at an edge, "restore"
+        # brings it back here - not to the spot where it was let go, half off the screen
+        d["saved"] = {"mode": "floating", "rect": [r["x"], r["y"], r["width"], r["height"]]}
         w, h = r["width"], r["height"]
         if d["fitted"]:
             # a maximized / snapped window pulled away gets its previous size back under

@@ -14,7 +14,6 @@ xfce4-genmon-plugin         # every custom panel indicator
 xfce4-docklike-plugin       # the taskbar
 xfce4-pulseaudio-plugin     # volume icon and media keys
 xfce4-notifyd
-xfce4-taskmanager
 xfconf
 dex                         # ~/.config/autostart
 xorg-xrdb                   # ~/.Xresources (HiDPI)

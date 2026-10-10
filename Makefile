@@ -1,4 +1,4 @@
-.PHONY: check test build diff apply status packages rollback
+.PHONY: check test test-deskd build diff apply status packages rollback
 PYTHON ?= python3
 # Every apply is journaled under an experiment id: make apply EXP=33-short-name
 EXP ?= desktop-apply
@@ -9,6 +9,10 @@ check:
 test: check
 	$(PYTHON) -m unittest discover -s tests -v
 	xvfb-run -a $(PYTHON) tests/gtk_smoke.py
+
+# the window engine, end to end, on a nested X server (Xephyr :9, never the user's screen)
+test-deskd:
+	$(PYTHON) tests/deskd_smoke.py
 
 build: check
 	$(PYTHON) tools/desktop.py build
