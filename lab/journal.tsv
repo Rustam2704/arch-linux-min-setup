@@ -716,3 +716,6 @@
 2026-10-11T17:09:42+03:00	59-memory-relief	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.9FbKGk.bak
 2026-10-11T17:09:49+03:00	59-memory-relief	backup	/home/fanatic/.config/firefox-memory.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_firefox-memory.conf.gPZ7Rw.bak
 2026-10-11T17:10:10+03:00	59-memory-relief	cmd	sh -c 'printf "# setup/lab experiment 01-memory\nvm.swappiness = 80\n" | sudo tee /etc/sysctl.d/99-lab-memory.conf >/dev/null; sudo sysctl -w vm.swappiness=80'	
+2026-10-11T17:17:10+03:00	59-memory-relief	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.IF0MGH.bak
+2026-10-11T17:29:57+03:00	60-youtube-fpp	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.7kC7KF.bak
+2026-10-11T17:30:12+03:00	60-youtube-fpp	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.d48Luv.bak

@@ -1712,8 +1712,17 @@ class Deskd:
         return None
 
     # ------------------------------------------------------------ geometry helpers
+    def outputs(self):
+        """The output list; frozen for the length of a drag, like workspaces(): it was
+        asked of i3 on every pointer poll (60 Hz) and screens do not change mid-drag."""
+        if self.drag is None:
+            return self.i3.outputs()
+        if self.drag.get("outputs") is None:
+            self.drag["outputs"] = self.i3.outputs()
+        return self.drag["outputs"]
+
     def output_rect_at(self, x, y):
-        for o in self.i3.outputs():
+        for o in self.outputs():
             if o.get("active"):
                 r = o["rect"]
                 if r["x"] <= x < r["x"] + r["width"] and r["y"] <= y < r["y"] + r["height"]:
