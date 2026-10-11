@@ -2082,8 +2082,30 @@ ScreenSaver, панель) память и процессор не трогаю�
   (`browser.low_commit_space_threshold_mb`, по умолчанию 200 МБ — то есть никогда), вкладки
   старше 5 минут; вступает в силу после перезапуска Firefox.
 
-Не сделано, решать пользователю: перезапуск Firefox (вернёт ~6 ГБ), закрытие RustDesk/Zoom, когда
-не нужны, zswap (выключен по его решению 30.09), «power-saver только от батареи» в меню батареи.
+Анализ браузера (профиль `ay102hg5.dev-edition-default`):
+- **160 вкладок в одном окне, из них 37 YouTube**, 22 OLX, 15 claude.ai; 5 закрытых окон и 25
+  закрытых вкладок в сессии. 14 контент-процессов (Fission: процесс на сайт), итого Firefox
+  4,8 ГБ RSS + 5,8 ГБ своп. Это и есть причина: 160 открытых страниц на 8 ГБ.
+- Расширений 25, активных 10: uBlock Origin (хранилище 61 МБ), Violentmonkey (3 userscript'а из
+  `assets/browser/`, в том числе «звук YouTube в скрытой вкладке» — скрытые вкладки YouTube
+  продолжают декодировать), Enhancer for YouTube, Return YouTube Dislike, Multiple Tab Handler,
+  Web Archives, Search by Image, TikTok Download Buttons, Go To Playing Tab, To Google
+  Translate, Shadertoy. Content-скрипты каждого живут в каждой вкладке.
+- Видео: VA-API через i965 (Haswell), H.264 VLD есть; VP9/AV1 выключены в `user.js` — YouTube
+  отдаёт H.264 до 1080p. Здесь всё правильно. Кэш на диске 1 ГБ (норма).
+- `firefox-memory.conf` держал ключи `TARGET/STEP/INTERVAL/RECLAIM` удалённого 30.09 `firefox-memd`
+  — мусор, убран; `LIMIT` 4G → **6G** (и живьём `set-property` на работающую область): при 4G ядро
+  выталкивало в своп страницы *активной* вкладки, лишь бы Firefox не рос.
+- `vm.swappiness` 80 → **30**: 80 поставлен в 01-memory под zram; со свопом-файлом на SSD без
+  сжатия это «программы в своп раньше, чем кэш файлов».
+- `user.js`: `fission.autostart=false`, `dom.ipc.processCount=4` (вместо 14 процессов — четыре
+  общих), `browser.sessionstore.interval` 15 с → 60 с (файл сессии 160 вкладок переписывался
+  каждые 15 с). Вступает в силу после перезапуска Firefox, вместе с выгрузкой вкладок.
+
+Решать пользователю: перезапуск Firefox (все правки `user.js` ждут его; вернёт ~6 ГБ сразу),
+закрыть лишние из 37 вкладок YouTube или отключить userscript «звук в скрытой вкладке», отключить
+неиспользуемые расширения, закрывать RustDesk/Zoom, когда не нужны, zswap (выключен по его
+решению 30.09), «power-saver только от батареи» в меню батареи.
 
 ## 58 — open-path-punct (10.10)
 

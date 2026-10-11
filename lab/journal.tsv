@@ -710,3 +710,9 @@
 2026-10-10T21:51:06+03:00	58-open-path-punct	backup	/home/fanatic/.config/kitty/open-click.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_kitty_open-click.py.Pk8NNn.bak
 2026-10-10T22:17:28+03:00	59-memory-relief	cmd	sh -c 'printf power-saver > /home/fanatic/.config/sky-desktop/power-mode; sudo -n /usr/bin/tlp power-saver'	
 2026-10-10T22:17:41+03:00	59-memory-relief	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.sEq8pw.bak
+2026-10-11T17:03:18+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/docklike-65.rc	
+2026-10-11T17:03:21+03:00	deskd-monitor-panel	cmd	rmdir -- /home/fanatic/.config/xfce4/panel/launcher-77	
+2026-10-11T17:03:21+03:00	deskd-monitor-panel	file	/home/fanatic/.config/xfce4/panel/launcher-77/power-menu.desktop	
+2026-10-11T17:09:42+03:00	59-memory-relief	backup	/home/fanatic/.config/mozilla/firefox/ay102hg5.dev-edition-default/user.js	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mozilla_firefox_ay102hg5.dev-edition-default_user.js.9FbKGk.bak
+2026-10-11T17:09:49+03:00	59-memory-relief	backup	/home/fanatic/.config/firefox-memory.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_firefox-memory.conf.gPZ7Rw.bak
+2026-10-11T17:10:10+03:00	59-memory-relief	cmd	sh -c 'printf "# setup/lab experiment 01-memory\nvm.swappiness = 80\n" | sudo tee /etc/sysctl.d/99-lab-memory.conf >/dev/null; sudo sysctl -w vm.swappiness=80'	
