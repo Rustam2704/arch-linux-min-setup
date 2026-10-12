@@ -44,7 +44,7 @@ bindsym $mod+c exec --no-startup-id ~/.local/bin/light-year
 bindsym $mod+q kill
 
 # --- windows, as in Windows ----------------------------------------------
-# Super+arrows: maximize / restore-or-minimize / left half / right half;
+# Super+arrows as in Windows (deskd's ARROWS table): max / half / quarter / restore / minimize;
 # Super+Shift+Left/Right: the window goes to the screen on that side
 bindsym $mod+Up    nop deskd key up
 bindsym $mod+Down  nop deskd key down
@@ -105,7 +105,8 @@ bindsym Print exec --no-startup-id ~/.local/bin/snip screen
 bindsym $mod+Shift+s exec --no-startup-id ~/.local/bin/snip area
 
 # --- Windows habits -------------------------------------------------------
-# Alt+Tab: next window on this workspace (one hand, no arrows); Alt+Shift+Tab: previous
+# Alt+Tab: while Alt is held, deskd's switcher walks this workspace's windows (most recent
+# first, minimized ones too); the switch happens on release. Alt+Shift+Tab walks back
 bindsym Mod1+Tab nop deskd cycle
 bindsym Mod1+Shift+Tab nop deskd cycle prev
 # Ctrl+Shift+Esc: system monitor (Xfce's own key list is empty - desktop/xfconf/xfce4-keyboard-shortcuts.xml -

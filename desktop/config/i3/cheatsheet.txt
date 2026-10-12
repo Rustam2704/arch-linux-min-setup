@@ -1,9 +1,10 @@
 ━━ WINDOWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Title bar  🟡 🟢 🔴                    minimize / maximize (panel stays) / close
-Alt + Tab   (Alt + Shift + Tab)       next / previous window on this workspace
-Super + ↑                             maximize (the panel stays visible)
-Super + ↓                             restore; if not maximized: minimize
-Super + ← / →                         snap to the left / right half of the screen
+Alt + Tab   (Alt + Shift + Tab)       hold Alt: window list, switch on release
+Super + ↑                             maximize; on a half: its top quarter
+Super + ↓                             restore; on a half: bottom quarter; plain: minimize
+Super + ← / →                         left / right half; opposite side restores;
+                                        same side again: to the next screen
 Super + Shift + ← / →                 move the window to the screen on that side
 Super + F                             maximize on / off (app fullscreen: off)
 Super + Q                             close window
@@ -12,7 +13,8 @@ drag any edge or corner               resize the window
 double click a title bar              maximize <-> restore
 drag a title bar (either button)      move the window (a maximized one gets its size back)
   … drop at the top = maximize, left / right edge = that half of the screen,
-    on a workspace number in a panel = move it there
+    near a corner = that quarter, on a workspace number in a panel = move it there;
+    edges stick to screen and window edges on the way
 click a number in the panel           go to that workspace (every screen has its panel)
 Super + left-drag                     move a window without a title bar
 Super + right-drag (inside window)    resize from the nearest corner

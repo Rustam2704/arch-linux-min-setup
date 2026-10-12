@@ -6,16 +6,21 @@ What it adds (all event driven; idle cost is zero):
     circles on the right (yellow, green, red), drawn inside i3's own frame;
   * every window floats, as in Windows (i3 tiles nothing: ~/.config/i3/config);
     resize by dragging any edge or corner, with no modifier key;
-  * drag a title bar with either button: the window follows the pointer, and
-    dropping it on the top edge maximizes it, on the left/right edge snaps it to
-    that half of the screen, in a corner to that quarter, on a workspace number in
-    the panel moves it there (blue preview while dragging); dragging a maximized or
-    snapped window away gives it its previous size back;
-  * Alt+Tab walks the workspace's windows most recently used first; a second window
-    of an app opens beside its sibling (cascade), never exactly on top of it;
+  * drag a title bar with either button: the window follows the pointer (its frame
+    is moved directly, i3 hears the result once), its edges stick to screen and
+    window edges on the way; dropping it on the top edge maximizes it, on the
+    left/right edge snaps it to that half of the screen, near a corner to that
+    quarter, on a workspace number in the panel moves it there (blue preview while
+    dragging); dragging a maximized or snapped window away gives it its previous
+    size back;
+  * Alt+Tab as in Windows: a switcher while Alt is held, the choice taken on release,
+    minimized windows included; a second window of an app opens beside its sibling
+    (cascade), never exactly on top of it;
   * maximize and snap keep the panel visible; restore puts the window back exactly
     where it was; app buttons (Telegram, ...) asking to minimize/maximize are obeyed;
-  * Windows keys: Super+Up/Down/Left/Right, Alt+Tab (focus within the workspace);
+    an app's own full screen is left alone; "keep above" windows stay on top; a
+    window blocked by its modal dialog hands the click to the dialog;
+  * Windows keys: Super+Up/Down/Left/Right walk max / half / quarter / restore;
   * every screen has its own workspaces 1..6 (7..9 while they exist); when a screen goes away its
     workspaces join the laptop screen, and move to the next screen plugged in;
   * the panel's workspace strip (rendered here, clickable).
@@ -36,13 +41,14 @@ sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))   # i3ipc, 
 import gi  # noqa: E402
 from gi.repository import GLib  # noqa: E402
 import cairo  # noqa: E402
-from Xlib import X, Xatom, display, error  # noqa: E402
+from Xlib import X, Xatom, Xutil, display, error  # noqa: E402
 from Xlib.ext import shape  # noqa: E402
 from Xlib.protocol import event as xevent  # noqa: E402
 
 import i3ipc  # noqa: E402
 import xfpanel  # noqa: E402
 import panels  # noqa: E402
+import switcher  # noqa: E402
 from i3ipc import walk, find  # noqa: E402
 from sky_theme import THEME, rgb as theme_rgb
 
@@ -74,7 +80,7 @@ NO_DOCK = {"TelegramDesktop"}
 TITLED_CLASSES = {"zoom"}
 UNTITLED_TITLES = {"annotate_toolbar", "zoom_linux_float_video_window", "cpt_frame_xcb_window"}
 TARGET_MARGIN = 40            # px the drop-target overlay extends past the workspace strip
-# Zoom's screen-share border: while it is up picom bypasses the compositor and every
+# Zoom's screen-share border: while it is up the compositor is bypassed and every
 # translucent overlay of ours would be a solid black box - so none is shown
 SHARE_FRAME = "cpt_frame_xcb_window"
 STAR_MARK = False             # the drawn pentagram over the digit; off while the game's spinning ones are tried
@@ -87,7 +93,7 @@ EDGE = 3                      # px from a screen edge that counts as "at the edg
 POLL_MS = 16
 PANEL_FONT = THEME["panel_font"]
 CURSOR_PNG = os.path.expanduser("~/.local/share/sky-desktop/cursor-diablo.png")   # the game's pointer, 1.5x
-PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote machine       # genmon font of the workspace strip
+PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote machine
 DEBUG = bool(os.environ.get("DESKD_DEBUG"))
 
 MARK_MAX = "_deskd_max"
@@ -97,7 +103,12 @@ MARK_MIN = "_deskd_min"
 MARK_CLICK = "_deskd_click"
 DOUBLE_CLICK_S = 0.4          # two left clicks on a title bar within this = maximize/restore
 DRAG_KEEP = 60                # px of a dragged window that must stay above the bottom of the screen
-ALT_TAB_S = 1.5               # Alt+Tab presses closer than this walk the same list
+SNAP_ZONE = 15                # px: a dragged window's edge within this of a screen or window edge
+                              # sticks to it (KWin's 10 px border and window snap zones, at 1.5x)
+CORNER = 0.1                  # along a screen edge, this share of it at either end is a corner (quarter)
+INNER_EDGE_S = 0.25           # an edge shared with another screen snaps only after the pointer rests
+                              # there this long (KWin: crossing to the next screen must not snap)
+ALT_TAB_SHOW_S = 0.09         # Alt held this long after Alt+Tab: the switcher appears (KWin's delay)
 CASCADE = 40                  # px a new window of an app is offset from one sitting at the same spot
 STRIP_PAD = "\u2007"           # figure space (29 px, ~80 % of an em) on both sides of each workspace number
 STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with the tray's invisible
@@ -105,7 +116,6 @@ STRIP_END = "\u2009\u200a"     # thin + hair space after the last number: with t
 STRIP_TAIL = ""                # (a trailing spacer used to push the numbers left; the end pad does that now)
 STRIP_SHIFT = 0                # px the numbers sit below the panel's centre (0: centred; the flame
                               # sheets rise past the top of the screen and that part is simply unseen)
-                              # shifts the numbers left, away from the separator next to them
 
 
 def log(*a):
@@ -657,18 +667,22 @@ class Deskd:
         self.passthrough = False
         self.expect = {}            # class -> (workspace, when): "open the next window here"
         self.focus_order = []       # con ids, most recently focused first (Alt+Tab walks it)
-        self.alt_tab = None         # the Alt+Tab round in progress: (window list, index, when)
+        self.alt_tab = None         # the Alt+Tab round while Alt is held: {"order", "idx", "since"}
+        self.above = set()          # client windows that asked to stay on top (_NET_WM_STATE_ABOVE)
         self.x_counts = {}          # DESKD_DEBUG: X events per type, logged every 10 s
 
         root_mask = X.SubstructureNotifyMask | X.PropertyChangeMask
         self.xs.root.change_attributes(event_mask=root_mask)
         self.A = {n: self.xs.atom(n) for n in (
             "WM_CHANGE_STATE", "_NET_WM_STATE", "_NET_WM_STATE_MAXIMIZED_VERT",
-            "_NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_MODAL", "_NET_WM_PID", "_NET_ACTIVE_WINDOW")}
+            "_NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_MODAL", "_NET_WM_PID", "_NET_ACTIVE_WINDOW",
+            "_NET_WM_STATE_ABOVE", "_NET_WM_WINDOW_TYPE", "_KDE_NET_WM_WINDOW_TYPE_OVERRIDE")}
+        self.switcher = switcher.Switcher(self.xs, self.dpi())
         GLib.io_add_watch(self.xs.d.fileno(), GLib.PRIORITY_DEFAULT, GLib.IO_IN, self.on_x)
         self.monitors = Monitors(self.xs)
         self.sub = i3ipc.Subscription(["window", "workspace", "output", "binding", "shutdown", "tick", "mode"],
                                       self.on_i3)
+        self.normalize_marks()
         self.outputs_changed()
         self.refresh()
         self.skip_dock_existing()
@@ -941,13 +955,91 @@ class Deskd:
             log("skip-dock failed:", e)
 
     def skip_dock_existing(self):
-        """At start: the windows already open of the classes kept out of the dock."""
+        """At start: the windows already open - those of the classes kept out of the
+        dock, and those that asked to stay on top before deskd was there to see it."""
         try:
             for n, _ in walk(self.i3.tree()):
-                if n.get("window") and ((n.get("window_properties") or {}).get("class") in NO_DOCK):
+                if not n.get("window"):
+                    continue
+                if (n.get("window_properties") or {}).get("class") in NO_DOCK:
                     self.skip_dock(n["window"])
+                self.read_above(n["window"])
         except Exception as e:                       # noqa: BLE001
             log("skip-dock scan failed:", e)
+
+    # ------------------------------------------------------------ EWMH state i3 leaves to us
+    def net_state(self, wid):
+        """The atoms in a client's _NET_WM_STATE (empty if it is gone)."""
+        try:
+            win = self.xs.d.create_resource_object("window", wid)
+            prop = win.get_full_property(self.A["_NET_WM_STATE"], Xatom.ATOM)
+            return set(prop.value) if prop else set()
+        except error.XError:
+            return set()
+
+    def set_net_state(self, wid, atom, on):
+        """Add or drop one atom of a client's _NET_WM_STATE, the rest left as they are -
+        i3 keeps its own atoms (fullscreen, hidden, focused) the same way."""
+        try:
+            win = self.xs.d.create_resource_object("window", wid)
+            prop = win.get_full_property(self.A["_NET_WM_STATE"], Xatom.ATOM)
+            states = [a for a in (prop.value if prop else []) if a != atom]
+            win.change_property(self.A["_NET_WM_STATE"], Xatom.ATOM, 32, states + ([atom] if on else []))
+        except error.XError:
+            pass
+
+    def read_above(self, wid):
+        """A window that set "keep above" before it was mapped (Telegram's and Firefox's
+        picture-in-picture, a pinned Telegram call). i3 has no such layer; deskd keeps
+        these on top of their workspace, as KWin does."""
+        if wid and self.A["_NET_WM_STATE_ABOVE"] in self.net_state(wid):
+            self.above.add(wid)
+
+    def draws_own_frame(self, wid):
+        """A Qt window that asked for no frame (FramelessWindowHint: Qt marks it with
+        _KDE_NET_WM_WINDOW_TYPE_OVERRIDE): Telegram's photo viewer, call window and
+        picture-in-picture draw their own title and buttons. A second title bar of
+        ours on top of theirs is what KWin never does."""
+        try:
+            win = self.xs.d.create_resource_object("window", wid)
+            prop = win.get_full_property(self.A["_NET_WM_WINDOW_TYPE"], Xatom.ATOM)
+            return bool(prop) and self.A["_KDE_NET_WM_WINDOW_TYPE_OVERRIDE"] in prop.value
+        except error.XError:
+            return False
+
+    def normalize_marks(self):
+        """deskd's marks carry the container id (i3 marks are unique), and i3 gives every
+        container a new id when it restarts in place: a "_deskd_max_<old id>" could then
+        never be taken off, and the window stayed "maximized" for good. Re-label them."""
+        try:
+            prefixes = [MARK_MAX, MARK_MIN] + [MARK_SNAP + k for k in SNAP_KINDS]
+            for n, _ in walk(self.i3.tree()):
+                for m in n.get("marks") or []:
+                    for p in prefixes:
+                        if m.startswith(p + "_") and m != f"{p}_{n['id']}":
+                            self.cmd(f'[con_id={n["id"]}] unmark {m}, mark --add {p}_{n["id"]}')
+        except Exception as e:                       # noqa: BLE001
+            log("mark check failed:", e)
+
+    def focus_modal(self, cid, wid):
+        """A window blocked by its own modal dialog (Save As, a GTK file chooser) takes
+        no input; clicking it gives the keyboard to the dialog instead, as KWin and
+        Windows do. Without this the click focused the blocked window and typing went
+        nowhere."""
+        try:
+            tree = self.i3.tree()
+            ws = i3ipc.workspace_of(tree, cid)
+            if not ws:
+                return False
+            clients = {n["window"]: n for n, _ in walk(ws) if n.get("window")}
+            for other, n in clients.items():
+                if other != wid and wid in self.dialog_owners(other, clients) \
+                        and self.A["_NET_WM_STATE_MODAL"] in self.net_state(other):
+                    self.cmd(f'[con_id={n["id"]}] focus')
+                    break
+        except Exception as e:                       # noqa: BLE001
+            log("modal check failed:", e)
+        return False
 
     def panel_reflowed(self):
         """A panel plugin was moved or resized: rebuild the regions after the burst of
@@ -1059,6 +1151,12 @@ class Deskd:
                     return
                 if change == "new" and props.get("class") in NO_DOCK:
                     self.skip_dock(con.get("window"))
+                if change == "new":
+                    self.read_above(con.get("window"))
+                    if con.get("border") != "none" and self.draws_own_frame(con.get("window")) and \
+                            (props.get("class") or "").lower() not in TITLED_CLASSES:
+                        # the i3 rule gives every window a title bar; not one with its own
+                        self.cmd(f'[con_id={con["id"]}] border none')
             if change in ("title", "urgent"):
                 # neither moves, stacks or focuses anything; a busy terminal (spinner
                 # in the title) would otherwise cost a full tree refresh every 100 ms
@@ -1071,6 +1169,8 @@ class Deskd:
                 self.forget(con)
                 if con.get("id") in self.focus_order:
                     self.focus_order.remove(con["id"])
+                self.above.discard(con.get("window"))
+                self.switcher.forget(con.get("window"))
             elif change == "focus":
                 if con.get("id") in self.focus_order:
                     self.focus_order.remove(con["id"])
@@ -1078,6 +1178,7 @@ class Deskd:
                 del self.focus_order[40:]
                 if any(m.startswith(MARK_MIN) for m in (con.get("marks") or [])):
                     GLib.idle_add(lambda cid=con["id"]: self.unminimize(cid) and False)
+                GLib.idle_add(self.focus_modal, con.get("id"), con.get("window"))
                 self.passthrough_for(con)
         elif name == "workspace":
             current = (ev.get("current") or {}).get("num")
@@ -1182,7 +1283,8 @@ class Deskd:
         can be seen and grabbed."""
         tree = self.i3.tree()
         node, parent = find(tree, cid)
-        if not node or not parent or parent.get("type") != "floating_con" or self.is_fitted(node):
+        if not node or not parent or parent.get("type") != "floating_con" or self.is_fitted(node) \
+                or node.get("fullscreen_mode"):
             return
         ws = i3ipc.workspace_of(tree, cid)
         area = self.workarea(self.con_output(cid))
@@ -1301,8 +1403,32 @@ class Deskd:
                     if child[0].id in order and parent[0].id in order and \
                             order.index(child[0].id) < order.index(parent[0].id):
                         child[0].configure(sibling=parent[0], stack_mode=X.Above)
+            self.raise_above(clients, node)
         except error.XError:
             pass
+
+    def raise_above(self, clients, focused):
+        """Windows that asked to stay on top (KWin's Above layer) go over every other
+        window of the workspace - except over a focused full-screen one, which KWin puts
+        higher still (a video you are watching is not covered by a picture-in-picture)."""
+        tops = [self.frame_of(w)[0] for w in clients if w in self.above and self.frame_of(w)]
+        if not tops or focused.get("fullscreen_mode"):
+            return
+        top_ids = {f.id for f in tops}
+        frames = {self.frame_of(w)[0].id for w in clients if self.frame_of(w)}
+        order = [w.id for w in self.xs.root.query_tree().children if w.id in frames]
+        others = [i for i, wid in enumerate(order) if wid not in top_ids]
+        if not others:
+            return
+        highest = others[-1]
+        anchor = self.xs.d.create_resource_object("window", order[highest])
+        for f in sorted(tops, key=lambda f: order.index(f.id) if f.id in order else -1):
+            if f.id in order and order.index(f.id) < highest:
+                f.configure(sibling=anchor, stack_mode=X.Above)
+                anchor = f
+                for win, info, _ in self.handles:
+                    if info and info.get("frame") == f:
+                        win.configure(sibling=f, stack_mode=X.Above)
 
     def dialog_owners(self, wid, clients):
         """The windows a dialog must stay above. Normally its WM_TRANSIENT_FOR. A modal
@@ -1409,6 +1535,8 @@ class Deskd:
         ids = set(self.handle_by_win) | set(self.click_by_win) | set(self.strip_by_win)
         if self.ws_mark is not None:
             ids.add(self.ws_mark.win.id)
+        if self.switcher.win is not None:
+            ids.add(self.switcher.win.id)
         for name in ("preview", "targets"):
             holder = getattr(self, name, None)
             if isinstance(holder, dict):
@@ -1490,6 +1618,7 @@ class Deskd:
                 r = fl["rect"]
                 x, y, w, h, t = r["x"], r["y"], r["width"], r["height"], HANDLE
                 frame = self.floating_frame(fl)
+                xid = next((leaf["window"] for leaf, _ in walk(fl) if leaf.get("window")), None)
                 ring = [((x - t, y - t, t, t), "tl", "tl"), ((x, y - t, w, t), "t", "t"),
                         ((x + w, y - t, t, t), "tr", "tr"), ((x + w, y, t, h), "r", "r"),
                         ((x + w, y + h, t, t), "br", "br"), ((x, y + h, w, t), "b", "b"),
@@ -1502,7 +1631,7 @@ class Deskd:
                     if cw <= 0 or ch <= 0:
                         continue              # a maximized window's edge: nothing to grab there
                     specs.append(((cx, cy, cw, ch), cur, {"kind": "float", "con": fl["id"], "edges": edges,
-                                                          "rect": dict(r), "frame": frame}))
+                                                          "rect": dict(r), "frame": frame, "xid": xid}))
         # reuse windows; create or destroy the difference
         while len(self.handles) < len(specs):
             w = self.xs.window(self.xs.root, 0, 0, 1, 1, input_only=True,
@@ -1564,6 +1693,8 @@ class Deskd:
                 return None
             if self.ws_mark is not None and wid == self.ws_mark.win.id:
                 return self.ws_mark.draw()
+            if self.switcher.win is not None and wid == self.switcher.win.id:
+                return self.switcher.draw()
             if wid in self.click_by_win:
                 # the strip's click layer covers the panel, so the pointer is followed
                 # here as well - otherwise the veil would never see the numbers
@@ -1645,7 +1776,8 @@ class Deskd:
         if e.type == X.ButtonPress and e.detail == 1:
             if DEBUG:
                 log("handle press", info["edges"], info["con"], e.root_x, e.root_y)
-            self.resizing = {"info": info, "x": e.root_x, "y": e.root_y, "last": None}
+            self.resizing = {"info": info, "x": e.root_x, "y": e.root_y, "last": None,
+                             "min": self.min_frame_size(info)}
         elif e.type == X.MotionNotify and self.resizing:
             self.resizing["pos"] = (e.root_x, e.root_y)
             if not self.resizing.get("timer"):
@@ -1655,6 +1787,21 @@ class Deskd:
             self.apply_resize(final=True)
             self.resizing = None
             self.schedule_refresh()
+
+    def min_frame_size(self, info):
+        """The smallest frame the window may be resized to: the app's minimum size
+        (WM_NORMAL_HINTS) plus i3's title bar and borders, and never under 160x100."""
+        min_w, min_h = 160, 100
+        try:
+            client = self.xs.d.create_resource_object("window", info["xid"])
+            hints = client.get_wm_normal_hints()
+            g = client.get_geometry()
+            dw, dh = info["rect"]["width"] - g.width, info["rect"]["height"] - g.height
+            if hints and hints.flags & Xutil.PMinSize:
+                min_w, min_h = max(min_w, hints.min_width + dw), max(min_h, hints.min_height + dh)
+        except (error.XError, KeyError, TypeError, AttributeError):
+            pass
+        return min_w, min_h
 
     def apply_resize(self, final=False):
         r = self.resizing
@@ -1668,15 +1815,19 @@ class Deskd:
         dx, dy = px - r["x"], py - r["y"]
         rect, edges = info["rect"], info["edges"]
         x, y, w, h = rect["x"], rect["y"], rect["width"], rect["height"]
+        min_w, min_h = r["min"]
+        # the app's own minimum size holds (WM_NORMAL_HINTS): a left or top edge pulled
+        # past it stops there, instead of the whole window sliding along with the pointer
         if "l" in edges:
-            x, w = x + dx, w - dx
+            w = max(min_w, w - dx)
+            x = rect["x"] + rect["width"] - w
         if "r" in edges:
-            w = w + dx
+            w = max(min_w, w + dx)
         if "t" in edges:
-            y, h = y + dy, h - dy
+            h = max(min_h, h - dy)
+            y = rect["y"] + rect["height"] - h
         if "b" in edges:
-            h = h + dy
-        w, h = max(160, w), max(100, h)
+            h = max(min_h, h + dy)
         key = (x, y, w, h)
         if key != r["last"]:
             if r["last"] is None:
@@ -1698,6 +1849,14 @@ class Deskd:
             self.minimize(con["id"])
         elif e.client_type == self.A["_NET_WM_STATE"]:
             maxed = {self.A["_NET_WM_STATE_MAXIMIZED_VERT"], self.A["_NET_WM_STATE_MAXIMIZED_HORZ"]}
+            above = self.A["_NET_WM_STATE_ABOVE"]
+            if above in (data[1], data[2]):
+                # "keep above" asked while the window is up (Telegram's pin on a call)
+                wid = con.get("window")
+                on = {0: False, 1: True}.get(data[0], wid not in self.above)
+                (self.above.add if on else self.above.discard)(wid)
+                self.set_net_state(wid, above, on)
+                self.schedule_refresh()
             if data[1] in maxed or data[2] in maxed:
                 action = data[0]       # 0 remove, 1 add, 2 toggle
                 is_max = self.is_maximized(con)
@@ -1893,8 +2052,10 @@ class Deskd:
             if n.get("window") and n["id"] != cid and \
                     (n.get("window_properties") or {}).get("transient_for") == node.get("window"):
                 self.cmd(f"[con_id={n['id']}] mark --add {MARK_MIN}_{n['id']}, move scratchpad")
-        if not self.saved(cid):
-            self.set_saved(cid, self.remember(cid))
+        saved = self.saved(cid) or self.remember(cid) or {}
+        ws = i3ipc.workspace_of(tree, cid)
+        saved["ws"] = ws["name"] if ws else None          # Alt+Tab there still lists it
+        self.set_saved(cid, saved)
         self.cmd(f"[con_id={cid}] mark --add {MARK_MIN}_{cid}, move scratchpad")
 
     def unminimize(self, cid):
@@ -1944,8 +2105,8 @@ class Deskd:
             return
         _, parent = find(tree, target["id"])
         frame = parent["rect"] if parent is not None and parent.get("type") == "floating_con" else target["rect"]
-        self.drag = {"con": target["id"], "x0": x, "y0": y, "moving": False, "zone": None,
-                     "button": button, "mask": bmask,
+        self.drag = {"con": target["id"], "xid": target.get("window"), "x0": x, "y0": y, "moving": False,
+                     "zone": None, "button": button, "mask": bmask,
                      "rect": dict(frame), "fitted": self.is_fitted(target)}
         GLib.timeout_add(POLL_MS, self.drag_poll)
 
@@ -1961,6 +2122,12 @@ class Deskd:
             self.toggle_maximize(cid)
 
     def drag_poll(self):
+        """One frame of a drag. The window is moved by moving i3's frame window directly
+        (one X request, as KWin does), not with an i3 command per frame: each of those
+        was a round trip through i3 - parse, re-render, a synthetic configure to the app -
+        and that is what made a window lag behind the pointer while the browser kept the
+        X server busy. i3 learns the final place once, when the window is let go; until
+        then it has nothing to redraw, because its own idea of the window did not change."""
         d = self.drag
         if not d:
             return False
@@ -1972,32 +2139,71 @@ class Deskd:
             if abs(x - d["x0"]) + abs(y - d["y0"]) < DRAG_START:
                 return True
             self.drag_begin(x, y)
-        nx, ny = self.inside_workarea(x - d["off_x"], y - d["off_y"])
+        nx, ny = self.magnet(x - d["off_x"], y - d["off_y"], x, y)
+        nx, ny = self.inside_workarea(nx, ny, x, y)
         if (nx, ny) != d.get("pos"):
-            self.cmd(f'[con_id={d["con"]}] move position {nx} px {ny} px')
             d["pos"] = (nx, ny)
+            try:
+                d["frame"].configure(x=nx + d["dx"], y=ny + d["dy"])
+            except (error.XError, KeyError, AttributeError):
+                self.cmd(f'[con_id={d["con"]}] move position {nx} px {ny} px')
         self.drag_zone(x, y)
         self.pump()
         return True
 
-    def inside_workarea(self, x, y):
+    def area_at(self, x, y):
+        """The work area of the screen under (x, y), from the list taken at drag start."""
+        d = self.drag
+        out = self.output_rect_at(x, y)
+        areas = d.get("areas", {}) if d else {}
+        return areas.get(out["name"]) if out else None
+
+    def inside_workarea(self, x, y, px, py):
         """Where a dragged window is allowed to be: its title bar stays on the screen.
         The panel is always on top, so a window pushed against it stops at its edge
         instead of sliding underneath; at the bottom the window may hang off the
         screen, as in Windows, as long as DRAG_KEEP px of it stay reachable. (Keeping
         the whole window inside meant a window nearly as tall as the screen could
-        hardly be moved down at all.) The area is measured once, when the drag starts."""
-        d = self.drag
-        area = d.get("area") if d else None
+        hardly be moved down at all.) The screen is the one under the pointer."""
+        area = self.area_at(px, py) or (self.drag or {}).get("area")
         if not area:
             return x, y
         return x, max(area["y"], min(y, area["y"] + area["height"] - DRAG_KEEP))
+
+    def magnet(self, x, y, px, py):
+        """Magnetic edges while dragging (KWin's border and window snap zones): an edge
+        of the window within SNAP_ZONE px of the work area's edge or of another
+        window's facing edge jumps onto it, so windows line up without pixel hunting.
+        Each axis on its own, the nearest candidate wins."""
+        d = self.drag
+        w, h = d["size"]
+        area = self.area_at(px, py)
+        xs, ys = [], []
+        if area:
+            xs += [area["x"], area["x"] + area["width"] - w]
+            ys += [area["y"], area["y"] + area["height"] - h]
+        for rx, ry, rw, rh in d["others"]:
+            if ry < y + h and y < ry + rh:                 # side by side: left/right edges meet
+                xs += [rx + rw, rx - w]
+            if rx < x + w and x < rx + rw:                 # one above the other
+                ys += [ry + rh, ry - h]
+        bx = min(xs, key=lambda c: abs(c - x), default=x)
+        by = min(ys, key=lambda c: abs(c - y), default=y)
+        return (bx if abs(bx - x) <= SNAP_ZONE else x), (by if abs(by - y) <= SNAP_ZONE else y)
 
     def drag_begin(self, x, y):
         d = self.drag
         d["moving"] = True
         cid, r = d["con"], d["rect"]
-        d["area"] = self.workarea(self.con_output(cid))     # measured once, used every frame
+        # measured once, used every frame: the work areas, the other windows' frames
+        d["area"] = self.workarea(self.con_output(cid))
+        d["areas"] = {w["output"]: w["rect"] for w in self.workspaces() if w["visible"]}
+        d["others"] = []
+        for ws in self.visible_workspaces(self.workspaces()):
+            for fl in ws.get("floating_nodes", []):
+                if fl["id"] != cid and not any(n["id"] == cid for n, _ in walk(fl)):
+                    fr = fl["rect"]
+                    d["others"].append((fr["x"], fr["y"], fr["width"], fr["height"]))
         # where the window was when it was picked up: dropped at an edge, "restore"
         # brings it back here - not to the spot where it was let go, half off the screen
         d["saved"] = {"mode": "floating", "rect": [r["x"], r["y"], r["width"], r["height"]]}
@@ -2012,9 +2218,61 @@ class Deskd:
             else:
                 w, h = max(400, int(r["width"] * 0.6)), max(300, int(r["height"] * 0.6))
             self.cmd(f"[con_id={cid}] {self.unfit(cid)}, resize set {w} px {h} px")
+        d["size"] = (w, h)
+        # the X frame to move, and where it sits against i3's rectangle (normally 0, 0)
+        fr = self.frame_of(d["xid"]) if d.get("xid") else None
+        d["frame"], d["dx"], d["dy"] = (fr[0] if fr else None), 0, 0
+        if fr:
+            try:
+                g = fr[0].get_geometry()
+                d["dx"], d["dy"] = g.x - r["x"], g.y - r["y"]
+            except error.XError:
+                d["frame"] = None
         frac = (d["x0"] - r["x"]) / max(1, r["width"])
         d["off_x"], d["off_y"] = int(w * frac), d["y0"] - r["y"]
         self.show_targets()
+
+    def drop_kind(self, out, x, y):
+        """The fit a pointer at (x, y) on screen `out` asks for: "max" at the top edge, a
+        half at a side, a quarter near a corner (the last CORNER share of an edge -
+        a 3 px corner square was hard to hit), None in the open."""
+        o = out["rect"]
+        top, bottom = y <= o["y"] + EDGE, y >= o["y"] + o["height"] - 1 - EDGE
+        left, right = x <= o["x"] + EDGE, x >= o["x"] + o["width"] - 1 - EDGE
+        near_top = y < o["y"] + o["height"] * CORNER
+        near_bottom = y > o["y"] + o["height"] * (1 - CORNER)
+        near_left = x < o["x"] + o["width"] * CORNER
+        near_right = x > o["x"] + o["width"] * (1 - CORNER)
+        if (left and near_top) or (top and near_left):
+            return "tl"
+        if (right and near_top) or (top and near_right):
+            return "tr"
+        if (left and near_bottom) or (bottom and near_left):
+            return "bl"
+        if (right and near_bottom) or (bottom and near_right):
+            return "br"
+        if top:
+            return "max"
+        if left:
+            return "left"
+        if right:
+            return "right"
+        return None
+
+    def inner_edge(self, out, x, y):
+        """Is the pointer at an edge another screen continues past? Crossing to that
+        screen must not snap the window on the way (KWin waits 250 ms there)."""
+        o = out["rect"]
+        probes = []
+        if x <= o["x"] + EDGE:
+            probes.append((o["x"] - 1 - EDGE, y))
+        if x >= o["x"] + o["width"] - 1 - EDGE:
+            probes.append((o["x"] + o["width"] + EDGE, y))
+        if y <= o["y"] + EDGE:
+            probes.append((x, o["y"] - 1 - EDGE))
+        if y >= o["y"] + o["height"] - 1 - EDGE:
+            probes.append((x, o["y"] + o["height"] + EDGE))
+        return any(self.output_rect_at(px, py) for px, py in probes)
 
     def drag_zone(self, x, y):
         """Which drop zone the pointer is in, and its preview rectangle."""
@@ -2025,26 +2283,18 @@ class Deskd:
         if ws_hit is not None:
             zone = ("ws", ws_hit)
         elif out:
-            o = out["rect"]
-            area = self.workarea(out["name"]) or o
-            top, bottom = y <= o["y"] + EDGE, y >= o["y"] + o["height"] - 1 - EDGE
-            left, right = x <= o["x"] + EDGE, x >= o["x"] + o["width"] - 1 - EDGE
-            kind = None
-            if top and left:
-                kind = "tl"
-            elif top and right:
-                kind = "tr"
-            elif bottom and left:
-                kind = "bl"
-            elif bottom and right:
-                kind = "br"
-            elif top:
-                kind = "max"
-            elif left:
-                kind = "left"
-            elif right:
-                kind = "right"
+            kind = self.drop_kind(out, x, y)
+            if kind and self.inner_edge(out, x, y):
+                now = time.monotonic()
+                key = (out["name"], kind)
+                if d.get("dwell", (None, 0))[0] != key:
+                    d["dwell"] = (key, now)
+                if now - d["dwell"][1] < INNER_EDGE_S:
+                    kind = None
+            else:
+                d["dwell"] = (None, 0)
             if kind:
+                area = self.workarea(out["name"]) or out["rect"]
                 zone, rect = (kind,), self.fit_rect(area, kind)
         if zone != d["zone"]:
             d["zone"] = zone
@@ -2060,11 +2310,22 @@ class Deskd:
             return
         cid, zone, saved = d["con"], d["zone"], d.get("saved")
         kind = zone[0] if zone else None
+        if d.get("pos") and kind != "ws":
+            # i3 hears where the window is now (the frame was moved behind its back);
+            # this also moves it to the workspace of the screen it was dropped on
+            self.cmd(f'[con_id={cid}] move position {d["pos"][0]} px {d["pos"][1]} px')
         if kind == "max":
             self.maximize(cid, saved)
         elif kind in ("left", "right", "tl", "tr", "bl", "br"):
             self.snap(cid, kind, saved)
         elif kind == "ws":
+            # it lands on that workspace where it was picked up, not up on the panel: the
+            # frame goes back to the spot i3 still has for it, then the window moves
+            if d.get("frame") is not None:
+                try:
+                    d["frame"].configure(x=d["rect"]["x"] + d["dx"], y=d["rect"]["y"] + d["dy"])
+                except error.XError:
+                    pass
             self.cmd(f"[con_id={cid}] move container to workspace number {zone[1]}")
             self.set_saved(cid, None)
         else:
@@ -2075,11 +2336,15 @@ class Deskd:
 
     def clamp_floating(self, cid):
         """A window that just became floating must be reachable: title bar below the
-        panel, and no bigger than the screen area (Firefox used to end up under it)."""
+        panel, and no bigger than the screen area (Firefox used to end up under it).
+        A window that opened full screen is the app's own choice and stays so:
+        Telegram shows a photo full screen, and this used to turn the viewer into a
+        maximized window with a title bar, which the main window could then cover."""
         if self.drag:
             return False
         node, parent = find(self.i3.tree(), cid)
-        if not parent or parent.get("type") != "floating_con" or self.is_fitted(node):
+        if not parent or parent.get("type") != "floating_con" or self.is_fitted(node) \
+                or node.get("fullscreen_mode"):
             return False
         area = self.workarea(self.con_output(cid))
         if not area:
@@ -2717,63 +2982,122 @@ class Deskd:
             self.minimize(cid)
         elif what == "key" and len(args) > 1:
             k = args[1]
-            if k == "up":
-                if not self.is_maximized(node):
-                    self.maximize(cid)
-            elif k == "down":
-                if node.get("fullscreen_mode"):
-                    self.cmd(f"[con_id={cid}] fullscreen disable")
-                elif self.is_fitted(node):
-                    self.restore(cid)
-                else:
-                    self.minimize(cid)
-            elif k in ("left", "right"):
-                self.snap(cid, k)
-            elif k in ("shift-left", "shift-right"):
+            if k in ("shift-left", "shift-right"):
                 self.to_output(cid, k.split("-")[1])
+            elif node.get("fullscreen_mode") and k == "down":
+                self.cmd(f"[con_id={cid}] fullscreen disable")
+            else:
+                self.arrow(cid, node, k)
         self.schedule_refresh()
 
-    def to_output(self, cid, direction):
+    def to_output(self, cid, direction, side=None):
         """Super+Shift+Left/Right as in Windows: the window goes to the screen on that
-        side, and stays maximized / snapped there if it was."""
+        side, and stays maximized / snapped there if it was (`side` asks for another
+        half or quarter there instead)."""
         node, _ = find(self.i3.tree(), cid)
         if node is None:
-            return
+            return False
         before = self.con_output(cid)
         self.cmd(f"[con_id={cid}] move container to output {direction}, focus")
         if self.con_output(cid) == before:
-            return
-        side = self.snapped_side(node)
-        if self.is_maximized(node):
-            self.maximize(cid, self.saved(cid))
-        elif side:
+            return False
+        side = side or self.snapped_side(node)
+        if side:
             self.snap(cid, side, self.saved(cid))
+        elif self.is_maximized(node):
+            self.maximize(cid, self.saved(cid))
         else:
             self.clamp_floating(cid)
+        return True
+
+    # Super + arrows, as in Windows 10/11 (and KWin's quick tiling): what each key does
+    # from each state. A half goes to a quarter with Up/Down, a quarter back to its half;
+    # the opposite side restores; the same side again carries the window to the next
+    # screen in that direction (">"), taking the mirrored half or quarter there.
+    ARROWS = {
+        None:    {"up": "max",   "down": "min",     "left": "left",  "right": "right"},
+        "max":   {"up": None,    "down": "restore", "left": "left",  "right": "right"},
+        "left":  {"up": "tl",    "down": "bl",      "left": ">",     "right": "restore"},
+        "right": {"up": "tr",    "down": "br",      "left": "restore", "right": ">"},
+        "tl":    {"up": "max",   "down": "left",    "left": ">",     "right": "tr"},
+        "tr":    {"up": "max",   "down": "right",   "left": "tl",    "right": ">"},
+        "bl":    {"up": "left",  "down": "min",     "left": ">",     "right": "br"},
+        "br":    {"up": "right", "down": "min",     "left": "bl",    "right": ">"},
+    }
+    MIRROR = {"left": "right", "right": "left", "tl": "tr", "tr": "tl", "bl": "br", "br": "bl"}
+
+    def arrow(self, cid, node, key):
+        state = "max" if self.is_maximized(node) else self.snapped_side(node)
+        action = self.ARROWS.get(state, self.ARROWS[None]).get(key)
+        if action is None:
+            return
+        if action == "max":
+            self.maximize(cid)
+        elif action == "min":
+            self.minimize(cid)
+        elif action == "restore":
+            self.restore(cid)
+        elif action == ">":
+            # only to a screen that really is on that side (i3 would wrap around)
+            out = next((o for o in self.outputs() if o.get("active") and o["name"] == self.con_output(cid)), None)
+            if out:
+                o = out["rect"]
+                probe = (o["x"] - 10 if key == "left" else o["x"] + o["width"] + 10, o["y"] + o["height"] // 2)
+                if self.output_rect_at(*probe):
+                    self.to_output(cid, key, self.MIRROR[state])
+        else:
+            self.snap(cid, action)
 
     def cycle(self, tree, step):
-        """Alt+Tab as in Windows: the windows of this workspace in the order they were
-        last used. One press goes to the previous window; presses within ALT_TAB_S of
-        each other walk further down the same list (the list is frozen for the round,
-        so the windows it passes through do not reshuffle it), Alt+Shift+Tab walks back."""
+        """Alt+Tab as in Windows and Plasma: while Alt is held, Tab walks the windows of
+        this workspace in the order they were last used - minimized ones included, as
+        both do - and the window is switched to when Alt is let go. A quick Alt+Tab goes
+        to the previous window without showing anything; held a moment longer, the
+        switcher shows where Tab has got to. Nothing is focused or raised on the way.
+        (The first version focused every window it passed and guessed the end of a
+        round from a 1.5 s pause; a slow second Alt+Tab went two windows back.)"""
+        r = self.alt_tab
+        if r:
+            r["idx"] = (r["idx"] + step) % len(r["order"])
+            self.switcher.select(r["idx"])
+            return
         node, _ = i3ipc.focused(tree)
         ws = i3ipc.workspace_of(tree, node["id"]) if node else None
         if not ws:
             return
-        wins = i3ipc.leaves(ws)
-        if len(wins) < 2:
+        entries = [(w, False) for w in i3ipc.leaves(ws) if w.get("window")]
+        for n, _ in walk(tree):
+            if n.get("window") and any(m.startswith(MARK_MIN) for m in n.get("marks") or []):
+                if (self.saved(n["id"]) or {}).get("ws") in (None, ws["name"]):
+                    entries.append((n, True))
+        if len(entries) < 2:
             return
+        rank = {cid: i for i, cid in enumerate(self.focus_order)}
+        focused_id = node["id"] if node.get("window") else None
+        entries.sort(key=lambda e: (e[0]["id"] != focused_id, rank.get(e[0]["id"], len(rank))))
+        order = [(n["id"], n["window"], n.get("name") or "", mini) for n, mini in entries]
+        start = 0 if focused_id is None else step
+        self.alt_tab = {"order": order, "idx": start % len(order), "since": time.monotonic(),
+                        "area": ws["rect"]}
+        GLib.timeout_add(20, self.alt_tab_poll)
+
+    def alt_tab_poll(self):
+        """Watch Alt while a round is on (20 ms, only then): released - switch."""
+        r = self.alt_tab
+        if not r:
+            return False
+        _, _, mask = self.xs.pointer()
         now = time.monotonic()
-        if self.alt_tab and now - self.alt_tab[2] < ALT_TAB_S and \
-                {w["id"] for w in wins} == {cid for cid in self.alt_tab[0]}:
-            order, idx, _ = self.alt_tab
-            idx += step
-        else:
-            rank = {cid: i for i, cid in enumerate(self.focus_order)}
-            order = [w["id"] for w in sorted(wins, key=lambda w: rank.get(w["id"], len(rank)))]
-            idx = step
-        self.alt_tab = (order, idx, now)
-        self.cmd(f'[con_id={order[idx % len(order)]}] focus')
+        if not mask & X.Mod1Mask or now - r["since"] > 60:
+            self.alt_tab = None
+            self.switcher.hide()
+            self.cmd(f'[con_id={r["order"][r["idx"]][0]}] focus')     # a minimized one comes back
+            self.pump()
+            return False
+        if not self.switcher.shown and now - r["since"] >= ALT_TAB_SHOW_S:
+            self.switcher.show([(xid, title, mini) for _, xid, title, mini in r["order"]], r["idx"], r["area"])
+            self.pump()
+        return True
 
 
 if __name__ == "__main__":

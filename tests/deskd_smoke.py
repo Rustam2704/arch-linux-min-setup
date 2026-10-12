@@ -7,8 +7,10 @@ Starts Xephyr :9, an i3 with the installed config (minus exec/include lines) and
 installed deskd with its own XDG_RUNTIME_DIR, opens kitty windows and drives them with
 xdotool and deskd's own tick commands. Checks the window engine end to end: maximize,
 drag away from the top (the window must not stay glued to the panel edge), drop at the
-left edge, restore, minimize and back, a second window of the same app, and a screen
-size change (RANDR) with a maximized window.
+left edge and in a corner, restore, minimize and back, a second window of the same app,
+Alt+Tab (with Alt held: the switcher, the switch on release), keep-above, Super+arrows,
+magnetic edges, a screen size change (RANDR) with a maximized window, and a window
+that opens full screen.
 
 The Xephyr window is moved to workspace 9 of the real i3 the moment it appears, so the
 user's workspace is not covered. Run time ~20 s. Exit code 1 on the first failed check.
@@ -20,6 +22,9 @@ import subprocess
 import sys
 import tempfile
 import time
+
+from Xlib import X as XX, display as xdisplay
+from Xlib.protocol import event as xevent
 
 DISPLAY = ":9"
 SIZE = (1600, 1000)
@@ -150,6 +155,53 @@ def marks(n):
     return n.get("marks") or []
 
 
+_xd = []
+
+
+def xconn():
+    if not _xd:
+        _xd.append(xdisplay.Display(DISPLAY))
+    return _xd[0]
+
+
+def frame_of(n):
+    return xconn().create_resource_object("window", n["window"]).query_tree().parent
+
+
+def frame_rect(n):
+    """Where the window really is on the nested screen (its i3 frame), not i3's idea."""
+    g = frame_of(n).get_geometry()
+    return {"x": g.x, "y": g.y, "width": g.width, "height": g.height}
+
+
+def stack_index(n):
+    return [w.id for w in xconn().screen().root.query_tree().children].index(frame_of(n).id)
+
+
+def set_state(n, action, atom):
+    """An EWMH _NET_WM_STATE request from the window, as an app would send it."""
+    d = xconn()
+    e = xevent.ClientMessage(window=d.create_resource_object("window", n["window"]),
+                             client_type=d.intern_atom("_NET_WM_STATE"),
+                             data=(32, [action, d.intern_atom(atom), 0, 1, 0]))
+    d.screen().root.send_event(e, event_mask=XX.SubstructureRedirectMask | XX.SubstructureNotifyMask)
+    d.flush()
+
+
+def switcher_shown():
+    for w in xconn().screen().root.query_tree().children:
+        try:
+            if (w.get_wm_class() or ("",))[0] == "deskd-switcher":
+                return w.get_attributes().map_state == XX.IsViewable
+        except Exception:
+            pass
+    return False
+
+
+def focused_id():
+    return next((n["id"] for n, _, _ in windows() if n.get("focused")), None)
+
+
 # ------------------------------------------------------------------ start everything
 say("display", DISPLAY, "runtime", run_dir)
 procs.append(subprocess.Popen(["Xephyr", DISPLAY, "-screen", f"{SIZE[0]}x{SIZE[1]}", "-resizeable",
@@ -215,7 +267,8 @@ check("maximized fills the work area", fills(f, area) and any(m.startswith("_des
 
 # ------------------------------------------------------------------ 3. drag it away from the top edge
 drag(cid, 800, 600)
-n, _, f = window(cid)
+n, _, _ = window(cid)
+f = frame_rect(n)                     # mid-drag only the X frame moves; i3 hears it on release
 check("dragged window leaves the top edge (W1)", f["y"] > 150, f"y={f['y']} h={f['height']}")
 check("dragged window has its old size back", abs(f["width"] - plain["width"]) <= 4 and abs(f["height"] - plain["height"]) <= 4,
       json.dumps(f))
@@ -223,6 +276,7 @@ release()
 n, _, f = window(cid)
 check("dropped in the open: stays there, not fitted", f["y"] > 150 and not any(m.startswith("_deskd_") for m in marks(n)),
       json.dumps(f) + " " + str(marks(n)))
+check("i3 and the screen agree on where it was dropped", fills(frame_rect(n), f), json.dumps(frame_rect(n)) + " vs " + json.dumps(f))
 before_snap = dict(f)
 
 # ------------------------------------------------------------------ 4. drop at the left edge = left half
@@ -241,12 +295,18 @@ quarter = {"x": 0, "y": area["height"] - area["height"] // 2, "width": area["wid
 check("bottom-left corner drop snaps to that quarter", fills(f, quarter) and "_deskd_snapbl_%d" % cid in marks(n),
       json.dumps(f) + " " + str(marks(n)))
 
-# ------------------------------------------------------------------ 5. restore (Super+Down)
+# ------------------------------------------------------------------ 5. quarter -> half -> restore (Super+Up, Super+Right)
 msg(f"[con_id={cid}] focus")
-tick("key down")
+tick("key up")
 time.sleep(0.6)
 n, _, f = window(cid)
-check("restore puts it back where it was", fills(f, before_snap) and not marks(n), json.dumps(f) + " vs " + json.dumps(before_snap))
+check("Super+Up on the bottom-left quarter gives the left half", fills(f, half) and "_deskd_snapleft_%d" % cid in marks(n),
+      json.dumps(f) + " " + str(marks(n)))
+tick("key right")
+time.sleep(0.6)
+n, _, f = window(cid)
+check("Super+Right on the left half restores it where it was", fills(f, before_snap) and not marks(n),
+      json.dumps(f) + " vs " + json.dumps(before_snap))
 
 # ------------------------------------------------------------------ 6. minimize and back
 tick("key down")
@@ -276,12 +336,76 @@ msg(f"[con_id={other}] focus")
 time.sleep(0.3)
 tick("cycle")
 time.sleep(0.4)
-focused = next((n["id"] for n, _, _ in windows() if n.get("focused")), None)
-check("Alt+Tab goes to the previously used window", focused == cid, str(focused))
+check("Alt+Tab goes to the previously used window", focused_id() == cid, str(focused_id()))
 tick("cycle")
 time.sleep(0.4)
-focused = next((n["id"] for n, _, _ in windows() if n.get("focused")), None)
-check("a quick second Alt+Tab walks on down the same list", focused == other, str(focused))
+check("a second Alt+Tab (Alt let go between) goes back", focused_id() == other, str(focused_id()))
+
+# ------------------------------------------------------------------ 7c. Alt held: walk, switcher, switch on release
+procs.append(subprocess.Popen(["kitty", "--class", "smoke", "--title", "smoke-3", "-o", "initial_window_width=500",
+                               "-o", "initial_window_height=300"], env=env,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+w = wait_windows(3)
+third = next(n["id"] for n, _, _ in w if n["id"] not in (cid, other))
+for c in (cid, third, other):         # most recent first: other, third, cid
+    msg(f"[con_id={c}] focus")
+    time.sleep(0.25)
+xdo("keydown", "Alt_L")
+time.sleep(0.1)
+tick("cycle")
+time.sleep(0.1)
+tick("cycle")
+time.sleep(0.4)
+check("while Alt is held the switcher shows and nothing is focused yet", switcher_shown() and focused_id() == other,
+      f"shown={switcher_shown()} focused={focused_id()}")
+xdo("keyup", "Alt_L")
+time.sleep(0.4)
+check("letting Alt go switches to the window Tab got to", focused_id() == cid and not switcher_shown(), str(focused_id()))
+
+# ------------------------------------------------------------------ 7d. keep above
+n3, _, _ = window(third)
+set_state(n3, 1, "_NET_WM_STATE_ABOVE")
+time.sleep(0.3)
+msg(f"[con_id={cid}] focus")
+time.sleep(0.5)
+n1, _, _ = window(cid)
+check("a keep-above window stays over the focused one", stack_index(n3) > stack_index(n1),
+      f"{stack_index(n3)} vs {stack_index(n1)}")
+set_state(n3, 0, "_NET_WM_STATE_ABOVE")
+msg(f"[con_id={third}] move position 1100 px 650 px")
+
+# ------------------------------------------------------------------ 7e. Super+arrows, as in Windows
+msg(f"[con_id={cid}] focus")
+time.sleep(0.2)
+start = window(cid)[2]
+steps = [("left", "left", {"x": 0, "y": 0, "width": area["width"] // 2, "height": area["height"]}),
+         ("up", "tl", {"x": 0, "y": 0, "width": area["width"] // 2, "height": area["height"] // 2}),
+         ("right", "tr", {"x": area["width"] - area["width"] // 2, "y": 0, "width": area["width"] // 2,
+                          "height": area["height"] // 2}),
+         ("down", "right", {"x": area["width"] - area["width"] // 2, "y": 0, "width": area["width"] // 2,
+                            "height": area["height"]})]
+for key, kind, rect in steps:
+    tick("key " + key)
+    time.sleep(0.5)
+    n, _, f = window(cid)
+    check(f"Super+{key} -> {kind}", fills(f, rect) and f"_deskd_snap{kind}_{cid}" in marks(n), json.dumps(f) + " " + str(marks(n)))
+tick("key left")
+time.sleep(0.5)
+n, _, f = window(cid)
+check("Super+Left on the right half restores", fills(f, start) and not marks(n), json.dumps(f) + " vs " + json.dumps(start))
+
+# ------------------------------------------------------------------ 7f. magnetic edges
+msg(f"[con_id={other}] move position 100 px 100 px, resize set 400 px 300 px")
+time.sleep(0.4)
+fo = window(other)[2]
+n, _, f = window(cid)
+deco = n["deco_rect"]["height"] or 30
+want_x = fo["x"] + fo["width"] + 9          # 9 px short of touching: within the zone
+drag(cid, f["x"] + f["width"] // 2 + (want_x - f["x"]), fo["y"] + 40 + deco // 2)
+release()
+f = window(cid)[2]
+check("a window dragged near another's edge sticks to it", f["x"] == fo["x"] + fo["width"],
+      f"x={f['x']} want {fo['x'] + fo['width']}")
 
 # ------------------------------------------------------------------ 8. screen size change with a maximized window
 msg(f"[con_id={cid}] focus")
@@ -295,6 +419,16 @@ time.sleep(2.5)
 n, _, f = window(cid)
 new_area = {"x": 0, "y": 0, "width": 1200, "height": 800}
 check("maximized window refits after a screen change", fills(f, new_area), json.dumps(f) + " " + str(marks(n)))
+
+# ------------------------------------------------------------------ 9. an app's own full screen stays
+procs.append(subprocess.Popen(["kitty", "--class", "smoke", "--title", "smoke-fs", "--start-as", "fullscreen"], env=env,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+w = wait_windows(4)
+time.sleep(0.6)
+fs = next((n for n, _, _ in windows() if n.get("name") == "smoke-fs"), None)
+check("a window opening full screen is left full screen (Telegram's photo viewer)",
+      fs is not None and fs.get("fullscreen_mode") == 1 and not marks(fs),
+      str(fs and (fs.get("fullscreen_mode"), marks(fs))))
 
 say("done:", "all checks passed" if not failed else f"{len(failed)} failed: {failed}")
 finish(1 if failed else 0)
