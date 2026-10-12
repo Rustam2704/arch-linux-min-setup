@@ -420,6 +420,24 @@ n, _, f = window(cid)
 new_area = {"x": 0, "y": 0, "width": 1200, "height": 800}
 check("maximized window refits after a screen change", fills(f, new_area), json.dumps(f) + " " + str(marks(n)))
 
+# ------------------------------------------------------------------ 8b. the left edge grows the window to the left
+msg(f"[con_id={cid}] focus")
+tick("key down")                       # out of the maximized state
+time.sleep(0.6)
+msg(f"[con_id={cid}] resize set 600 px 400 px, move position 500 px 200 px")
+time.sleep(0.8)
+n, _, f = window(cid)
+px, py = f["x"] - 5, f["y"] + f["height"] // 2
+xdo("mousemove", str(px), str(py)); time.sleep(0.2); xdo("mousedown", "1")
+for i in range(1, 11):
+    xdo("mousemove", str(px - 10 * i), str(py)); time.sleep(0.04)
+time.sleep(0.2)
+release()
+n, _, g = window(cid)
+check("pulling the left edge widens the window to the left, the right edge stays",
+      abs(g["x"] - (f["x"] - 100)) <= 3 and abs(g["x"] + g["width"] - (f["x"] + f["width"])) <= 3,
+      json.dumps(f) + " -> " + json.dumps(g))
+
 # ------------------------------------------------------------------ 9. an app's own full screen stays
 procs.append(subprocess.Popen(["kitty", "--class", "smoke", "--title", "smoke-fs", "--start-as", "fullscreen"], env=env,
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))

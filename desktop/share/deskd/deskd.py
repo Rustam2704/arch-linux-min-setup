@@ -776,6 +776,10 @@ class Deskd:
             watch += self.children(frame)
             veil = self.veils.get(frame.id)
             if veil is None or not veil.matches(geom):
+                if veil is not None:                  # the panel changed size: the old veil goes
+                    veil.set_visible(False)
+                    veil.win.destroy()
+                    self.xs.gc_cache.pop(veil.win.id, None)
                 self.veils[frame.id] = PanelDim(self.xs, geom)
                 if self.sharing:
                     self.veils[frame.id].set_visible(False)
@@ -929,7 +933,8 @@ class Deskd:
         title = con.get("name") or ""
         if con.get("window_type") in ("dialog", "utility", "notification", "tooltip", "popup_menu", "dock",
                                       "unknown") \
-                or props.get("transient_for") or "Picture-in-Picture" in title:
+                or props.get("transient_for") or "Picture-in-Picture" in title \
+                or props.get("class") == "Xfce4-panel":         # the panel's own windows belong everywhere
             return
         log("unsticking", props.get("class"), title[:40])
         self.cmd(f'[con_id={con["id"]}] sticky disable')
@@ -1018,6 +1023,11 @@ class Deskd:
                     for p in prefixes:
                         if m.startswith(p + "_") and m != f"{p}_{n['id']}":
                             self.cmd(f'[con_id={n["id"]}] unmark {m}, mark --add {p}_{n["id"]}')
+                            old = m[len(p) + 1:]           # the saved place moves with it
+                            wins = self.state.setdefault("windows", {})
+                            if old in wins and str(n["id"]) not in wins:
+                                wins[str(n["id"])] = wins.pop(old)
+                                self.save_state()
         except Exception as e:                       # noqa: BLE001
             log("mark check failed:", e)
 
@@ -1029,7 +1039,11 @@ class Deskd:
         try:
             tree = self.i3.tree()
             ws = i3ipc.workspace_of(tree, cid)
-            if not ws:
+            node, _ = find(tree, cid)
+            # only while the click's window is still the focused one on a real workspace:
+            # run late, after it was minimized, this "focused" the dialog out of the
+            # scratchpad and the dialog came back on its own
+            if not ws or (ws.get("num") or 0) <= 0 or not node or not node.get("focused"):
                 return False
             clients = {n["window"]: n for n, _ in walk(ws) if n.get("window")}
             for other, n in clients.items():
@@ -1171,6 +1185,7 @@ class Deskd:
                     self.focus_order.remove(con["id"])
                 self.above.discard(con.get("window"))
                 self.switcher.forget(con.get("window"))
+                self.drop_from_round(con.get("id"))
             elif change == "focus":
                 if con.get("id") in self.focus_order:
                     self.focus_order.remove(con["id"])
@@ -1248,9 +1263,11 @@ class Deskd:
         if hint and time.monotonic() - hint[1] < 20:
             want = hint[0]                                  # Ctrl + panel button: here
         else:
+            # minimized windows do not count: their "workspace" is the scratchpad (-1)
             others = [n for n, _ in walk(tree)
                       if n.get("window") and n["id"] != cid
-                      and ((n.get("window_properties") or {}).get("class") or "").lower() == cls]
+                      and ((n.get("window_properties") or {}).get("class") or "").lower() == cls
+                      and ((i3ipc.workspace_of(tree, n["id"]) or {}).get("num") or 0) > 0]
             if not others:
                 home = self.favorite_homes().get(cls)       # the app's first window: its home, if pinned
                 if home:
@@ -1618,7 +1635,12 @@ class Deskd:
                 r = fl["rect"]
                 x, y, w, h, t = r["x"], r["y"], r["width"], r["height"], HANDLE
                 frame = self.floating_frame(fl)
-                xid = next((leaf["window"] for leaf, _ in walk(fl) if leaf.get("window")), None)
+                # the window's own container: it carries the marks and the saved place, and
+                # i3 moves only it - "[con_id=<the floating wrapper>] move position" is
+                # refused, which made a left or top edge grow the window right or down
+                leaf = next((n for n, _ in walk(fl) if n.get("window")), None)
+                if leaf is None:
+                    continue
                 ring = [((x - t, y - t, t, t), "tl", "tl"), ((x, y - t, w, t), "t", "t"),
                         ((x + w, y - t, t, t), "tr", "tr"), ((x + w, y, t, h), "r", "r"),
                         ((x + w, y + h, t, t), "br", "br"), ((x, y + h, w, t), "b", "b"),
@@ -1630,8 +1652,8 @@ class Deskd:
                     ch = min(gy + gh, area["y"] + area["height"]) - cy
                     if cw <= 0 or ch <= 0:
                         continue              # a maximized window's edge: nothing to grab there
-                    specs.append(((cx, cy, cw, ch), cur, {"kind": "float", "con": fl["id"], "edges": edges,
-                                                          "rect": dict(r), "frame": frame, "xid": xid}))
+                    specs.append(((cx, cy, cw, ch), cur, {"kind": "float", "con": leaf["id"], "edges": edges,
+                                                          "rect": dict(r), "frame": frame, "xid": leaf["window"]}))
         # reuse windows; create or destroy the difference
         while len(self.handles) < len(specs):
             w = self.xs.window(self.xs.root, 0, 0, 1, 1, input_only=True,
@@ -1933,7 +1955,7 @@ class Deskd:
         """The i3 commands that make a window plain again: neither maximized nor snapped."""
         return ", ".join([f"unmark {MARK_MAX}_{cid}"] + [f"unmark {MARK_SNAP}{k}_{cid}" for k in SNAP_KINDS])
 
-    def fit(self, cid, rect, mark, saved=None):
+    def fit(self, cid, rect, mark, saved=None, focus=True):
         """ONE engine for maximize and for snapping to a half of the screen: the window
         becomes a floating one filling `rect`, carrying `mark`; where it was before is
         kept so that restore - or dragging it away - gives that place back. Going from
@@ -1950,7 +1972,8 @@ class Deskd:
         self.cmd(f"[con_id={cid}] floating enable, {self.unfit(cid)}, mark --add {mark}_{cid}, "
                  f"move position {x} px {y} px, resize set {w} px {h} px")
         self.fit_floating(cid, (x, y, w, h))
-        self.cmd(f"[con_id={cid}] focus")
+        if focus:
+            self.cmd(f"[con_id={cid}] focus")
 
     @staticmethod
     def fit_rect(area, kind):
@@ -1963,19 +1986,19 @@ class Deskd:
                 "tl": (x, y, hw, hh), "tr": (x + w - hw, y, hw, hh),
                 "bl": (x, y + h - hh, hw, hh), "br": (x + w - hw, y + h - hh, hw, hh)}[kind]
 
-    def maximize(self, cid, saved=None):
+    def maximize(self, cid, saved=None, focus=True):
         output = self.con_output(cid)
         area = self.workarea(output) if output else None
         if area:
-            self.fit(cid, self.fit_rect(area, "max"), MARK_MAX, saved)
+            self.fit(cid, self.fit_rect(area, "max"), MARK_MAX, saved, focus)
 
-    def snap(self, cid, side, saved=None):
+    def snap(self, cid, side, saved=None, focus=True):
         """The window fills a half (Super+Left/Right, or dropped at that edge) or a
         quarter (dropped in a corner) of the work area."""
         output = self.con_output(cid)
         area = self.workarea(output) if output else None
         if area:
-            self.fit(cid, self.fit_rect(area, side), MARK_SNAP + side, saved)
+            self.fit(cid, self.fit_rect(area, side), MARK_SNAP + side, saved, focus)
 
     def fit_floating(self, cid, target):
         """i3 sizes floating windows without decorations; correct once to the exact frame."""
@@ -2025,12 +2048,32 @@ class Deskd:
                 return
             w, h = int(area["width"] * 0.6), int(area["height"] * 0.7)
             rect = [area["x"] + (area["width"] - w) // 2, area["y"] + (area["height"] - h) // 2, w, h]
+        else:
+            rect = self.onto_screen(rect, self.workarea(self.con_output(cid)))
         x, y, w, h = rect
         self.cmd(f"[con_id={cid}] {self.unfit(cid)}, unmark {MARK_MIN}_{cid}, floating enable, "
                  f"resize set {w} px {h} px, move position {x} px {y} px")
         self.fit_floating(cid, (x, y, w, h))
         self.set_saved(cid, None)
         self.cmd(f"[con_id={cid}] focus")
+
+    @staticmethod
+    def onto_screen(rect, area):
+        """A remembered place made valid for the screen the window is on now. Remembered
+        on another screen (maximized there, then moved with Super+Shift+arrow, or the
+        monitor unplugged): the same size, centred here - i3 refused the old place, or
+        moved the window back to the old screen. Then no bigger than the work area, and
+        the title bar on it (the resolution may have changed meanwhile)."""
+        if not area or not rect:
+            return rect
+        x, y, w, h = rect
+        ax, ay, aw, ah = area["x"], area["y"], area["width"], area["height"]
+        if not (ax <= x + w // 2 < ax + aw and ay <= y + 15 < ay + ah):
+            x, y = ax + (aw - w) // 2, ay + (ah - h) // 2
+        w, h = min(w, aw), min(h, ah)
+        x = min(max(x, ax - w + 100), ax + aw - 100)       # 100 px of the title bar stay reachable
+        y = min(max(y, ay), ay + ah - DRAG_KEEP)
+        return [x, y, w, h]
 
     def minimize(self, cid):
         tree = self.i3.tree()
@@ -2058,10 +2101,26 @@ class Deskd:
         self.set_saved(cid, saved)
         self.cmd(f"[con_id={cid}] mark --add {MARK_MIN}_{cid}, move scratchpad")
 
+    def minimized_owner(self, tree, node):
+        """The minimized window a dialog belongs to, if it is one: the dialog comes back
+        only with it (and then on top), never on its own in front of an empty spot."""
+        owner = (node.get("window_properties") or {}).get("transient_for")
+        main = next((n for n, _ in walk(tree) if owner and n.get("window") == owner), None)
+        if main is not None and main["id"] != node["id"] and \
+                any(m.startswith(MARK_MIN) for m in (main.get("marks") or [])):
+            return main
+        return None
+
     def unminimize(self, cid):
-        node, _ = find(self.i3.tree(), cid)
+        tree = self.i3.tree()
+        node, _ = find(tree, cid)
         if node is None or not any(m.startswith(MARK_MIN) for m in (node.get("marks") or [])):
             return
+        main = self.minimized_owner(tree, node)
+        if main is not None:
+            if (i3ipc.workspace_of(tree, main["id"]) or {}).get("num", -1) < 0:
+                self.cmd(f"[con_id={main['id']}] scratchpad show")
+            return self.unminimize(main["id"])
         self.cmd(f"[con_id={cid}] unmark {MARK_MIN}_{cid}")
         side = self.snapped_side(node)
         if self.is_maximized(node):
@@ -2078,12 +2137,18 @@ class Deskd:
                 self.cmd(f"[con_id={n['id']}] unmark {MARK_MIN}_{n['id']}, scratchpad show, floating enable, focus")
 
     def unminimize_last(self):
+        """Super+Shift+-: the most recently used minimized window comes back (its dialogs
+        with it); before, it was whichever the tree listed first - a dialog, say."""
         tree = self.i3.tree()
-        for node, _ in walk(tree):
-            if any(m.startswith(MARK_MIN) for m in (node.get("marks") or [])):
-                self.cmd(f"[con_id={node['id']}] scratchpad show")
-                self.unminimize(node["id"])
-                return
+        rank = {cid: i for i, cid in enumerate(self.focus_order)}
+        mins = [n for n, _ in walk(tree) if n.get("window")
+                and any(m.startswith(MARK_MIN) for m in (n.get("marks") or []))
+                and self.minimized_owner(tree, n) is None]
+        if mins:
+            node = min(mins, key=lambda n: rank.get(n["id"], len(rank)))
+            self.cmd(f"[con_id={node['id']}] scratchpad show")
+            self.unminimize(node["id"])
+            return
         self.cmd("scratchpad show")
 
     # ------------------------------------------------------------ title bar: clicks and drags
@@ -2607,6 +2672,7 @@ class Deskd:
         self.busy_outputs = {outputs.get(ws.get("name")) for ws in self.visible_workspaces(workspaces)
                              if any(n.get("fullscreen_mode") and n.get("window") for n, _ in walk(ws))}
         busy = self.busy_outputs
+        front = next((w["output"] for w in workspaces if w.get("focused")), None)
         for frame, geom in self.dock_frames():
             veil = self.veils.get(frame.id)
             if veil is None:
@@ -2614,7 +2680,9 @@ class Deskd:
             out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + geom[3] // 2)
             clear = (out or {}).get("name") not in busy and not self.sharing
             veil.set_visible(clear)
-            if not clear and self.ws_mark is not None:
+            # the mark sits on the strip of the screen in front only: a full-screen video
+            # on the other monitor hid it here at every refresh (it flickered)
+            if not clear and self.ws_mark is not None and (out or {}).get("name") == front:
                 self.ws_mark.hide()
                 self.mark_file.hide()
         # the click layers over the strip and the sound indicator too: a full-screen
@@ -2907,14 +2975,16 @@ class Deskd:
         goes away or arrives, i3 moves workspaces and leaves such windows at their old
         size - they looked restored while deskd still held them as maximized."""
         self._ws_snap = None
+        # without focusing each one: that made the focus (and the workspace in front)
+        # jump to the last fitted window at every deskd start and every screen change
         for node, _ in walk(self.i3.tree()):
             if not node.get("window"):
                 continue
             side = self.snapped_side(node)
             if self.is_maximized(node):
-                self.maximize(node["id"], self.saved(node["id"]))
+                self.maximize(node["id"], self.saved(node["id"]), focus=False)
             elif side:
-                self.snap(node["id"], side, self.saved(node["id"]))
+                self.snap(node["id"], side, self.saved(node["id"]), focus=False)
         return False
 
     def sync_panels(self, outs):
@@ -3068,7 +3138,8 @@ class Deskd:
         entries = [(w, False) for w in i3ipc.leaves(ws) if w.get("window")]
         for n, _ in walk(tree):
             if n.get("window") and any(m.startswith(MARK_MIN) for m in n.get("marks") or []):
-                if (self.saved(n["id"]) or {}).get("ws") in (None, ws["name"]):
+                if (self.saved(n["id"]) or {}).get("ws") in (None, ws["name"]) \
+                        and self.minimized_owner(tree, n) is None:     # a dialog comes with its window
                     entries.append((n, True))
         if len(entries) < 2:
             return
@@ -3080,6 +3151,24 @@ class Deskd:
         self.alt_tab = {"order": order, "idx": start % len(order), "since": time.monotonic(),
                         "area": ws["rect"]}
         GLib.timeout_add(20, self.alt_tab_poll)
+
+    def drop_from_round(self, cid):
+        """A window closed while Alt+Tab is held leaves the list at once."""
+        r = self.alt_tab
+        if not r:
+            return
+        ids = [e[0] for e in r["order"]]
+        if cid not in ids:
+            return
+        i = ids.index(cid)
+        r["order"].pop(i)
+        if i < r["idx"] or r["idx"] >= len(r["order"]):
+            r["idx"] = max(0, r["idx"] - 1)
+        if len(r["order"]) < 2:
+            self.alt_tab = None
+            self.switcher.hide()
+        elif self.switcher.shown:
+            self.switcher.show([(xid, title, mini) for _, xid, title, mini in r["order"]], r["idx"], r["area"])
 
     def alt_tab_poll(self):
         """Watch Alt while a round is on (20 ms, only then): released - switch."""

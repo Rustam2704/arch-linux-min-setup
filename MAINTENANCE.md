@@ -62,6 +62,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 |---|---|
 | Не входит в сессию | `Ctrl+Alt+F2`, `autologin-session=xfce` в `lightdm.conf` возвращает чистый Xfce |
 | Нет шапок/кнопок у окон | `systemctl --user restart deskd`, `journalctl --user -u deskd` |
+| Окно ведёт себя странно (растягивается не туда, не восстанавливается) | `journalctl --user -u deskd -o cat \| grep refused \| sort \| uniq -c` — каждый отказ i3 там с командой и причиной; после любой правки deskd этот счёт должен быть пустым |
 | Панель пропала или без индикаторов | запустить через i3 (см. выше); `python3 -c` не нужен — genmon перечитает скрипты сам |
 | Календарь: «Not connected to Google» / ошибка токена | **Connect Google** в окне; порт занят — `ss -ltnp \| grep 8412` |
 | Не создаётся ссылка Zoom | приложение в Zoom Marketplace должно быть активно (Activation) |
