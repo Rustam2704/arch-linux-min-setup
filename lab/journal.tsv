@@ -727,3 +727,7 @@
 2026-10-12T19:24:36+03:00	61-window-mechanics	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.ZFXQm2.bak
 2026-10-12T19:42:49+03:00	62-window-bugs	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.Gnj2nw.bak
 2026-10-12T19:50:02+03:00	62-window-bugs	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.xtz7DE.bak
+2026-10-13T09:39:13+03:00	63-media-fixes	cmd	sudo pacman -Rns --noconfirm vlc-plugin-ffmpeg	
+2026-10-13T09:39:36+03:00	63-media-fixes	backup	/home/fanatic/.config/mimeapps.list	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mimeapps.list.1l7OXA.bak
+2026-10-13T09:39:36+03:00	63-media-fixes	file	/home/fanatic/.local/share/icons/Sky-Dark-Icons/scalable/status/display-brightness-symbolic.svg	
+2026-10-13T09:39:36+03:00	63-media-fixes	backup	/home/fanatic/.local/share/sky-desktop/powermenu.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_powermenu.py.yp5y32.bak

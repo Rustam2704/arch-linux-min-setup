@@ -1,5 +1,5 @@
-"""The power menu under the panel's battery: the battery line and the power mode -
-Automatic, Performance, Balanced, Power saver. The modes are TLP's profiles (tuned in
+"""The power menu under the panel's battery: the battery line, the screen brightness
+slider and the power mode - Automatic, Performance, Balanced, Power saver. The modes are TLP's profiles (tuned in
 /etc/tlp.d/50-sky-desktop.conf); Automatic hands the choice back to TLP (performance on
 the charger, balanced on battery). The choice is kept in ~/.config/sky-desktop/power-mode
 and put back by osd-daemon at the next session. Hosted by osd-daemon (`osd menu power`)."""
@@ -22,6 +22,10 @@ MODES = [("auto", "Automatic", "Performance on the charger, balanced on battery"
          ("balanced", "Balanced", "TLP's battery settings"),
          ("power-saver", "Power saver", "No turbo, CPU capped at 60 %, deepest PCIe power saving")]
 PROFILE_NAMES = {"0": "performance", "1": "balanced", "2": "power-saver"}
+SLIDER = 480                    # px, as the sound menu's sliders
+ICON = 48
+ICONS = os.path.expanduser("~/.local/share/icons/Sky-Dark-Icons/scalable/status")
+MIN_BRIGHTNESS = 1              # percent: 0 is a black screen with no way to see the slider
 
 
 def saved_mode():
@@ -73,10 +77,52 @@ def battery_line():
     return line
 
 
+def brightness():
+    """Screen brightness in percent (brightnessctl -m: name,class,raw,NN%,max)."""
+    try:
+        out = subprocess.run(["brightnessctl", "-m"], capture_output=True, text=True, timeout=3).stdout
+        return int(out.split(",")[3].rstrip("%\n"))
+    except (OSError, IndexError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def brightness_row():
+    """The same slider as the sound menu's, for the screen backlight."""
+    gi.require_version("GdkPixbuf", "2.0")
+    from gi.repository import GdkPixbuf
+    row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    try:
+        row.add(Gtk.Image.new_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_size(
+            os.path.join(ICONS, "display-brightness-symbolic.svg"), ICON, ICON)))
+    except GLib.Error:
+        pass
+    scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, MIN_BRIGHTNESS, 100, 1)
+    scale.set_size_request(SLIDER, -1)
+    scale.set_draw_value(True)
+    scale.set_value_pos(Gtk.PositionType.RIGHT)
+    scale.set_hexpand(True)
+    scale.set_value(brightness() or 50)
+    pending = {}
+
+    def write():
+        pending.pop("t", None)
+        subprocess.run(["brightnessctl", "-q", "set", f"{int(scale.get_value())}%"], timeout=3)
+        return False
+
+    def changed(*_):                              # a moving slider: one write per 60 ms at most
+        if "t" not in pending:
+            pending["t"] = GLib.timeout_add(60, write)
+    scale.connect("value-changed", changed)
+    row.add(scale)
+    return row
+
+
 def fill(grid, close):
     info = Gtk.Label(label=battery_line(), xalign=0)
     info.get_style_context().add_class("row-label")
     grid.attach(info, 0, 0, 1, 1)
+    if brightness() is not None:
+        grid.attach(brightness_row(), 0, 1, 1, 1)
 
     current = saved_mode()
     buttons = {}
@@ -91,7 +137,7 @@ def fill(grid, close):
         state["busy"] = False
         GLib.idle_add(lambda: (set_mode(mode), False)[1])
 
-    for row, (mode, label, hint) in enumerate(MODES, start=1):
+    for row, (mode, label, hint) in enumerate(MODES, start=2):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         title = Gtk.Label(label=label, xalign=0)
         sub = Gtk.Label(label=hint, xalign=0)

@@ -37,6 +37,9 @@ iw
 iputils                     # ping (netqd)
 btop                        # Ctrl+Shift+Esc
 ffmpeg                      # i3-peek screen grabs
+vlc                         # the media default in mimeapps.list
+vlc-plugin-ffmpeg           # VLC's FFmpeg decoders: without it H.264 video does not play
+pinta                       # the image default in mimeapps.list
 # Python
 python
 python-xlib
