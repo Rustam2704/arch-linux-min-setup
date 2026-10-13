@@ -1,0 +1,106 @@
+[agy-task] task-survey model=gemini-3.8-flash-high effort=default skip=--dangerously-skip-permissions cwd=/home/fanatic/ai/claude/setup/research/olx timeout=30m
+[agy-task] log: /home/fanatic/ai/claude/setup/research/olx/logs/task-survey-20261013-110136.jsonl
+[agy-task] status=SUCCESS
+# OLX (olx.ua / olx.pl) Ad & Tracker Blocking Survey
+
+The report has been written to [`survey.md`](file:///home/fanatic/ai/claude/setup/research/olx/survey.md). Below is the complete survey report.
+
+---
+
+## 1. Maintained Filter Lists Carrying OLX Rules
+
+Each rule listed below was obtained by fetching the respective raw filter list and grepping for `olx`:
+
+### 1.1 EasyList
+* **Raw list URL**: [https://easylist.to/easylist/easylist.txt](https://easylist.to/easylist/easylist.txt)
+* **Quoted rules**:
+  ```adblock
+  amazon.com,faceyourmanga.com,isc2.org,liverc.com,mit.edu,muscatdaily.com,olx.pl,saitama-np.co.jp,timesofoman.com,virginaustralia.com#@#[id^="div-gpt-ad"]
+  olx.com.pk##.react-swipeable-view-container:has([href*="http://onelink.to"])
+  @@||g.doubleclick.net/tag/js/gpt.js$script,xmlhttprequest,domain=...|olx.pl|...
+  ://ads.$~image,~xmlhttprequest,domain=...|~ads.olx.pl|...
+  ://ads.$popup,domain=~ad.olx.pl|...
+  ```
+
+### 1.2 EasyPrivacy
+* **Raw list URL**: [https://easylist.to/easylist/easyprivacy.txt](https://easylist.to/easylist/easyprivacy.txt)
+* **Quoted rules**:
+  ```adblock
+  ||tracking.olx-st.com^
+  ||eolvci.olx.ro^
+  ||iseuaa.olx.pl^
+  ||qexbcx.olx.kz^
+  ||vbsjdd.olx.pt^
+  ||insight.olx.ba^
+  ||lurker.olx.com.br^
+  ||olx.com.br^*/lurker.
+  ||track.olx.com.br^
+  @@||googletagmanager.com/gtm.js$domain=...|olx.pl|olx.ro|...
+  ```
+
+### 1.3 uBlock Origin Filters (uAssets)
+* **Raw list URLs**:
+  * [unbreak.txt](https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt)
+  * [privacy-removeparam.txt](https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy-removeparam.txt)
+  * [filters-2024.txt](https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2024.txt)
+* **Quoted rules**:
+  * From `unbreak.txt`:
+    ```adblock
+    @@||static-olxeu.akamaized.net/static/olxbg/*/js/tracking/ninja.js$script,domain=olx.bg
+    ||olx.com.br^*/lurker.$badfilter
+    @@tracking/ninja.js$script,domain=olx.ro,badfilter
+    @@||securepubads.g.doubleclick.net/tag/js/gpt.js$script,redirect-rule=googletagservices_gpt.js:5,domain=olx.pt
+    ```
+  * From `privacy-removeparam.txt`:
+    ```adblock
+    ||olx.$removeparam=ad_reason_recommended_items
+    ```
+  * From `filters-2024.txt`:
+    ```adblock
+    olx.in###main_content div[class]:has(> .baxter-style-dfp-default-default)
+    ```
+
+### 1.4 AdGuard Base
+* **Raw list URL**: [https://filters.adtidy.org/extension/ublock/filters/2.txt](https://filters.adtidy.org/extension/ublock/filters/2.txt) (also [filter_2_Base](https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_2_Base/filter.txt))
+* **Quoted rules**:
+  ```adblock
+  ||cdn.slots.baxter.olx.org^
+  @@||olx.org/ads/offer-eligibility$domain=olx.pl
+  m.olx.pl#@#.adbox
+  @@||m.olx.pl/api/v*/ads/*?adId=
+  olx.ro#@#.swiper-slide-active.swiper-slide
+  olx.ba##+js(set-constant, googletag.destroySlots, noopFunc)
+  olx.in##div[class]:has(> div[id^="baxter-ads"])
+  olx.ro,olx.kz,olx.pl,olx.pt,olx.ua,olx.uz,olx.in,olx.com##div[data-testid="qa-advert-slot"]
+  olx.ro,olx.kz,olx.pl,olx.pt,olx.ua,olx.uz,olx.in,olx.com##div[style="min-height: 120px; display: block;"]
+  olx.ro,olx.kz,olx.pl,olx.pt,olx.ua,olx.uz,olx.in,olx.com#@#.adLink
+  olx.ro,olx.kz,olx.pl,olx.pt,olx.ua,olx.uz,olx.in,olx.com#@##adContainer
+  olx.ro,olx.kz,olx.pl,olx.pt,olx.ua,olx.uz,olx.in,olx.com#@#.adRow
+  olx.ro,olx.kz,olx.pl,olx.pt,olx.ua,olx.uz,olx.in,olx.com#@#.adbox
+  @@||login.olx.$stealth=flash|java
+  @@||olx.ua/static/olxua/naspersclassifieds-regional/olxeu-atlas-web/static/js/xgemius.js
+  ||creativecdn.com/tags?id=*_listing_$~script,~xmlhttprequest,redirect=nooptext,domain=olx.ro,important
+  ```
+
+### 1.5 AdGuard Tracking Protection (Spyware)
+* **Raw list URL**: [https://filters.adtidy.org/extension/ublock/filters/3.txt](https://filters.adtidy.org/extension/ublock/filters/3.txt)
+* **Quoted rules**:
+  ```adblock
+  ||eolvci.olx.ro^
+  ||iseuaa.olx.pl^
+  ||qexbcx.olx.kz^
+  ||vbsjdd.olx.pt^
+  ||cdn.track.olx.com.br^
+  ||tracking.olx-st.com^
+  ||tracking.olx.
+  click.info.olx.co.id$image
+  click.info.olx.com.pk$image
+  click.info.olx.in$image
+  ||google-analytics.com/analytics.js$script,redirect=google-analytics_analytics.js,domain=~olx.*|...
+  ||googletagmanager.com/gtm.js$3p,script,redirect=google-analytics_analytics.js,domain=~corsair.com|~olx.*|...
+  ||securepubads.g.doubleclick.net/tag/js/gpt.js$script,redirect=googletagservices_gpt.js,domain=...|~olx.com.eg|...
+  ||lurker.olx.com.br^
+  ||geoip.olx.com.br^
+  ||pub.olx.com.br/listing.js
+  ||pub.olx.com.br/detect-adblocker.js
+  ||static.olx.com.br/olx/

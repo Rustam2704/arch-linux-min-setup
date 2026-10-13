@@ -236,7 +236,8 @@ Zoom — приложение Server-to-Server OAuth с правами `meeting:
 - **Firefox**: `firefox-limited` (мягкий потолок 4 ГБ через systemd, `firefox-mem` для настройки
   на лету). Своей выгрузки памяти в своп нет: `firefox-memd` удалён 30.09 — держа Firefox на 2 ГБ,
   он выталкивал в своп то, что страницы тут же тянули обратно. Userscripts и фильтры
-  для картинок/YouTube — `assets/browser/` (ставятся вручную в Violentmonkey/uBlock).
+  для картинок/YouTube — `assets/browser/` (ставятся вручную в Violentmonkey/uBlock). «Мои фильтры»
+  uBlock (OLX lite, edclub) — в `distribution/policies.json` (`toOverwrite.filters`), не в панели.
 - **Избранное** («яблоко» → Favorites, `deskd-favorites`): автозапуск при входе, запуск всех,
   закрепление программ за областями: `~/.config/deskd/apps.conf` читает deskd и *первое* окно
   программы переносит на её область (N-ю на текущем экране); следующие окна — туда, где

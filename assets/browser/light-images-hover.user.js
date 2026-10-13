@@ -1,15 +1,18 @@
 // ==UserScript==
 // @name         Light images, full quality on hover
 // @namespace    setup-lab
-// @version      0.2
+// @version      0.3
 // @description  Show the smallest available version of responsive images; load the full one when the pointer is over it. Saves both traffic and the memory taken by decoded images.
 // @match        *://*/*
+// @exclude      *://*.olx.ua/*
+// @exclude      *://*.olx.pl/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
 //
 // Only touches images that the site itself offers in several sizes (srcset).
 // Images with a single source are left alone — nothing is blocked or broken.
+// OLX is excluded: listing photos there must stay in full quality (13.10.2026).
 (function () {
     'use strict';
     const FULL = 'data-lih-full';

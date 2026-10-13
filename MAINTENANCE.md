@@ -87,6 +87,10 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
   `www.youtube.com doubleclick.net * noop` (без него не грузится видео — BotGuard). Если сайт
   ломается, в панели uBlock кликнуть по серой строке нужного домена. Проверка YouTube —
   `tools/yt-lab/ytlab.py` (инструкция в его шапке).
+- «Мои фильтры» uBlock задаёт политика Firefox (`desktop/system/usr/lib/firefox-developer-edition/
+  distribution/policies.json`): править там и `make apply`, затем перезапустить Firefox **дважды**
+  (uBlock кэширует политику). Правка в панели uBlock исчезнет при следующем запуске. На OLX не
+  блокировать `/app/static/js/*` — пропавший чанк опустошает страницу.
 - Firefox: `user.js` профиля (`~/.config/mozilla/firefox/<profile>/`) держит настройки памяти и
   видео (VA-API, без VP9/AV1 — на Haswell в железе только H.264); файл вне дерева, записан через lab.
 - Звонки: эхоподавление — переключатель в меню динамика (модуль PipeWire по требованию). Если в

@@ -15,6 +15,56 @@
           "https://music.youtube.com"
         ]
       }
+    },
+    "3rdparty": {
+      "Extensions": {
+        "uBlock0@raymondhill.net": {
+          "toOverwrite": {
+            "filters": [
+              "! edclub (own filters from before 13.10.2026)",
+              "www.edclub.com###adslot_results1",
+              "www.edclub.com###adslot_results2 > .disable-ads-banner",
+              "! Title: OLX lite (setup-lab)",
+              "! OLX ads and trackers off; listing photos untouched (apollo.olxcdn.com is never blocked).",
+              "! Sources: measured page loads (research/olx/requests.json) and existing lists (research/olx/survey.md).",
+              "! Never block OLX's own /app/static/js chunks: the app loads them with loadable-components and",
+              "! one missing chunk (olxeuweb.ninja~script) empties the whole page - photos included (13.10).",
+              "! Installed into uBlock \"My filters\" by the Firefox policy, this file (setup project: desktop/system/usr/lib/firefox-developer-edition/distribution/policies.json); edits made in the dashboard are replaced at the next start.",
+              "! --- ad server (Baxter), header bidding, Google ads ---",
+              "||baxter.olx.org^$domain=olx.ua|olx.pl",
+              "||securepubads.g.doubleclick.net^$domain=olx.ua|olx.pl",
+              "||googleads.g.doubleclick.net^$domain=olx.ua|olx.pl",
+              "||ad.doubleclick.net^$domain=olx.ua|olx.pl",
+              "||www.google.com/adsense/$domain=olx.ua|olx.pl",
+              "||creativecdn.com^$domain=olx.ua|olx.pl",
+              "||btloader.com^$domain=olx.ua|olx.pl",
+              "! --- OLX trackers: Ninja, Hydra beacons, Laquesis A/B, New Relic ---",
+              "||ninja.data.olxcdn.com^$domain=olx.ua|olx.pl",
+              "||tracking.olx-st.com^$domain=olx.ua|olx.pl",
+              "||laquesis.data.olxcdn.com^$domain=olx.ua|olx.pl",
+              "||js-agent.newrelic.com^$domain=olx.ua|olx.pl",
+              "||bam.nr-data.net^$domain=olx.ua|olx.pl",
+              "! --- third-party trackers seen on the pages ---",
+              "||hotjar.com^$domain=olx.ua|olx.pl",
+              "||js.appboycdn.com^$domain=olx.ua|olx.pl",
+              "||analytics.tiktok.com^$domain=olx.ua|olx.pl",
+              "||tiktokw.us^$domain=olx.ua|olx.pl",
+              "||googletagmanager.com^$domain=olx.ua",
+              "||analytics.google.com^$domain=olx.ua|olx.pl",
+              "||stats.g.doubleclick.net^$domain=olx.ua|olx.pl",
+              "||gemius.pl^$domain=olx.ua|olx.pl",
+              "||ingest.sentry.io^$domain=olx.ua|olx.pl",
+              "! --- keep what the site needs (from RU AdList) ---",
+              "@@||olx.ua/ajax/misc/contact/phone/$xmlhttprequest,domain=olx.ua",
+              "@@||olx.pl/ajax/misc/contact/phone/$xmlhttprequest,domain=olx.pl",
+              "! --- empty ad slots (promoted TOP listings stay: they are real ads of sellers) ---",
+              "olx.ua,olx.pl##div[data-testid=\"qa-advert-slot\"]",
+              "olx.ua,olx.pl###div-gpt-listing-full-screen-container",
+              "olx.ua,olx.pl##[class*=\"baxter-\"]"
+            ]
+          }
+        }
+      }
     }
   }
 }

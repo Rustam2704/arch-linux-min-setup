@@ -4,3 +4,7 @@ __pycache__/
 lab/.lock
 lab/backups/
 external-assets/devilutionx-assets/*.mpq
+tools/olx-lab/venv/
+tools/olx-lab/work/
+tools/olx-lab/logs/
+research/olx/logs/
