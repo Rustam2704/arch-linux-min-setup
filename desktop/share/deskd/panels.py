@@ -25,8 +25,11 @@ SKIP_ON_NARROW = ("panel-net", "panel-sys")
 
 
 def q(*args):
-    return subprocess.run(["xfconf-query", "-c", "xfce4-panel", *args],
-                          capture_output=True, text=True).stdout
+    try:
+        return subprocess.run(["xfconf-query", "-c", "xfce4-panel", *args],
+                              capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
 
 
 def read_all():
@@ -61,7 +64,8 @@ def remove(prop):
 
 def strips(props=None):
     """[(plugin_id, output or None for the primary screen)] of every workspace strip."""
-    props = props or read_all()
+    if props is None:
+        props = read_all()
     out = []
     for key, val in props.items():
         if key.startswith("/plugins/plugin-") and key.endswith("/command") and val.startswith(STRIP):

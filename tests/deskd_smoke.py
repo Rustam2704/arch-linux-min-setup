@@ -4,7 +4,7 @@
     make test-deskd            (or: python3 tests/deskd_smoke.py [--keep])
 
 Starts Xephyr :9, an i3 with the installed config (minus exec/include lines) and the
-installed deskd with its own XDG_RUNTIME_DIR, opens kitty windows and drives them with
+source deskd with its own XDG_RUNTIME_DIR, opens kitty windows and drives them with
 xdotool and deskd's own tick commands. Checks the window engine end to end: maximize,
 drag away from the top (the window must not stay glued to the panel edge), drop at the
 left edge and in a corner, restore, minimize and back, a second window of the same app,
@@ -16,27 +16,33 @@ The Xephyr window is moved to workspace 9 of the real i3 the moment it appears, 
 user's workspace is not covered. Run time ~20 s. Exit code 1 on the first failed check.
 """
 import json
+import importlib.util
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from Xlib import X as XX, display as xdisplay
+from Xlib import Xatom
 from Xlib.protocol import event as xevent
 
 DISPLAY = ":9"
 SIZE = (1600, 1000)
 HOME = os.path.expanduser("~")
 CONFIG = os.path.join(HOME, ".config/i3/config")
-DESKD = os.path.join(HOME, ".local/share/deskd/deskd.py")
+SOURCE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+DESKD = os.path.join(SOURCE, "desktop/share/deskd/deskd.py")
 KEEP = "--keep" in sys.argv
 
 tmp = tempfile.mkdtemp(prefix="deskd-smoke-")
 run_dir = os.path.join(tmp, "run")
 os.makedirs(run_dir)
 env = dict(os.environ, DISPLAY=DISPLAY, XDG_RUNTIME_DIR=run_dir, DESKD_NO_PANELS="1")
+env["PYTHONPATH"] = os.path.join(SOURCE, "desktop/share/sky-desktop") + os.pathsep + env.get("PYTHONPATH", "")
 env.pop("I3SOCK", None)          # inherited from the real session: everything would talk to the real i3
 real_sock = os.environ.get("I3SOCK") or subprocess.run(["i3", "--get-socketpath"], capture_output=True,
                                                          text=True).stdout.strip()
@@ -174,10 +180,6 @@ def frame_rect(n):
     return {"x": g.x, "y": g.y, "width": g.width, "height": g.height}
 
 
-def stack_index(n):
-    return [w.id for w in xconn().screen().root.query_tree().children].index(frame_of(n).id)
-
-
 def set_state(n, action, atom):
     """An EWMH _NET_WM_STATE request from the window, as an app would send it."""
     d = xconn()
@@ -201,6 +203,54 @@ def switcher_shown():
 def focused_id():
     return next((n["id"] for n, _, _ in windows() if n.get("focused")), None)
 
+
+# Exercise the one-shot GLib scheduling contract without starting a second daemon.
+sys.path.insert(0, os.path.join(SOURCE, "desktop/share/sky-desktop"))
+spec = importlib.util.spec_from_file_location("deskd_under_test", DESKD)
+deskd = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(deskd)
+unit = deskd.Deskd.__new__(deskd.Deskd)
+unit.drag = unit.resizing = None
+unit.panel_dirty = False
+unit.recheck_pending = None
+unit._panel_props = None
+unit.click_layers = {}
+unit.strip_geoms = {}
+unit.panel_windows = set()
+unit.bounds_cache = {}
+unit.xs = SimpleNamespace(gc_cache={})
+unit.strip_plugins = lambda fresh=False: setattr(unit, "_strips", [])
+unit.watch_panel_items = lambda: None
+unit.place_ws_clicks = lambda: None
+queued = []
+
+
+def queue_recheck(callback):
+    queued.append(callback)
+    return len(queued)
+
+
+with patch.object(deskd.GLib, "idle_add", side_effect=queue_recheck), \
+        patch.object(deskd.panels, "read_all", return_value={"panel": "ready"}) as read_panel:
+    unit.schedule_recheck()
+    unit.schedule_recheck()
+    check("panel rechecks coalesce", len(queued) == 1, str(len(queued)))
+    result = queued.pop()()
+    check("panel recheck runs once", result is False and read_panel.call_count == 1 and
+          unit.recheck_pending is None, str((result, read_panel.call_count)))
+
+click_layer = SimpleNamespace(id=42, configure=Mock())
+unit.click_layers = {1: click_layer}
+unit.layer_visible = {42: True}
+unit.raise_click_layers()
+check("mapped workspace layer is re-raised", click_layer.configure.call_count == 1 and
+      click_layer.configure.call_args.kwargs == {"stack_mode": deskd.X.Above})
+unit.items_by_output = {"primary": ([("1", 1)], [("1", "markup")])}
+unit.strip_output = lambda out: "primary"
+unit.plugin_geometry = lambda pid: (10, 20, 100, 30)
+unit.measure = lambda geom, plains, tail: [(10, 20)]
+check("workspace hit area falls back after panel restart",
+      unit.strip_view(1, None)[0] == (10, 20, 100, 30))
 
 # ------------------------------------------------------------------ start everything
 say("display", DISPLAY, "runtime", run_dir)
@@ -369,8 +419,10 @@ time.sleep(0.3)
 msg(f"[con_id={cid}] focus")
 time.sleep(0.5)
 n1, _, _ = window(cid)
-check("a keep-above window stays over the focused one", stack_index(n3) > stack_index(n1),
-      f"{stack_index(n3)} vs {stack_index(n1)}")
+stack = [w.id for w in xconn().screen().root.query_tree().children]
+above_at, focused_at = stack.index(frame_of(n3).id), stack.index(frame_of(n1).id)
+check("a keep-above window stays over the focused one", above_at > focused_at,
+      f"{above_at} vs {focused_at}")
 set_state(n3, 0, "_NET_WM_STATE_ABOVE")
 msg(f"[con_id={third}] move position 1100 px 650 px")
 
@@ -432,11 +484,63 @@ xdo("mousemove", str(px), str(py)); time.sleep(0.2); xdo("mousedown", "1")
 for i in range(1, 11):
     xdo("mousemove", str(px - 10 * i), str(py)); time.sleep(0.04)
 time.sleep(0.2)
+live = frame_rect(n)
+_, _, in_i3 = window(cid)
+check("edge resize updates the X frame while held", live["x"] < f["x"] and live["width"] > f["width"],
+      json.dumps(live))
+check("edge resize updates i3 while held", in_i3["x"] < f["x"] and
+      in_i3["width"] > f["width"] and fills(live, in_i3), json.dumps(in_i3))
 release()
 n, _, g = window(cid)
 check("pulling the left edge widens the window to the left, the right edge stays",
       abs(g["x"] - (f["x"] - 100)) <= 3 and abs(g["x"] + g["width"] - (f["x"] + f["width"])) <= 3,
       json.dumps(f) + " -> " + json.dumps(g))
+
+# ------------------------------------------------------------------ 8c. the green title button uses the same maximize path
+def click_title_button(cid, index):
+    node, _, rect = window(cid)
+    children = [w for w in frame_of(node).query_tree().children if w.id != node["window"]]
+    strip = next((w for w in children if 60 <= w.get_geometry().width <= 200), None)
+    if strip is None:
+        return False
+    sg = strip.get_geometry()
+    deco = node["deco_rect"]["height"] or 30
+    diameter = max(14, round(deco * 0.63))
+    gap = max(6, round(diameter * 0.45))
+    pad = max(6, round(diameter * 0.5))
+    x = rect["x"] + sg.x + pad + index * (diameter + gap) + diameter // 2
+    y = rect["y"] + sg.y + sg.height // 2
+    xdo("mousemove", str(x), str(y))
+    xdo("click", "1")
+    time.sleep(0.5)
+    return True
+
+
+check("green title button is present", click_title_button(cid, 1))
+n, _, _ = window(cid)
+check("green title button maximizes", any(m.startswith("_deskd_max") for m in marks(n)), str(marks(n)))
+click_title_button(cid, 1)
+n, _, _ = window(cid)
+check("green title button restores", not any(m.startswith("_deskd_max") for m in marks(n)), str(marks(n)))
+
+# ------------------------------------------------------------------ 8d. a notification has no i3 or deskd frame
+d = xconn()
+notice = d.screen().root.create_window(80, 90, 320, 120, 0, d.screen().root_depth,
+                                       XX.InputOutput, XX.CopyFromParent, background_pixel=0)
+notice.set_wm_class("deskd-smoke-notification", "deskd-smoke-notification")
+notice.set_wm_name("deskd-smoke-notification")
+notice.change_property(d.intern_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM, 32,
+                       [d.intern_atom("_NET_WM_WINDOW_TYPE_NOTIFICATION")])
+notice.map()
+d.flush()
+time.sleep(0.6)
+notif = next((node for node, _, _ in walk(tree()) if node.get("window") == notice.id), None)
+check("notification is managed by nested i3", notif is not None)
+check("notification has no title border", notif.get("border") == "none", str(notif.get("border")))
+children = [w.id for w in frame_of(notif).query_tree().children]
+check("notification has no deskd button strip", children == [notice.id], str(children))
+notice.destroy()
+d.flush()
 
 # ------------------------------------------------------------------ 9. an app's own full screen stays
 procs.append(subprocess.Popen(["kitty", "--class", "smoke", "--title", "smoke-fs", "--start-as", "fullscreen"], env=env,

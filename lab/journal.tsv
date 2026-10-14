@@ -736,3 +736,8 @@
 2026-10-14T20:22:34+03:00	65-intel-tearfree	pkg	xf86-video-intel	
 2026-10-14T20:22:47+03:00	65-intel-tearfree	file	/etc/X11/xorg.conf.d/20-intel.conf	
 2026-10-14T20:22:47+03:00	65-intel-tearfree	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.FxFxR7.bak
+2026-10-14T21:32:45+03:00	65-intel-tearfree	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.hYbsy9.bak
+2026-10-14T22:11:41+03:00	66-desk-hot-paths	backup	/home/fanatic/.local/bin/sky-stars	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-stars.1Nm7d4.bak
+2026-10-14T22:11:41+03:00	66-desk-hot-paths	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.iIKuZz.bak
+2026-10-14T22:11:41+03:00	66-desk-hot-paths	backup	/home/fanatic/.local/share/deskd/panels.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_panels.py.vt866Z.bak
+2026-10-14T22:13:33+03:00	66-desk-hot-paths	backup	/home/fanatic/.local/bin/sky-stars	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-stars.rTG01A.bak

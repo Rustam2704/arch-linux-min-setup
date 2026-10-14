@@ -220,7 +220,7 @@ class XServer:
                                     X.InputOutput, X.CopyFromParent,
                                     background_pixel=bg if bg is not None else 0, **kw)
 
-    def paint(self, win, surface, depth):
+    def paint(self, win, surface, depth, dest_x=0, dest_y=0):
         """Put a cairo ARGB32 surface onto a window, in strips small enough for one request."""
         w, h = surface.get_width(), surface.get_height()
         data = memoryview(surface.get_data())     # sliced per strip; no whole-image copy
@@ -232,7 +232,7 @@ class XServer:
         rows = max(1, 200000 // stride)
         for y in range(0, h, rows):
             n = min(rows, h - y)
-            win.put_image(gc, 0, y, w, n, X.ZPixmap, depth, 0,
+            win.put_image(gc, dest_x, dest_y + y, w, n, X.ZPixmap, depth, 0,
                           bytes(data[y * stride:(y + n) * stride]))
 
     def pointer(self):
@@ -509,15 +509,26 @@ class PanelDim:
 
     def set_hole(self, hole):
         if hole != self.hole:
+            old = self.hole
             self.hole = hole
-            self.draw()
+            for rect in (old, hole):
+                if rect:
+                    self.draw(rect)
 
     def raise_above(self):
         self.win.configure(stack_mode=X.Above)
 
-    def draw(self):
+    def draw(self, region=None):
         x0, y0, w, h = self.geom
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(1, w), max(1, h))
+        if region:
+            rx, ry, rw, rh = region
+            left, top = max(0, rx - x0), max(0, ry - y0)
+            right, bottom = min(w, rx + rw - x0), min(h, ry + rh - y0)
+            if right <= left or bottom <= top:
+                return
+        else:
+            left, top, right, bottom = 0, 0, w, h
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(1, right - left), max(1, bottom - top))
         ctx = cairo.Context(surface)
         ctx.set_operator(cairo.OPERATOR_SOURCE)
         ctx.set_source_rgba(0, 0, 0, self.SHADE)
@@ -526,7 +537,7 @@ class PanelDim:
             hx, hy, hw, hh = self.hole
             ctx.set_operator(cairo.OPERATOR_CLEAR)
             radius, inset = 7, 2
-            x, y = hx - x0 + inset, hy - y0 + inset
+            x, y = hx - x0 - left + inset, hy - y0 - top + inset
             right, bottom = x + hw - 2 * inset, y + hh - 2 * inset
             ctx.new_sub_path()
             ctx.arc(right - radius, y + radius, radius, -1.5708, 0)
@@ -535,7 +546,7 @@ class PanelDim:
             ctx.arc(x + radius, y + radius, radius, 3.1416, 4.7124)
             ctx.close_path()
             ctx.fill()
-        self.xs.paint(self.win, surface, 32)
+        self.xs.paint(self.win, surface, 32, left, top)
 
 
 class Monitors:
@@ -634,7 +645,6 @@ class Deskd:
         self._ws_snap = None        # workspaces, kept for half a second during a drag
         self._ws_snap_at = 0.0
         self.docks = None           # the panel's frames, for stacking
-        self.docks_at = 0.0
         self.handles = []           # [(xwindow, info)]
         self.handle_by_win = {}
         self.resizing = None
@@ -645,6 +655,8 @@ class Deskd:
         self._strips = None         # [(genmon plugin id, output)] of the workspace strips
         self.strip_geoms = {}       # plugin id -> screen rectangle
         self.click_layers = {}      # plugin id -> click window over the strip
+        self.click_layouts = {}     # plugin id -> last geometry sent to X
+        self.layer_visible = {}     # X id -> whether the layer is mapped
         self.ws_mark = None         # the pentagram over the workspace in front of you
         self.busy_outputs = set()   # screens with a full-screen window: nothing of ours on top
         self.sharing = False        # Zoom's share frame is up: no overlays at all
@@ -657,10 +669,19 @@ class Deskd:
         self.panel_items = []       # (rectangle, plugin id) of everything on the panel
         self.panel_windows = set()  # panel windows we watch the pointer on
         self.reflow_pending = False
+        self.panel_dirty = False
+        self.recheck_pending = None
+        self._panel_props = None
         self.click_by_win = {}
         self.items_by_output = {}   # output -> ([(label, ws)], segments)
         self.bounds_cache = {}
         self.refresh_pending = False
+        self.controls_pending = False
+        self._refresh_outputs = None
+        self.refresh_deferred = False
+        self.pending_modal = None
+        self.last_focused_ws = None
+        self.workspace_event_at = 0.0
         self.state = self._load_state()
         self.blocks = self.state.setdefault("blocks", {})     # output name -> block index
         self.last_ws_text = {}
@@ -675,7 +696,8 @@ class Deskd:
         self.xs.root.change_attributes(event_mask=root_mask)
         self.A = {n: self.xs.atom(n) for n in (
             "WM_CHANGE_STATE", "_NET_WM_STATE", "_NET_WM_STATE_MAXIMIZED_VERT",
-            "_NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_MODAL", "_NET_WM_PID", "_NET_ACTIVE_WINDOW",
+            "_NET_WM_STATE_MAXIMIZED_HORZ", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE_MODAL",
+            "_NET_WM_PID", "_NET_ACTIVE_WINDOW",
             "_NET_WM_STATE_ABOVE", "_NET_WM_WINDOW_TYPE", "_KDE_NET_WM_WINDOW_TYPE_OVERRIDE")}
         self.switcher = switcher.Switcher(self.xs, self.dpi())
         GLib.io_add_watch(self.xs.d.fileno(), GLib.PRIORITY_DEFAULT, GLib.IO_IN, self.on_x)
@@ -689,8 +711,9 @@ class Deskd:
         if self.share_frame_present():
             self.set_sharing(True)
         # the panel can restart or reflow; keep the click layer on the workspace strip
-        GLib.timeout_add_seconds(20, self.recheck_strips)
+        GLib.timeout_add_seconds(20, self.check_panel_ids)
         GLib.timeout_add(1500, lambda: (self.watch_panel_items(), False)[1])
+        self.place_ws_clicks()
         self.watch_power()
         if DEBUG:
             GLib.timeout_add_seconds(10, self.log_x_counts)
@@ -722,7 +745,8 @@ class Deskd:
         """genmon gets left clicks only; the wheel and the middle button over the sound
         indicator go through a transparent window of ours (the plugin sits under it)."""
         # one layer per speaker: the second screen's panel has its own
-        pids = [int(k.split("/")[2].split("-")[1]) for k, v in panels.read_all().items()
+        props = self._panel_props if self._panel_props is not None else panels.read_all()
+        pids = [int(k.split("/")[2].split("-")[1]) for k, v in props.items()
                 if k.endswith("/command") and os.path.basename(v.strip()) == "panel-audio"]
         for pid in pids:
             geom = self.plugin_geometry(pid)
@@ -783,8 +807,11 @@ class Deskd:
                 self.veils[frame.id] = PanelDim(self.xs, geom)
                 if self.sharing:
                     self.veils[frame.id].set_visible(False)
-        for fid in [f for f in self.veils if f not in frames]:   # the panel restarted: its old
-            self.veils.pop(fid).set_visible(False)                # frame is gone, so is its veil
+        for fid in [f for f in self.veils if f not in frames]:
+            veil = self.veils.pop(fid)
+            veil.set_visible(False)
+            veil.win.destroy()
+            self.xs.gc_cache.pop(veil.win.id, None)
         watch += [win for win, _ in self.panel_wrappers()]
         for win in watch:
             try:
@@ -909,19 +936,65 @@ class Deskd:
         except error.XError:
             return []
 
+    def schedule_recheck(self, delay=0, seconds=False):
+        """Keep at most one one-shot panel recheck pending."""
+        if self.recheck_pending is not None:
+            return
+
+        def run():
+            self.recheck_pending = None
+            self.recheck_strips()
+            return False
+
+        if seconds:
+            self.recheck_pending = GLib.timeout_add_seconds(delay, run)
+        elif delay:
+            self.recheck_pending = GLib.timeout_add(delay, run)
+        else:
+            self.recheck_pending = GLib.idle_add(run)
+
     def recheck_strips(self):
-        """Every 20 s and after every panel reflow. It must never raise: GLib drops a
-        timer whose callback raises, and then the fire stayed wherever the strip used to
-        be (a vanished window during the walk did exactly that)."""
+        """Rebuild panel data only after a real panel change, outside gestures."""
+        if self.drag or self.resizing:
+            self.panel_dirty = True
+            return False
         try:
+            self.panel_dirty = False
+            props = panels.read_all()
+            if not props and self._panel_props:
+                self.schedule_recheck(2, seconds=True)
+                return False
+            self._panel_props = props
             self.strip_plugins(fresh=True)
+            active = {pid for pid, _ in self._strips}
+            for pid in set(self.click_layers) - active:
+                win = self.click_layers.pop(pid)
+                self.click_by_win.pop(win.id, None)
+                self.layer_visible.pop(win.id, None)
+                self.click_layouts.pop(pid, None)
+                self.xs.gc_cache.pop(win.id, None)
+                win.destroy()
+            self.strip_geoms.clear()
+            self.docks = None
             self.panel_windows = set()  # the panel may have restarted with new windows
             self.watch_panel_items()
             self.__dict__.pop("_panel_font", None)     # the panel may have been restyled
             self.bounds_cache.clear()                   # the strip may have moved
             self.place_ws_clicks()
-        except Exception as e:                          # noqa: BLE001 - keep the timer alive
+        except Exception as e:                          # noqa: BLE001 - keep the daemon alive
             log("recheck failed:", e)
+        return False
+
+    def check_panel_ids(self):
+        """A cheap fallback for a missed panel destroy event; no xfconf or child walk."""
+        if self.drag or self.resizing:
+            return True
+        try:
+            ids = {w.id for w in self.xs.root.query_tree().children}
+            if any(fid not in ids for fid in self.veils):
+                self.recheck_strips()
+        except error.XError:
+            pass
         return True
 
     def unstick(self, con):
@@ -1031,13 +1104,13 @@ class Deskd:
         except Exception as e:                       # noqa: BLE001
             log("mark check failed:", e)
 
-    def focus_modal(self, cid, wid):
+    def focus_modal(self, cid, wid, tree=None):
         """A window blocked by its own modal dialog (Save As, a GTK file chooser) takes
         no input; clicking it gives the keyboard to the dialog instead, as KWin and
         Windows do. Without this the click focused the blocked window and typing went
         nowhere."""
         try:
-            tree = self.i3.tree()
+            tree = tree or self.i3.tree()
             ws = i3ipc.workspace_of(tree, cid)
             node, _ = find(tree, cid)
             # only while the click's window is still the focused one on a real workspace:
@@ -1058,12 +1131,16 @@ class Deskd:
     def panel_reflowed(self):
         """A panel plugin was moved or resized: rebuild the regions after the burst of
         ConfigureNotify events settles, and re-aim the hole at the pointer."""
+        self.raise_click_layers()
         if self.reflow_pending:
             return
         self.reflow_pending = True
 
         def rebuild():
             self.reflow_pending = False
+            if self.drag or self.resizing:
+                self.panel_dirty = True
+                return False
             self.recheck_strips()
             try:
                 q = self.xs.root.query_pointer()
@@ -1109,23 +1186,50 @@ class Deskd:
         return res
 
     def pump(self):
+        if getattr(self, "_pumping", False):
+            return
+        self._pumping = True
         try:
-            while self.xs.d.pending_events():
+            motions = {}
+            count = 0
+            while count < 256 and self.xs.d.pending_events():
                 e = self.xs.d.next_event()
+                count += 1
                 if DEBUG:
                     key = type(e).__name__
                     self.x_counts[key] = self.x_counts.get(key, 0) + 1
+                if e.type == X.MotionNotify:
+                    motions[e.window.id] = e
+                    continue
+                for motion in motions.values():
+                    self.handle_x(motion)
+                motions.clear()
                 self.handle_x(e)
+            for motion in motions.values():
+                self.handle_x(motion)
+            if self.xs.d.pending_events() and not getattr(self, "_pump_pending", False):
+                self._pump_pending = True
+                GLib.idle_add(self.pump_more)
         except (error.ConnectionClosedError, BrokenPipeError):
             log("X connection lost")
             loop.quit()
-        self.xs.flush()
+        finally:
+            self._pumping = False
+            self.xs.flush()
+
+    def pump_more(self):
+        self._pump_pending = False
+        self.pump()
+        return False
 
     def on_x(self, *_):
         self.pump()
         return True
 
-    def schedule_refresh(self, delay=15):
+    def schedule_refresh(self, delay=35):
+        if self.drag or self.resizing:
+            self.refresh_deferred = True
+            return
         if not self.refresh_pending:
             self.refresh_pending = True
             GLib.timeout_add(delay, self.refresh)
@@ -1150,6 +1254,8 @@ class Deskd:
         elif name == "window":
             change = ev.get("change")
             con = ev.get("container", {})
+            if con.get("window_type") == "dock" and change in ("new", "close"):
+                self.schedule_recheck(150)
             if con.get("sticky") and change in ("new", "floating", "focus"):
                 self.unstick(con)
             if change in ("new", "title", "focus") and con.get("border") == "none" and \
@@ -1166,8 +1272,10 @@ class Deskd:
                 if change == "new" and props.get("class") in NO_DOCK:
                     self.skip_dock(con.get("window"))
                 if change == "new":
-                    self.read_above(con.get("window"))
-                    if con.get("border") != "none" and self.draws_own_frame(con.get("window")) and \
+                    if con.get("window_type") != "notification":
+                        self.read_above(con.get("window"))
+                    if con.get("border") != "none" and (con.get("window_type") == "notification" or
+                            self.draws_own_frame(con.get("window"))) and \
                             (props.get("class") or "").lower() not in TITLED_CLASSES:
                         # the i3 rule gives every window a title bar; not one with its own
                         self.cmd(f'[con_id={con["id"]}] border none')
@@ -1193,20 +1301,12 @@ class Deskd:
                 del self.focus_order[40:]
                 if any(m.startswith(MARK_MIN) for m in (con.get("marks") or [])):
                     GLib.idle_add(lambda cid=con["id"]: self.unminimize(cid) and False)
-                GLib.idle_add(self.focus_modal, con.get("id"), con.get("window"))
+                self.pending_modal = (con.get("id"), con.get("window"))
                 self.passthrough_for(con)
         elif name == "workspace":
-            current = (ev.get("current") or {}).get("num")
-            if current is not None:
-                try:
-                    # the strip and the mark together, right now: the full refresh that
-                    # follows (tree, title buttons, handles) can take 100 ms on a busy
-                    # workspace, and the digit would turn black after the fire arrived
-                    self.render_workspaces(self.i3.workspaces())
-                except Exception as e:           # noqa: BLE001 - the refresh will redo it
-                    log("strip render failed:", e)
-                self.sync_active_mark(current)
-                self.pump()
+            # The coalesced refresh below takes one tree/workspaces/outputs snapshot;
+            # rendering here would query and paint the strip a second time.
+            self.workspace_event_at = time.monotonic()
         elif name == "output":
             GLib.timeout_add(700, self.outputs_changed)
         elif name == "mode":
@@ -1215,6 +1315,8 @@ class Deskd:
             payload = ev.get("payload", "")
             if payload.startswith("deskd "):            # from deskd-ctl / gestures
                 self.command(payload.split()[1:])
+            else:
+                return
         self.schedule_refresh()
         self.pump()
 
@@ -1255,8 +1357,10 @@ class Deskd:
         node, _ = find(tree, cid)
         if node is None:
             return False
+        if node.get("window_type") == "notification":
+            return False
         if not cls:
-            self.clamp_floating(cid)
+            self.clamp_floating(cid, settle_fullscreen=True)
             return False
         want = None
         hint = self.expect.pop(cls, None)
@@ -1275,7 +1379,7 @@ class Deskd:
                     want = self.target_ws(home)
                     if here and here.get("num") != want:
                         self.cmd(f"[con_id={cid}] move container to workspace number {want}")
-                self.clamp_floating(cid)
+                self.clamp_floating(cid, settle_fullscreen=True)
                 return False
             visible = {w["name"] for w in self.i3.workspaces() if w["visible"]}
 
@@ -1290,7 +1394,7 @@ class Deskd:
             self.cmd(f"[con_id={cid}] move container to workspace number {want}")
             if any(w["num"] == want and w["visible"] for w in self.i3.workspaces()):
                 self.cmd(f"[con_id={cid}] focus")
-        self.clamp_floating(cid)
+        self.clamp_floating(cid, settle_fullscreen=True)
         self.cascade(cid)
         return False
 
@@ -1365,29 +1469,64 @@ class Deskd:
     # ------------------------------------------------------------ refresh
     def refresh(self):
         self.refresh_pending = False
+        if self.drag or self.resizing:
+            self.refresh_deferred = True
+            return False
+        self.refresh_deferred = False
         try:
             self.tree = self.i3.tree()
             workspaces = self.i3.workspaces()
+            self._refresh_outputs = self.i3.outputs()
         except Exception as e:
             log("refresh failed:", e)
             return False
-        self.sync_strips()
-        self.raise_focused()
-        if not self.resizing:
-            self.sync_handles(workspaces)
         self.render_workspaces(workspaces)
+        self.last_focused_ws = next((w["num"] for w in workspaces if w.get("focused")), None)
+        self.sync_active_mark(self.last_focused_ws)
         self.hide_over_fullscreen(workspaces)
+        self._refresh_outputs = None
+        self._controls_snapshot = (self.tree, workspaces)
+        if not self.controls_pending:
+            self.controls_pending = True
+            GLib.idle_add(self.refresh_controls)
         self.pump()
         return False
 
-    def raise_focused(self):
+    def refresh_controls(self):
+        self.controls_pending = False
+        tree, workspaces = self._controls_snapshot
+        if self.drag or self.resizing:
+            self.refresh_deferred = True
+            return False
+        self.tree = tree
+        stack = [w.id for w in self.xs.root.query_tree().children]
+        self.sync_strips()
+        self.raise_focused(stack)
+        self.sync_handles(workspaces, stack)
+        if self.pending_modal:
+            cid, wid = self.pending_modal
+            self.pending_modal = None
+            self.focus_modal(cid, wid, tree)
+        self.pump()
+        return False
+
+    @staticmethod
+    def stack_after(order, wid, sibling):
+        if wid in order:
+            order.remove(wid)
+        if sibling in order:
+            order.insert(order.index(sibling) + 1, wid)
+        else:
+            order.append(wid)
+
+    def raise_focused(self, order):
         """Unify i3's tiled/floating stacks for the active workspace.
 
         Only managed frames participate: menus, notifications and the panel keep
         their own stacking. Compare first so ConfigureNotify cannot cause a loop.
         """
         node, _ = i3ipc.focused(self.tree)
-        if not node or not node.get("window"):
+        if not node or not node.get("window") or node.get("window_type") == "notification":
             return
         workspace = i3ipc.workspace_of(self.tree, node["id"])
         if not workspace:
@@ -1396,56 +1535,54 @@ class Deskd:
         if not focused:
             return
         try:
-            frames = {self.frame_of(n["window"])[0].id for n, _ in walk(workspace)
-                      if n.get("window") and self.frame_of(n["window"])}
-            stack = [w for w in self.xs.root.query_tree().children
-                     if w.id in frames and w.get_attributes().map_state == X.IsViewable]
-            if stack and stack[-1].id != focused[0].id:
-                focused[0].configure(sibling=stack[-1], stack_mode=X.Above)
-                for win, info, _ in self.handles:
-                    if info and info.get("frame") == focused[0]:
-                        win.configure(sibling=focused[0], stack_mode=X.Above)
+            frames = {fr[0].id for n, _ in walk(workspace)
+                      if n.get("window") and n.get("window_type") != "notification"
+                      if (fr := self.frame_of(n["window"]))}
+            stack = [wid for wid in order if wid in frames]
+            if stack and stack[-1] != focused[0].id:
+                focused[0].configure(sibling=self.xs.d.create_resource_object("window", stack[-1]), stack_mode=X.Above)
+                self.stack_after(order, focused[0].id, stack[-1])
             # a dialog (WM_TRANSIENT_FOR) belongs on top of the window it came from.
             # i3 re-pushes its own order (focused floating window on top) on every
             # focus change, so check every pair on the workspace, not only the
             # focused window's children, and touch only what is actually wrong -
             # each configure comes back as ConfigureNotify and another refresh.
-            clients = {n["window"]: n for n, _ in walk(workspace) if n.get("window")}
+            clients = {n["window"]: n for n, _ in walk(workspace)
+                       if n.get("window") and n.get("window_type") != "notification"}
             for wid in clients:
                 for owner_id in self.dialog_owners(wid, clients):
                     child, parent = self.frame_of(wid), self.frame_of(owner_id)
                     if not child or not parent:
                         continue
-                    order = [w.id for w in self.xs.root.query_tree().children]
                     if child[0].id in order and parent[0].id in order and \
                             order.index(child[0].id) < order.index(parent[0].id):
                         child[0].configure(sibling=parent[0], stack_mode=X.Above)
-            self.raise_above(clients, node)
+                        self.stack_after(order, child[0].id, parent[0].id)
+            self.raise_above(clients, node, order)
         except error.XError:
             pass
 
-    def raise_above(self, clients, focused):
+    def raise_above(self, clients, focused, order):
         """Windows that asked to stay on top (KWin's Above layer) go over every other
         window of the workspace - except over a focused full-screen one, which KWin puts
         higher still (a video you are watching is not covered by a picture-in-picture)."""
-        tops = [self.frame_of(w)[0] for w in clients if w in self.above and self.frame_of(w)]
+        tops = [self.frame_of(w)[0] for w, n in clients.items()
+                if w in self.above and n.get("window_type") != "notification" and self.frame_of(w)]
         if not tops or focused.get("fullscreen_mode"):
             return
         top_ids = {f.id for f in tops}
         frames = {self.frame_of(w)[0].id for w in clients if self.frame_of(w)}
-        order = [w.id for w in self.xs.root.query_tree().children if w.id in frames]
-        others = [i for i, wid in enumerate(order) if wid not in top_ids]
+        managed_order = [wid for wid in order if wid in frames]
+        others = [i for i, wid in enumerate(managed_order) if wid not in top_ids]
         if not others:
             return
         highest = others[-1]
-        anchor = self.xs.d.create_resource_object("window", order[highest])
-        for f in sorted(tops, key=lambda f: order.index(f.id) if f.id in order else -1):
-            if f.id in order and order.index(f.id) < highest:
+        anchor = self.xs.d.create_resource_object("window", managed_order[highest])
+        for f in sorted(tops, key=lambda f: managed_order.index(f.id) if f.id in managed_order else -1):
+            if f.id in managed_order and managed_order.index(f.id) < highest:
                 f.configure(sibling=anchor, stack_mode=X.Above)
+                self.stack_after(order, f.id, anchor.id)
                 anchor = f
-                for win, info, _ in self.handles:
-                    if info and info.get("frame") == f:
-                        win.configure(sibling=f, stack_mode=X.Above)
 
     def dialog_owners(self, wid, clients):
         """The windows a dialog must stay above. Normally its WM_TRANSIENT_FOR. A modal
@@ -1474,12 +1611,9 @@ class Deskd:
                 and n.get("window_type") != "dialog"]
 
     def dock_frames(self):
-        """The frames i3 gave to dock windows - the panel. Looked up again every few
-        seconds, because the panel is restarted now and then."""
-        now = time.monotonic()
-        if self.docks is not None and now - self.docks_at < 5:
+        """The panel frames, invalidated by panel events and the missing-id check."""
+        if self.docks is not None:
             return self.docks
-        self.docks_at = now
         found = []
         kind = self.xs.d.get_atom("_NET_WM_WINDOW_TYPE")
         dock = self.xs.d.get_atom("_NET_WM_WINDOW_TYPE_DOCK")
@@ -1537,6 +1671,9 @@ class Deskd:
         try:
             if win.id in self.own_windows():
                 return
+            kind = win.get_full_property(self.A["_NET_WM_WINDOW_TYPE"], Xatom.ATOM)
+            if kind and self.xs.atom("_NET_WM_WINDOW_TYPE_NOTIFICATION") in kind.value:
+                return
             attrs = win.get_attributes()
             if not attrs.override_redirect or attrs.map_state != X.IsViewable:
                 return
@@ -1583,7 +1720,7 @@ class Deskd:
         for node, parent in walk(self.tree):
             if not node.get("window") or node.get("type") != "con":
                 continue
-            if node.get("border") != "normal" or node["deco_rect"]["height"] <= 0:
+            if node.get("window_type") == "notification" or node.get("border") != "normal" or node["deco_rect"]["height"] <= 0:
                 continue
             if parent is None or parent.get("layout") in ("tabbed", "stacked"):
                 continue
@@ -1621,11 +1758,11 @@ class Deskd:
             self.set_saved(cid, None)
 
     # ------------------------------------------------------------ resize handles
-    def visible_workspaces(self, workspaces):
+    def visible_workspaces(self, workspaces, tree=None):
         names = {w["name"] for w in workspaces if w.get("visible")}
-        return [n for n, _ in walk(self.tree) if n.get("type") == "workspace" and n.get("name") in names]
+        return [n for n, _ in walk(tree or self.tree) if n.get("type") == "workspace" and n.get("name") in names]
 
-    def sync_handles(self, workspaces):
+    def sync_handles(self, workspaces, stack):
         specs = []
         for ws in self.visible_workspaces(workspaces):
             if any(n.get("fullscreen_mode") and n.get("window") for n, _ in walk(ws)):
@@ -1639,7 +1776,7 @@ class Deskd:
                 # i3 moves only it - "[con_id=<the floating wrapper>] move position" is
                 # refused, which made a left or top edge grow the window right or down
                 leaf = next((n for n, _ in walk(fl) if n.get("window")), None)
-                if leaf is None:
+                if leaf is None or leaf.get("window_type") == "notification":
                     continue
                 ring = [((x - t, y - t, t, t), "tl", "tl"), ((x, y - t, w, t), "t", "t"),
                         ((x + w, y - t, t, t), "tr", "tr"), ((x + w, y, t, h), "r", "r"),
@@ -1653,8 +1790,10 @@ class Deskd:
                     if cw <= 0 or ch <= 0:
                         continue              # a maximized window's edge: nothing to grab there
                     specs.append(((cx, cy, cw, ch), cur, {"kind": "float", "con": leaf["id"], "edges": edges,
-                                                          "rect": dict(r), "frame": frame, "xid": leaf["window"]}))
+                                                          "rect": dict(r), "frame": frame, "xid": leaf["window"],
+                                                          "fitted": self.is_fitted(leaf)}))
         # reuse windows; create or destroy the difference
+        managed_frames = {info["frame"].id for _, _, info in specs if info.get("frame")}
         while len(self.handles) < len(specs):
             w = self.xs.window(self.xs.root, 0, 0, 1, 1, input_only=True,
                                events=X.ButtonPressMask | X.ButtonReleaseMask | X.PointerMotionMask)
@@ -1665,6 +1804,7 @@ class Deskd:
                 if h[1] is not None:
                     w.unmap()
                     h[1] = None
+                    h[2] = None
                     self.handle_by_win.pop(w.id, None)
                 continue
             geom, cur, info = specs[i]
@@ -1674,12 +1814,20 @@ class Deskd:
                 w.change_attributes(cursor=self.xs.cursors[cur])
                 w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh))
                 h[2] = key
-            if info.get("frame"):
-                # every time: i3 restacks frames on each focus change, and a handle
-                # left above a frame that is now higher would take that window's clicks
-                w.configure(sibling=info["frame"], stack_mode=X.Above)
             if h[1] is None:
                 w.map()
+                if w.id in stack:
+                    stack.remove(w.id)
+                stack.append(w.id)
+            frame = info.get("frame")
+            if frame and frame.id in stack:
+                here, below = stack.index(w.id), stack.index(frame.id)
+                higher_frames = [stack.index(fid) for fid in managed_frames
+                                 if fid in stack and stack.index(fid) > below]
+                ceiling = min(higher_frames, default=len(stack))
+                if not below < here < ceiling:
+                    w.configure(sibling=frame, stack_mode=X.Above)
+                    self.stack_after(stack, w.id, frame.id)
             h[1] = info
             self.handle_by_win[w.id] = h
 
@@ -1737,6 +1885,8 @@ class Deskd:
             if self.sharing and not self.share_frame_present():
                 self.set_sharing(False)
         elif t == X.MapNotify:
+            if e.window.id in self.panel_windows:
+                self.panel_reflowed()
             if not self.sharing and self.is_share_frame(e.window):
                 self.set_sharing(True)
                 return None
@@ -1747,8 +1897,10 @@ class Deskd:
                 return None
             self.raise_popup(e.window)
         elif t == X.ConfigureNotify:
-            if e.window.id in self.panel_windows:
+            if e.window.id in self.panel_windows or e.window.id in self.veils:
                 return self.panel_reflowed()
+            if time.monotonic() - self.workspace_event_at < 0.2:
+                return
             # i3 can restore its tiled/floating split after a resize or maximize.
             # Only managed frames need reconciliation, never our own overlays - and
             # not while we are the ones moving the window (drag_end refreshes once).
@@ -1799,16 +1951,13 @@ class Deskd:
             if DEBUG:
                 log("handle press", info["edges"], info["con"], e.root_x, e.root_y)
             self.resizing = {"info": info, "x": e.root_x, "y": e.root_y, "last": None,
-                             "min": self.min_frame_size(info)}
+                             "min": self.min_frame_size(info), "pos": (e.root_x, e.root_y)}
+            GLib.timeout_add(30, self.apply_resize)
         elif e.type == X.MotionNotify and self.resizing:
             self.resizing["pos"] = (e.root_x, e.root_y)
-            if not self.resizing.get("timer"):
-                self.resizing["timer"] = GLib.timeout_add(30, self.apply_resize)
         elif e.type == X.ButtonRelease and self.resizing:
             self.resizing["pos"] = (e.root_x, e.root_y)
             self.apply_resize(final=True)
-            self.resizing = None
-            self.schedule_refresh()
 
     def min_frame_size(self, info):
         """The smallest frame the window may be resized to: the app's minimum size
@@ -1829,9 +1978,15 @@ class Deskd:
         r = self.resizing
         if not r:
             return False
-        r["timer"] = None
-        if "pos" not in r:
-            return False
+        if r.get("command_in_flight"):
+            return True
+        if not final:
+            try:
+                px, py, mask = self.xs.pointer()
+                r["pos"] = (px, py)
+                final = not mask & X.Button1Mask
+            except error.XError:
+                final = True
         info = r["info"]
         px, py = r["pos"]
         dx, dy = px - r["x"], py - r["y"]
@@ -1854,12 +2009,22 @@ class Deskd:
         if key != r["last"]:
             if r["last"] is None:
                 # a maximized / snapped window being resized by hand is neither any more
-                self.cmd(f'[con_id={info["con"]}] {self.unfit(info["con"])}')
+                if info["fitted"]:
+                    self.cmd(f'[con_id={info["con"]}] {self.unfit(info["con"])}')
                 self.set_saved(info["con"], None)
-            self.cmd(f'[con_id={info["con"]}] resize set {w} px {h} px, move position {x} px {y} px')
-            r["last"] = key
+            r["command_in_flight"] = True
+            try:
+                self.cmd(f'[con_id={info["con"]}] resize set {w} px {h} px, move position {x} px {y} px')
+                r["last"] = key
+            finally:
+                r["command_in_flight"] = False
+        if final:
+            self.resizing = None
+            self.schedule_refresh()
+            if self.panel_dirty:
+                self.schedule_recheck()
         self.pump()
-        return False
+        return not final
 
     def client_message(self, e):
         """Apps asking the window manager to minimize or maximize (their own buttons)."""
@@ -1896,6 +2061,8 @@ class Deskd:
     def outputs(self):
         """The output list; frozen for the length of a drag, like workspaces(): it was
         asked of i3 on every pointer poll (60 Hz) and screens do not change mid-drag."""
+        if self._refresh_outputs is not None:
+            return self._refresh_outputs
         if self.drag is None:
             return self.i3.outputs()
         if self.drag.get("outputs") is None:
@@ -1916,9 +2083,8 @@ class Deskd:
         mid-drag, and re-parsing it at 60 Hz churned tens of megabytes."""
         if self.drag is None:
             return self.i3.workspaces()
-        now = time.monotonic()
-        if self._ws_snap is None or now - self._ws_snap_at > 0.5:
-            self._ws_snap, self._ws_snap_at = self.i3.workspaces(), now
+        if self._ws_snap is None:
+            self._ws_snap = self.i3.workspaces()
         return self._ws_snap
 
     def workarea(self, output_name):
@@ -1927,11 +2093,11 @@ class Deskd:
                 return w["rect"]
         return None
 
-    def con_output(self, cid):
-        ws = i3ipc.workspace_of(self.i3.tree(), cid)
+    def con_output(self, cid, tree=None, workspaces=None):
+        ws = i3ipc.workspace_of(tree or self.i3.tree(), cid)
         if not ws:
             return None
-        for w in self.i3.workspaces():
+        for w in workspaces or self.i3.workspaces():
             if w["name"] == ws["name"]:
                 return w["output"]
         return None
@@ -2155,8 +2321,8 @@ class Deskd:
     # ONE engine for every title bar drag (left or right button): the window follows the
     # pointer; top edge = maximize, left/right edge = that half of the screen, a workspace
     # number in any panel = move there. Fixes here apply to both buttons.
-    def titlebar_press(self, button, attempt=0):
-        tree = self.i3.tree()
+    def titlebar_press(self, button, attempt=0, tree=None):
+        tree = tree or self.i3.tree()
         target = next((n for n, _ in walk(tree) if MARK_CLICK in (n.get("marks") or [])), None)
         if not target:
             if attempt < 3:        # the binding event can arrive a moment before the mark
@@ -2172,7 +2338,7 @@ class Deskd:
         frame = parent["rect"] if parent is not None and parent.get("type") == "floating_con" else target["rect"]
         self.drag = {"con": target["id"], "xid": target.get("window"), "x0": x, "y0": y, "moving": False,
                      "zone": None, "button": button, "mask": bmask,
-                     "rect": dict(frame), "fitted": self.is_fitted(target)}
+                     "rect": dict(frame), "fitted": self.is_fitted(target), "tree": tree}
         GLib.timeout_add(POLL_MS, self.drag_poll)
 
     def titlebar_click(self, cid, button, x, y):
@@ -2261,10 +2427,14 @@ class Deskd:
         d["moving"] = True
         cid, r = d["con"], d["rect"]
         # measured once, used every frame: the work areas, the other windows' frames
-        d["area"] = self.workarea(self.con_output(cid))
-        d["areas"] = {w["output"]: w["rect"] for w in self.workspaces() if w["visible"]}
+        d["workspaces"] = self._ws_snap = self.i3.workspaces()
+        d["outputs"] = self.i3.outputs()
+        output = self.con_output(cid, d["tree"], d["workspaces"])
+        d["area"] = next((w["rect"] for w in d["workspaces"]
+                          if w["visible"] and w["output"] == output), None)
+        d["areas"] = {w["output"]: w["rect"] for w in d["workspaces"] if w["visible"]}
         d["others"] = []
-        for ws in self.visible_workspaces(self.workspaces()):
+        for ws in self.visible_workspaces(d["workspaces"], d["tree"]):
             for fl in ws.get("floating_nodes", []):
                 if fl["id"] != cid and not any(n["id"] == cid for n, _ in walk(fl)):
                     fr = fl["rect"]
@@ -2368,6 +2538,7 @@ class Deskd:
 
     def drag_end(self, x, y):
         d, self.drag = self.drag, None
+        self._ws_snap = None
         self.show_preview(None)
         self.hide_targets()
         if not d["moving"]:
@@ -2398,8 +2569,10 @@ class Deskd:
             # drag already keeps the window inside the work area): it stays right there
             self.set_saved(cid, None)
         self.schedule_refresh()
+        if self.panel_dirty:
+            self.schedule_recheck()
 
-    def clamp_floating(self, cid):
+    def clamp_floating(self, cid, settle_fullscreen=False):
         """A window that just became floating must be reachable: title bar below the
         panel, and no bigger than the screen area (Firefox used to end up under it).
         A window that opened full screen is the app's own choice and stays so:
@@ -2408,8 +2581,10 @@ class Deskd:
         if self.drag:
             return False
         node, parent = find(self.i3.tree(), cid)
+        if node is None or node.get("window_type") == "notification":
+            return False
         if not parent or parent.get("type") != "floating_con" or self.is_fitted(node) \
-                or node.get("fullscreen_mode"):
+                or node.get("fullscreen_mode") or self.A["_NET_WM_STATE_FULLSCREEN"] in self.net_state(node["window"]):
             return False
         area = self.workarea(self.con_output(cid))
         if not area:
@@ -2417,6 +2592,9 @@ class Deskd:
         r = parent["rect"]
         if r["width"] >= area["width"] * 0.95 and r["height"] >= area["height"] * 0.95 \
                 and not self.saved(cid):
+            if settle_fullscreen:
+                GLib.timeout_add(200, self.clamp_floating, cid)
+                return False
             # it remembers being maximized (Firefox, Thunar, Telegram...): give it that
             self.maximize(cid)
             return False
@@ -2455,8 +2633,10 @@ class Deskd:
     # click zones over it and the drop targets during a drag all come from strip_segments().
     def strip_plugins(self, fresh=False):
         """[(plugin_id, output)] - output None means the primary screen."""
+        if os.environ.get("DESKD_NO_PANELS"):
+            return []
         if fresh or self._strips is None:
-            self._strips = panels.strips()
+            self._strips = panels.strips(self._panel_props)
         return self._strips
 
     def strip_output(self, out):
@@ -2526,6 +2706,7 @@ class Deskd:
         by_num = {w["num"]: w for w in workspaces}
         primary = self.primary_output()
         self.items_by_output = {}
+        changed = False
         for o in self.outputs_sorted():
             items = self.items_for_output(o["name"], workspaces)
             segs = self.strip_segments(items, by_num)
@@ -2539,6 +2720,7 @@ class Deskd:
             if self.last_ws_text.get(o["name"]) == text:
                 continue
             self.last_ws_text[o["name"]] = text
+            changed = True
             for path in files:
                 with open(path + ".tmp", "w") as f:
                     f.write(text)
@@ -2548,11 +2730,12 @@ class Deskd:
                     xfpanel.plugin_event(f"genmon-{pid}")      # D-Bus, not a process: the digit
                     # must turn black together with the fire that sky-stars moves onto it
             self.bounds_cache.clear()
-        GLib.timeout_add(400, self.place_ws_clicks)
+        if changed:
+            GLib.timeout_add(400, self.place_ws_clicks)
 
     def strip_view(self, pid, out):
         """(geometry, items, bounds) of one strip as it is on screen now."""
-        geom = self.strip_geoms.get(pid)
+        geom = self.strip_geoms.get(pid) or self.plugin_geometry(pid)
         entry = self.items_by_output.get(self.strip_output(out))
         if not geom or not entry:
             return None
@@ -2604,19 +2787,30 @@ class Deskd:
         return self._dpi
 
     def show_layer(self, win, visible):
+        if self.layer_visible.get(win.id) == visible:
+            return
         try:
             if visible:
                 win.map()
                 win.configure(stack_mode=X.Above)
             else:
                 win.unmap()
+            self.layer_visible[win.id] = visible
         except error.XError:
             pass
+
+    def raise_click_layers(self):
+        for win in self.click_layers.values():
+            if self.layer_visible.get(win.id):
+                try:
+                    win.configure(stack_mode=X.Above)
+                except error.XError:
+                    pass
 
     def place_ws_clicks(self):
         """A transparent click layer over every strip: click a number = go there."""
         for pid, out in self.strip_plugins():
-            geom = self.plugin_geometry(pid)
+            geom = self.strip_geoms.get(pid) or self.plugin_geometry(pid)
             if not geom:
                 continue
             self.strip_geoms[pid] = geom
@@ -2628,9 +2822,12 @@ class Deskd:
                                      cursor=self.xs.cursors["hand"])
                 self.click_layers[pid] = win
                 self.click_by_win[win.id] = (pid, out)
-            win.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
+            if self.click_layouts.get(pid) != geom:
+                win.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3])
+                self.click_layouts[pid] = geom
             self.show_layer(win, self.strip_output(out) not in self.busy_outputs)
-        self.sync_active_mark()
+        self.raise_click_layers()
+        self.sync_active_mark(self.last_focused_ws)
         self.pump()
         return False
 
@@ -2792,9 +2989,8 @@ class Deskd:
 
     def show_targets(self):
         """While dragging: every strip turns into big drop targets."""
-        self.place_ws_clicks()
         self.targets = {}
-        for pid, out in self.strip_plugins():
+        for pid, out in self._strips or []:
             view = self.strip_view(pid, out)
             if not view:
                 continue
@@ -2863,7 +3059,7 @@ class Deskd:
 
     # ------------------------------------------------------------ workspaces
     def outputs_sorted(self):
-        outs = [o for o in self.i3.outputs() if o.get("active")]
+        outs = [o for o in self.outputs() if o.get("active")]
         outs.sort(key=lambda o: (not o.get("primary"), o["rect"]["x"], o["rect"]["y"]))
         return outs
 
@@ -3000,6 +3196,8 @@ class Deskd:
         log("panels: adding", add, "dropping", drop, "narrow", sorted(narrow))
         panels.apply(add, drop, props, lambda: self.cmd("exec --no-startup-id xfce4-panel"), narrow)
         self._strips = None
+        self._panel_props = None
+        self.strip_geoms.clear()
         self.last_ws_text = {}
 
         def after():
@@ -3020,7 +3218,7 @@ class Deskd:
         node, parent = i3ipc.focused(tree)
         cid = node["id"] if node and node.get("window") else None
         if what == "titlebar":
-            self.titlebar_press(int(args[1]) if len(args) > 1 else 3)
+            self.titlebar_press(int(args[1]) if len(args) > 1 else 3, tree=tree)
         elif what == "ws" and len(args) > 1:
             self.cmd(f"workspace number {self.target_ws(int(args[1]))}")
         elif what == "move" and len(args) > 1:

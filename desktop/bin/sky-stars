@@ -7,9 +7,8 @@ How it stays cheap
     does no trigonometry and no random numbers.
   * A frame only draws the stars whose step changed, grouped by step into one
     PolyFillRectangle request per step (at most two dozen requests a frame).
-  * Stars under a window are not drawn at all. The covered area comes from the i3
-    tree (visible workspaces, docks, floating and full-screen windows); when
-    everything is covered the loop sleeps until i3 reports a change.
+  * Stars are drawn everywhere, under windows too; the compositor shows only what is
+    visible, and the stars cost next to nothing (a few rectangles a frame).
   * No GTK: python-xlib only, a select() loop over the X socket and the i3 socket.
 
 Why a window and not the root pixmap
@@ -50,7 +49,6 @@ CELL_W, CELL_H = 20, 28     # grid cell in pixels; density is one star per five 
 CORE, HALO = 4, 6           # star: a 4 px square with a dim 6 px halo (HiDPI: ~3 logical px)
 PEAK, GLOW = 0.75, 0.25     # brightest core / halo as a share of the theme foreground
 DOTS = ((0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (0, 3), (1, 3))
-ALWAYS = os.environ.get("SKY_STARS_ALWAYS") == "1"   # draw under windows too (for measuring)
 
 # The marks around the active workspace digit: the Diablo logo's fire and the menu's
 # spinning pentagrams. deskd writes where the digit is (MARK_FILE); the frames were cut
@@ -260,8 +258,6 @@ class Sky:
         self.width = self.height = 0
         self.win = None
         self.gcs = []            # per step: (halo gc, core gc); step 0 erases
-        self.rethink_at = None   # when to recompute the covered set (coalesces i3 events)
-        self.any_visible = True
         self.build()
         self.marks = Marks(self.d, self.screen, self.i3)
         self.marks.poll()
@@ -298,8 +294,7 @@ class Sky:
         self.win.configure(stack_mode=X.Below)
         self.tabulate()
         self.win.clear_area(0, 0, self.width, self.height)
-        self.visible = bytearray(len(self.sx))     # filled in by rethink()
-        self.rethink()
+        self.redraw(range(len(self.sx)))
         self.d.flush()
 
     @staticmethod
@@ -340,17 +335,15 @@ class Sky:
         log(f"{n} stars on {columns}x{rows} cells, {FRAMES} frames, {per_frame:.0f} changes/frame")
 
     # ------------------------------------------------------------ drawing
-    def draw(self, groups, only_visible=True):
+    def draw(self, groups):
         """groups: {step: iterable of star indexes}. Halos first, then cores, so a
         halo never lands on a neighbour's core (cells are far wider than halos)."""
-        vis, halo, core = self.visible, self.halo, self.core
-        idx = {step: [i for i in stars if vis[i]] if only_visible else list(stars)
-               for step, stars in groups.items()}
-        for step, stars in idx.items():                   # step 0: black halo = erase
-            if stars:
+        halo, core = self.halo, self.core
+        for step, stars in groups.items():                # step 0: black halo = erase
+            if len(stars):
                 self.fill(self.gcs[step][0], b"".join([halo[i] for i in stars]))
-        for step, stars in idx.items():
-            if step and stars:
+        for step, stars in groups.items():
+            if step and len(stars):
                 self.fill(self.gcs[step][1], b"".join([core[i] for i in stars]))
 
     def fill(self, gc, rectangles):
@@ -359,91 +352,13 @@ class Sky:
     def frame_index(self, now=None):
         return int((now or time.monotonic()) * 1000 / FRAME_MS) % FRAMES
 
-    def redraw(self, indexes, only_visible=True):
-        """Bring the given stars to their current step (after uncovering or an expose)."""
+    def redraw(self, indexes):
+        """Bring the given stars to their current step (after an expose or a stall)."""
         steps = self.steps[self.frame_index()]
         groups = {}
         for i in indexes:
             groups.setdefault(steps[i], array.array("H")).append(i)
-        self.draw(groups, only_visible)
-
-    # ------------------------------------------------------------ what is covered
-    def covering_rects(self):
-        """Screen rectangles of everything i3 shows: docks (the panel), and every
-        window on a visible workspace - tiled, floating or full-screen."""
-        shown = {w["name"] for w in self.i3.workspaces() if w.get("visible")}
-        rects = []
-
-        def add(node):
-            r, deco = node.get("rect", {}), node.get("deco_rect", {})
-            if r.get("width") and r.get("height"):
-                rects.append((r["x"], r["y"] - deco.get("height", 0),
-                              r["width"], r["height"] + deco.get("height", 0)))
-
-        tree = self.i3.tree()
-        for output in tree.get("nodes", []):
-            for area in output.get("nodes", []):
-                if area.get("type") == "dockarea":
-                    for dock in area.get("nodes", []):
-                        add(dock)
-                elif area.get("type") == "con":                 # "content"
-                    for ws in area.get("nodes", []):
-                        if ws.get("name") not in shown:
-                            continue
-                        for node, _ in i3ipc.walk(ws):
-                            if node.get("window"):
-                                add(node)
-        return rects
-
-    def uncovered(self, rects):
-        """The screen minus the covering rectangles, as a list of rectangles."""
-        pieces = [(0, 0, self.width, self.height)]
-        for (cx, cy, cw, ch) in rects:
-            out = []
-            for (px, py, pw, ph) in pieces:
-                ix0, iy0, ix1, iy1 = max(px, cx), max(py, cy), min(px + pw, cx + cw), min(py + ph, cy + ch)
-                if ix0 >= ix1 or iy0 >= iy1:
-                    out.append((px, py, pw, ph))
-                    continue
-                if iy0 > py:
-                    out.append((px, py, pw, iy0 - py))
-                if iy1 < py + ph:
-                    out.append((px, iy1, pw, py + ph - iy1))
-                if ix0 > px:
-                    out.append((px, iy0, ix0 - px, iy1 - iy0))
-                if ix1 < px + pw:
-                    out.append((ix1, iy0, px + pw - ix1, iy1 - iy0))
-            pieces = out
-        return pieces
-
-    def rethink(self):
-        self.rethink_at = None
-        try:
-            rects = [] if ALWAYS else self.covering_rects()
-        except Exception as e:                                 # i3 restarting: try again soon
-            log("i3 query failed:", e)
-            self.rethink_at = time.monotonic() + 1
-            return
-        # The window's shape is the uncovered part of the screen. Where a window
-        # covers us there is no layer at all, so the compositor does not blend a
-        # full-screen background into every frame of a video or a busy terminal.
-        shape.rectangles(self.win, shape.SO.Set, shape.SK.Bounding, 0, 0, 0, self.uncovered(rects))
-        sx, sy = self.sx, self.sy
-        new = bytearray(len(sx))
-        for i in range(len(sx)):
-            x0, y0 = sx[i] - HALO // 2, sy[i] - HALO // 2
-            for (rx, ry, rw, rh) in rects:
-                if rx <= x0 and ry <= y0 and x0 + HALO <= rx + rw and y0 + HALO <= ry + rh:
-                    break
-            else:
-                new[i] = 1
-        uncovered = [i for i in range(len(sx)) if new[i] and not self.visible[i]]
-        self.visible = new
-        if uncovered:
-            self.redraw(uncovered)
-        self.win.configure(stack_mode=X.Below)                 # stay the wallpaper
-        self.d.flush()
-        self.any_visible = any(new)
+        self.draw(groups)
 
     # ------------------------------------------------------------ events
     def on_x(self):
@@ -452,11 +367,16 @@ class Sky:
             e = self.d.next_event()
             if e.type == X.Expose:
                 exposed.append((e.x, e.y, e.width, e.height))
+            elif e.type == X.ConfigureNotify and e.window.id == self.win.id and e.above_sibling:
+                # someone restacked the wallpaper above a sibling (it must stay at the bottom,
+                # under every window and the panel): put it back
+                self.win.configure(stack_mode=X.Below)
+                self.d.flush()
         if exposed:
             hit = [i for i in range(len(self.sx)) if any(
                 rx - HALO <= self.sx[i] <= rx + rw + HALO and ry - HALO <= self.sy[i] <= ry + rh + HALO
                 for (rx, ry, rw, rh) in exposed)]
-            self.redraw(hit, only_visible=False)
+            self.redraw(hit)
             self.d.flush()
 
     def on_i3(self):
@@ -472,16 +392,11 @@ class Sky:
         for name, payload in events:
             if name == "output":
                 self.build()                                   # screen may have changed size
-            elif name == "window" and payload.get("change") in ("title", "urgent", "mark"):
-                continue
             elif name == "tick" and payload.get("payload") == "sky-stars mark":
                 self.marks.poll()          # deskd has just written where the digit is
                 self.d.flush()
-                continue
             elif name == "workspace":
                 self.marks.poll()
-            if self.rethink_at is None:
-                self.rethink_at = time.monotonic() + 0.1       # coalesce bursts
 
     # ------------------------------------------------------------ main loop
     def run(self):
@@ -491,10 +406,7 @@ class Sky:
         while True:
             now = time.monotonic()
             timeout = max(0.0, next_mark - now)
-            if self.any_visible:
-                timeout = min(timeout, (math.floor(now * 1000 / FRAME_MS) + 1) * FRAME_MS / 1000 - now)
-            if self.rethink_at is not None:
-                timeout = max(0, min(timeout, self.rethink_at - now))
+            timeout = min(timeout, (math.floor(now * 1000 / FRAME_MS) + 1) * FRAME_MS / 1000 - now)
             readable, _, _ = select.select([xfd, ifd], [], [], timeout)
             if xfd in readable:
                 self.on_x()
@@ -506,18 +418,15 @@ class Sky:
                 self.marks.tick()
                 self.d.flush()
                 next_mark = now + (MARK_MS if self.marks.shown else 250) / 1000
-            if self.rethink_at is not None and now >= self.rethink_at:
-                self.rethink()
-            if self.any_visible:
-                f = self.frame_index(now)
-                if f != last:
-                    # normally one step; after a pause or a stall just catch up to now
-                    if (f - last) % FRAMES == 1:
-                        self.draw(self.changes[f])
-                    else:
-                        self.redraw(range(len(self.sx)))
-                    self.d.flush()
-                    last = f
+            f = self.frame_index(now)
+            if f != last:
+                # normally one step; after a pause or a stall just catch up to now
+                if (f - last) % FRAMES == 1:
+                    self.draw(self.changes[f])
+                else:
+                    self.redraw(range(len(self.sx)))
+                self.d.flush()
+                last = f
 
 
 if __name__ == "__main__":
