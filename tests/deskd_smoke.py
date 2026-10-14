@@ -10,7 +10,7 @@ drag away from the top (the window must not stay glued to the panel edge), drop 
 left edge and in a corner, restore, minimize and back, a second window of the same app,
 Alt+Tab (with Alt held: the switcher, the switch on release), keep-above, Super+arrows,
 magnetic edges, a screen size change (RANDR) with a maximized window, and a window
-that opens full screen.
+that opens full screen. A synthetic dock checks panel veil teardown and recreation.
 
 The Xephyr window is moved to workspace 9 of the real i3 the moment it appears, so the
 user's workspace is not covered. Run time ~20 s. Exit code 1 on the first failed check.
@@ -219,9 +219,9 @@ unit.strip_geoms = {}
 unit.panel_windows = set()
 unit.bounds_cache = {}
 unit.xs = SimpleNamespace(gc_cache={})
-unit.strip_plugins = lambda fresh=False: setattr(unit, "_strips", [])
-unit.watch_panel_items = lambda: None
-unit.place_ws_clicks = lambda: None
+unit.strip_plugins = Mock(side_effect=lambda fresh=False: setattr(unit, "_strips", [(45, None)]))
+unit.watch_panel_items = Mock()
+unit.place_ws_clicks = Mock()
 queued = []
 
 
@@ -238,6 +238,9 @@ with patch.object(deskd.GLib, "idle_add", side_effect=queue_recheck), \
     result = queued.pop()()
     check("panel recheck runs once", result is False and read_panel.call_count == 1 and
           unit.recheck_pending is None, str((result, read_panel.call_count)))
+    check("panel recheck rebuilds strip and click layer",
+          unit.strip_plugins.call_args.kwargs == {"fresh": True} and
+          unit.watch_panel_items.call_count == 1 and unit.place_ws_clicks.call_count == 1)
 
 click_layer = SimpleNamespace(id=42, configure=Mock())
 unit.click_layers = {1: click_layer}
@@ -286,6 +289,83 @@ log = open(os.path.join(tmp, "deskd.log"), "w")
 procs.append(subprocess.Popen([sys.executable, DESKD], env=env, stdout=log, stderr=subprocess.STDOUT))
 time.sleep(1.5)
 check("deskd running", procs[-1].poll() is None, "see " + log.name)
+
+# Synthetic docks need neither the host panel nor xfconf. Exercise both a dock
+# outside i3 and one framed by i3, including immediate X window ID reuse.
+def fake_panel(managed=False):
+    d = xconn()
+    win = d.screen().root.create_window(0, 0, SIZE[0], 50, 0, d.screen().root_depth,
+                                        XX.InputOutput, XX.CopyFromParent,
+                                        override_redirect=not managed, background_pixel=0)
+    win.set_wm_class("xfce4-panel", "Xfce4-panel")
+    win.change_property(d.intern_atom("_NET_WM_WINDOW_TYPE"), Xatom.ATOM, 32,
+                        [d.intern_atom("_NET_WM_WINDOW_TYPE_DOCK")])
+    win.map()
+    d.flush()
+    return win
+
+
+def veil_ids():
+    found = set()
+    for win in xconn().screen().root.query_tree().children:
+        try:
+            if (win.get_wm_class() or (None,))[0] == "deskd" and win.get_geometry().height == 50:
+                found.add(win.id)
+        except Exception:
+            pass
+    return found
+
+
+def wait_veils(expected, timeout=1.0, old=None):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        got = veil_ids()
+        if len(got) == expected and (old is None or got != old):
+            return got
+        time.sleep(0.03)
+    return veil_ids()
+
+
+first_panel = fake_panel()
+first_veil = wait_veils(1)
+check("dock map creates panel veil within 1 s", len(first_veil) == 1)
+first_panel.destroy()
+xconn().flush()
+check("dock destroy removes panel veil within 1 s", not wait_veils(0))
+second_panel = fake_panel()
+second_veil = wait_veils(1)
+check("panel quit and start recreates veil within 1 s", len(second_veil) == 1 and
+      second_veil != first_veil)
+second_panel.destroy()
+third_panel = fake_panel()       # xfce4-panel -r can replace the dock without a long gap
+third_veil = wait_veils(1, old=second_veil)
+check("panel -r replaces veil within 1 s", len(third_veil) == 1 and
+      third_veil != second_veil, f"old={second_veil} new={third_veil}")
+third_panel.destroy()
+xconn().flush()
+check("replacement dock cleanup removes veil", not wait_veils(0))
+dock_events = deskd.i3ipc.subscribe(["window"], nested_sock)
+dock_events.settimeout(0.2)
+managed_panel = fake_panel(managed=True)
+check("i3 framed dock creates panel veil within 1 s", len(wait_veils(1)) == 1)
+managed_panel.destroy()
+xconn().flush()
+check("i3 framed dock cleanup removes veil", not wait_veils(0))
+data = b""
+try:
+    while True:
+        chunk = dock_events.recv(65536)
+        if not chunk:
+            break
+        data += chunk
+except TimeoutError:
+    pass
+dock_events.close()
+events, _ = deskd.i3ipc.decode(data)
+say("i3 dock window events", [(name, ev.get("change"),
+                               (ev.get("container") or {}).get("window_type"),
+                               ((ev.get("container") or {}).get("window_properties") or {}).get("class"))
+                              for name, ev in events])
 
 area = {"x": 0, "y": 0, "width": SIZE[0], "height": SIZE[1]}      # no panel: the whole screen
 

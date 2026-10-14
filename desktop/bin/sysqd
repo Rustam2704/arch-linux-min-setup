@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Sample CPU, RAM and swap and prepare three cheap genmon readouts."""
+import os
+from pathlib import Path
+import sys
+import time
+
+sys.path.insert(0, os.environ.get("SKY_DESKTOP_SHARE", os.path.expanduser("~/.local/share/sky-desktop")))
+from sky_theme import THEME  # noqa: E402
+from sysicons import level, outlines, svg  # noqa: E402
+
+RUN = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+REFRESH = os.environ.get("SYSQD_NO_REFRESH") != "1"  # isolated benchmark
+if REFRESH:
+    import xfpanel  # noqa: E402
+
+
+def cpu_times():
+    with open("/proc/stat") as stream:
+        parts = [int(x) for x in stream.readline().split()[1:]]
+    return parts[3] + parts[4], sum(parts)
+
+
+def cpu_percent(now, previous):
+    if previous is None:
+        return 0
+    total = now[1] - previous[1]
+    idle = now[0] - previous[0]
+    return max(0, min(100, round(100 * (total - idle) / total))) if total > 0 else 0
+
+
+def memory():
+    info = {}
+    with open("/proc/meminfo") as stream:
+        for line in stream:
+            key, _, rest = line.partition(":")
+            info[key] = int(rest.split()[0])
+    total = info["MemTotal"]
+    used = total - info.get("MemAvailable", info["MemFree"])
+    swap_total = info.get("SwapTotal", 0)
+    swap_used = swap_total - info.get("SwapFree", 0)
+    return (round(100 * used / total), used // 1024, total // 1024,
+            swap_used // 1024, round(100 * swap_used / swap_total) if swap_total else 0)
+
+
+def colour(pct):
+    return THEME["danger"] if pct >= 90 else THEME["warning"] if pct >= 75 else THEME["light"]
+
+
+def value(text, tint, width):
+    room = "0" * max(0, width - len(text))
+    return (f'<span foreground="{tint}"><span alpha="1">{room}</span>'
+            f'{text}</span>')
+
+
+def panel_percent(pct):
+    return "00" if pct >= 100 else str(pct)
+
+
+def write_changed(path, content):
+    try:
+        if path.read_text() == content:
+            return False
+    except FileNotFoundError:
+        pass
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(content)
+    os.replace(tmp, path)
+    return True
+
+
+def markup(name, digits, tooltip, trailing=False):
+    image = RUN / f"sysq-{name}.svg"
+    # The final reading alone owns the space before the separator. When swap
+    # disappears, RAM takes it over; the empty swap plugin contributes no text.
+    tail = " " if trailing else ""
+    return (f'<img>{image}</img>\n'
+            f'<txt><span font_features="tnum">{digits}{tail}</span></txt>\n'
+            f'<tool>{tooltip}</tool>\n')
+
+
+def main():
+    glyphs = outlines()
+    images = {(name, count): svg(name, count * 25, glyphs)
+              for name in ("cpu", "memory", "swap") for count in range(1, 5)}
+    previous = None
+    while True:
+        start = time.monotonic()
+        current = cpu_times()
+        cpu = cpu_percent(current, previous)
+        previous = current
+        mem_pct, mem_used, mem_total, swap_used, swap_pct = memory()
+        swap_visible = swap_used > 64
+        values = {
+            "cpu": (cpu, value(panel_percent(cpu), colour(cpu), 2), False, f"CPU: {cpu}%"),
+            "memory": (mem_pct, value(panel_percent(mem_pct), colour(mem_pct), 2),
+                       not swap_visible, f"Memory: {mem_used} of {mem_total} MB ({mem_pct}%)"),
+        }
+        if swap_visible:
+            gb = max(1, round(swap_used / 1024))
+            digits, tint = ((str(gb - 10), THEME["danger"]) if gb >= 10
+                            else (str(gb), THEME["text"]))
+            values["swap"] = (swap_pct, value(digits, tint, 1), True,
+                              f"Swap: {swap_used} MB (on SSD)")
+        for name, command in (("cpu", "panel-sys"), ("memory", "panel-ram"), ("swap", "panel-swap")):
+            if name in values:
+                pct, digits, trailing, tooltip = values[name]
+                count = level(pct)
+                changed = write_changed(RUN / f"sysq-{name}.svg", images[name, count])
+                changed |= write_changed(RUN / f"sysq-{name}.txt", markup(name, digits, tooltip, trailing))
+            else:
+                changed = write_changed(RUN / "sysq-swap.txt", "")
+            if changed and REFRESH:
+                xfpanel.refresh(command)
+        time.sleep(max(0.1, 2 - (time.monotonic() - start)))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,3 @@
+#!/bin/sh
+echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; min-width: 0; margin: 0; padding: 0; } button { margin: 0; padding: 0; }</css>'
+cat "${XDG_RUNTIME_DIR:-/tmp}/sysq-swap.txt" 2>/dev/null || echo '<txt></txt>'

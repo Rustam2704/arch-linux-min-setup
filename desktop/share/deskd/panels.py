@@ -21,7 +21,7 @@ MAIN_PANEL = 1
 # panel. On a screen narrower than the laptop's the copy leaves out the two widest
 # number readouts (ping, CPU/RAM/SWAP: ~460 px; the laptop panel still shows them) and
 # keeps everything else, with room for the dock to grow.
-SKIP_ON_NARROW = ("panel-net", "panel-sys")
+SKIP_ON_NARROW = ("panel-net", "panel-sys", "panel-ram", "panel-swap")
 
 
 def q(*args):

@@ -23,6 +23,8 @@
         <value type="int" value="60"/>
         <value type="int" value="41"/>
         <value type="int" value="42"/>
+        <value type="int" value="63"/>
+        <value type="int" value="64"/>
         <value type="int" value="54"/>
         <value type="int" value="43"/>
         <value type="int" value="53"/>
@@ -91,7 +93,23 @@
     </property>
     <property name="plugin-42" type="string" value="genmon">
       <property name="command" type="string" value="@HOME@/.local/bin/panel-sys"/>
-      <property name="update-period" type="int" value="2000"/>
+      <property name="update-period" type="int" value="60000"/>
+      <property name="use-label" type="bool" value="false"/>
+      <property name="enable-single-row" type="bool" value="true"/>
+      <property name="font" type="string" value="@PANEL_FONT@"/>
+      <property name="text" type="string" value="(genmon)"/>
+    </property>
+    <property name="plugin-63" type="string" value="genmon">
+      <property name="command" type="string" value="@HOME@/.local/bin/panel-ram"/>
+      <property name="update-period" type="int" value="60000"/>
+      <property name="use-label" type="bool" value="false"/>
+      <property name="enable-single-row" type="bool" value="true"/>
+      <property name="font" type="string" value="@PANEL_FONT@"/>
+      <property name="text" type="string" value="(genmon)"/>
+    </property>
+    <property name="plugin-64" type="string" value="genmon">
+      <property name="command" type="string" value="@HOME@/.local/bin/panel-swap"/>
+      <property name="update-period" type="int" value="60000"/>
       <property name="use-label" type="bool" value="false"/>
       <property name="enable-single-row" type="bool" value="true"/>
       <property name="font" type="string" value="@PANEL_FONT@"/>

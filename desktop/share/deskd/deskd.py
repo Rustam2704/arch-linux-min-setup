@@ -1152,6 +1152,23 @@ class Deskd:
             return False
         GLib.timeout_add(150, rebuild)
 
+    def is_panel_dock(self, win):
+        """Recognize a newly mapped Xfce dock or its i3 frame.
+
+        i3 can report the dock's window type as "unknown"; the root's MapNotify
+        also catches a panel mapped outside i3.
+        """
+        try:
+            for candidate in [win] + self.children(win):
+                cls = candidate.get_wm_class()
+                if cls and cls[1] == "Xfce4-panel":
+                    prop = candidate.get_full_property(self.A["_NET_WM_WINDOW_TYPE"], Xatom.ATOM)
+                    if prop and self.xs.atom("_NET_WM_WINDOW_TYPE_DOCK") in prop.value:
+                        return True
+        except error.XError:
+            pass
+        return False
+
     # ------------------------------------------------------------ state
     def _load_state(self):
         try:
@@ -1254,7 +1271,10 @@ class Deskd:
         elif name == "window":
             change = ev.get("change")
             con = ev.get("container", {})
-            if con.get("window_type") == "dock" and change in ("new", "close"):
+            props = con.get("window_properties") or {}
+            # i3 reports an Xfce dock as window_type="unknown" in window events.
+            if change in ("new", "close") and (con.get("window_type") == "dock" or
+                                                props.get("class") == "Xfce4-panel"):
                 self.schedule_recheck(150)
             if con.get("sticky") and change in ("new", "floating", "focus"):
                 self.unstick(con)
@@ -1265,7 +1285,6 @@ class Deskd:
                 # buttons, nothing to drag - it could be neither moved nor minimized
                 self.cmd(f'[con_id={con["id"]}] border normal 2')
             if change in ("new", "title"):
-                props = con.get("window_properties") or {}
                 if (props.get("class"), con.get("name")) in DISMISS:
                     self.cmd(f'[con_id={con["id"]}] kill')
                     return
@@ -1879,6 +1898,14 @@ class Deskd:
             self.monitors.changed()
         elif t == X.DestroyNotify:
             self.frames.pop(e.window.id, None)
+            if e.window.id in self.veils or e.window.id in self.panel_windows:
+                veil = self.veils.pop(e.window.id, None)
+                if veil is not None:
+                    veil.win.destroy()
+                    self.xs.gc_cache.pop(veil.win.id, None)
+                self.panel_windows.discard(e.window.id)
+                self.docks = None
+                self.schedule_recheck(150)
             if self.sharing and not self.share_frame_present():
                 self.set_sharing(False)
         elif t == X.UnmapNotify:
@@ -1887,6 +1914,8 @@ class Deskd:
         elif t == X.MapNotify:
             if e.window.id in self.panel_windows:
                 self.panel_reflowed()
+            elif self.is_panel_dock(e.window):
+                self.schedule_recheck(150)
             if not self.sharing and self.is_share_frame(e.window):
                 self.set_sharing(True)
                 return None
@@ -2634,7 +2663,8 @@ class Deskd:
     def strip_plugins(self, fresh=False):
         """[(plugin_id, output)] - output None means the primary screen."""
         if os.environ.get("DESKD_NO_PANELS"):
-            return []
+            self._strips = []
+            return self._strips
         if fresh or self._strips is None:
             self._strips = panels.strips(self._panel_props)
         return self._strips

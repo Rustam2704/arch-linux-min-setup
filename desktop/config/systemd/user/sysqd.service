@@ -1,0 +1,12 @@
+[Unit]
+Description=CPU, memory and swap indicators for the panel (setup/lab)
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/sysqd
+Restart=on-failure
+RestartSec=3
+Nice=10
+
+[Install]
+WantedBy=default.target
