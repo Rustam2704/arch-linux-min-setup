@@ -772,3 +772,6 @@
 2026-10-15T00:49:37+03:00	68-sys-spacing	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.FBxDMv.bak
 2026-10-15T00:49:37+03:00	68-sys-spacing	backup	/home/fanatic/.local/share/sky-desktop/sysicons.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_sysicons.py.tiUGNJ.bak
 2026-10-15T01:29:49+03:00	69-hold-fitted	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.KW7LhK.bak
+2026-10-15T02:23:10+03:00	70-intel-output-names	backup	/home/fanatic/.config/autorandr/screens-bfc2ba7f/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_autorandr_screens-bfc2ba7f_config.Pueqtp.bak
+2026-10-15T02:23:10+03:00	70-intel-output-names	backup	/home/fanatic/.config/autorandr/screens-bfc2ba7f/setup	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_autorandr_screens-bfc2ba7f_setup.KjtII4.bak
+2026-10-15T02:23:32+03:00	70-intel-output-names	cmd	/home/fanatic/ai/claude/setup/lab/backups/70-displays-undo.py	

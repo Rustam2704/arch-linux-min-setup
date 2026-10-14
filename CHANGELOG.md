@@ -2066,6 +2066,20 @@ Claude Code хранит расшифровки (и файлы памяти) в 
 headless Chromium в `~/.cache/ms-playwright` (~200 МБ) для проверок design-sync.
 `gh` залогинен токеном пользователя (`~/.config/gh/hosts.yml`), wrangler — OAuth в `~/.config/.wrangler/`.
 
+## 70 — intel-output-names (15.10)
+
+После перезагрузки (02:04, см. ниже) впервые заработал `xf86-video-intel` из раунда 65: SNA,
+`TearFree`, ошибок в `Xorg.0.log` нет. У этого драйвера выходы называются без дефиса — `eDP1`,
+`HDMI2`, `DP1` вместо `eDP-1`, `HDMI-2`, `DP-1`. deskd сам пересохранил профиль `laptop`;
+профиль второго монитора `~/.config/autorandr/screens-bfc2ba7f` (`config`, `setup`) переименован
+через `lab write`, канал xfconf `displays` (`/Default/eDP-1`, `/Default/HDMI-2`) — переносом
+свойств (откат — `lab/backups/70-displays-undo.py`, записан в журнал). В исходниках проекта
+старых имён нет. Неиспользуемый `xfce4-desktop.xml` (xfdesktop не запущен) не трогал.
+
+Сбой 01:56: крышка закрыта → `PM: suspend entry (deep)` → в журнале больше ничего; при
+открытии экран не загорелся, в 02:04 — выключение кнопкой. До этого с 08.10 — 21 удачный сон.
+Разбор — в следующем раунде.
+
 ## 69 — hold-fitted (15.10)
 
 «Открылся Firefox поверх панели.» Давняя ошибка (воспроизводится и на deskd до раунда 66): deskd
