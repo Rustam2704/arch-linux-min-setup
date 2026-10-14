@@ -2,6 +2,7 @@
 # Session
 i3-wm
 xcompmgr
+xf86-video-intel            # TearFree for Haswell (20-intel.conf)
 rofi
 kitty
 lightdm                     # autologin straight into the "Xfce + i3" session

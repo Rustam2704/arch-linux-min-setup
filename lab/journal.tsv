@@ -733,3 +733,6 @@
 2026-10-13T09:39:36+03:00	63-media-fixes	backup	/home/fanatic/.local/share/sky-desktop/powermenu.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_powermenu.py.yp5y32.bak
 2026-10-13T17:30:36+03:00	64-olx-lite	backup	/usr/lib/firefox-developer-edition/distribution/policies.json	/home/fanatic/ai/claude/setup/lab/backups/_usr_lib_firefox-developer-edition_distribution_policies.json.vDgZDl.bak
 2026-10-13T17:31:37+03:00	64-olx-lite	backup	/usr/lib/firefox-developer-edition/distribution/policies.json	/home/fanatic/ai/claude/setup/lab/backups/_usr_lib_firefox-developer-edition_distribution_policies.json.DJ6guu.bak
+2026-10-14T20:22:34+03:00	65-intel-tearfree	pkg	xf86-video-intel	
+2026-10-14T20:22:47+03:00	65-intel-tearfree	file	/etc/X11/xorg.conf.d/20-intel.conf	
+2026-10-14T20:22:47+03:00	65-intel-tearfree	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.FxFxR7.bak

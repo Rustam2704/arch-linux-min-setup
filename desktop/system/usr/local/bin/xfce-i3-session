@@ -30,9 +30,11 @@ touchegg &                                      # gesture client (daemon is a sy
 # xcompmgr, not picom: measured 01.10.2026 with tools/compositor-bench, a repainting browser
 # window cost Xorg+compositor+Firefox 88 % of a core under our picom.conf and 29-36 % here
 # (picom holds the window buffers, so Firefox itself repainted three times dearer). Shadows
-# and fades as before; no vsync (Xorg's modesetting has no TearFree), no rules, no unredirect.
+# only: fades (-f) recomposited every window 17 times on each workspace switch, and with Zoom
+# and RustDesk video already keeping Xorg near a full core that made switching jerky (14.10).
+# No vsync of its own: tearing is handled by the intel driver's TearFree (20-intel.conf).
 "$HOME/.local/bin/root-black"                  # black, not xcompmgr's grey, where nothing painted
-xcompmgr -c -C -f -r 14 -o 0.45 -l -14 -t -10 -I 0.06 -O 0.06 -D 8 &
+xcompmgr -c -C -r 14 -o 0.45 -l -14 -t -10 &
 dex -a -s "$HOME/.config/autostart" >/dev/null 2>&1 &
 
 exec i3
