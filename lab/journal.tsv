@@ -775,3 +775,7 @@
 2026-10-15T02:23:10+03:00	70-intel-output-names	backup	/home/fanatic/.config/autorandr/screens-bfc2ba7f/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_autorandr_screens-bfc2ba7f_config.Pueqtp.bak
 2026-10-15T02:23:10+03:00	70-intel-output-names	backup	/home/fanatic/.config/autorandr/screens-bfc2ba7f/setup	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_autorandr_screens-bfc2ba7f_setup.KjtII4.bak
 2026-10-15T02:23:32+03:00	70-intel-output-names	cmd	/home/fanatic/ai/claude/setup/lab/backups/70-displays-undo.py	
+2026-10-15T02:26:24+03:00	71-sleep-mark	cmd	rmdir -- /etc/systemd/journald.conf.d	
+2026-10-15T02:26:24+03:00	71-sleep-mark	file	/etc/systemd/journald.conf.d/50-sync.conf	
+2026-10-15T02:26:24+03:00	71-sleep-mark	file	/usr/lib/systemd/system-sleep/zz-sleep-mark	
+2026-10-15T02:26:51+03:00	71-sleep-mark	file	/usr/lib/systemd/system-sleep/zz-sleep-mark	

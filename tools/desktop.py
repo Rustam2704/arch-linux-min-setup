@@ -223,7 +223,9 @@ def apply():
                     subprocess.run(["sudo", "mkdir", str(parent)], check=True)
         lab("write", EXPERIMENT, str(dest), input=content)
         kind = source.relative_to(SOURCE).parts[0]
-        if kind == "bin" or (kind == "system" and "bin" in dest.parts):
+        # scripts: everything under bin, and any system file whose source is executable
+        # (e.g. a systemd system-sleep hook)
+        if kind == "bin" or (kind == "system" and ("bin" in dest.parts or source.stat().st_mode & 0o111)):
             if os.access(dest, os.W_OK):
                 dest.chmod(0o755)
             else:

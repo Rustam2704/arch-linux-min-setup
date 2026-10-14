@@ -1,0 +1,12 @@
+#!/bin/sh
+# Leaves evidence of every suspend/resume (round 71, after the failed wake of 15.10 01:56):
+# a line before the kernel suspends and one right after it resumes, both synced to disk at
+# once. After a black-screen wake, `journalctl -b -1 | grep sleep-mark` tells "never woke"
+# (no "post" line) from "woke with a dark screen" (a "post" line, then silence).
+bat=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null)%
+ac=$(cat /sys/class/power_supply/ADP1/online 2>/dev/null)
+temp=$(( $(cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | sort -n | tail -1) / 1000 ))C
+fails=$(cat /sys/power/suspend_stats/fail 2>/dev/null)
+logger -t sleep-mark "$1 $2 battery=$bat ac=$ac max-temp=$temp suspend-fails=$fails"
+journalctl --sync 2>/dev/null
+sync
