@@ -632,5 +632,36 @@ check("a window opening full screen is left full screen (Telegram's photo viewer
       fs is not None and fs.get("fullscreen_mode") == 1 and not marks(fs),
       str(fs and (fs.get("fullscreen_mode"), marks(fs))))
 
+# ------------------------------------------------------------------ 10. a late ConfigureRequest does not push a maximized window out of the work area
+# Firefox asks for its saved screen-sized frame again after it was shown; i3 obeys even
+# for a floating window deskd has just maximized, and the frame covered the panel.
+from Xlib import Xutil
+d = xconn()
+late = d.screen().root.create_window(0, 0, SIZE[0], SIZE[1], 0, d.screen().root_depth,
+                                     XX.InputOutput, XX.CopyFromParent, background_pixel=0)
+late.set_wm_class("smoke-late", "smoke-late")
+late.set_wm_name("smoke-late")
+late.set_wm_normal_hints(flags=Xutil.PMinSize | Xutil.PBaseSize | Xutil.PWinGravity, min_width=300,
+                         min_height=180, base_width=300, base_height=180, win_gravity=XX.NorthWestGravity)
+late.map()
+d.flush()
+t0 = time.monotonic()
+for delay in (0.02, 0.45, 0.8):
+    time.sleep(max(0, t0 + delay - time.monotonic()))
+    late.configure(x=0, y=0, width=SIZE[0], height=SIZE[1])
+    d.flush()
+time.sleep(1.2)
+ln = next((node for node, _, _ in walk(tree()) if node.get("window") == late.id), None)
+check("a screen-sized window is maximized", ln is not None and any(m.startswith("_deskd_max") for m in marks(ln)),
+      str(ln and marks(ln)))
+area = next(w["rect"] for w in json.loads(subprocess.run(["i3-msg", "-t", "get_workspaces"], env=env,
+            capture_output=True, text=True).stdout) if w["focused"])
+fr = frame_rect(ln)
+check("a late ConfigureRequest leaves the maximized frame on the work area",
+      (fr["x"], fr["y"], fr["width"], fr["height"]) == (area["x"], area["y"], area["width"], area["height"]),
+      json.dumps(fr) + " vs " + json.dumps(area))
+late.destroy()
+d.flush()
+
 say("done:", "all checks passed" if not failed else f"{len(failed)} failed: {failed}")
 finish(1 if failed else 0)

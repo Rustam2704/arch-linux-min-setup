@@ -648,6 +648,7 @@ class Deskd:
         self.handles = []           # [(xwindow, info)]
         self.handle_by_win = {}
         self.resizing = None
+        self._held = {}             # con id -> times of recent hold_fitted corrections
         self.drag = None
         self.preview = None
         self.targets = None         # drop-target overlays (per strip) during a drag
@@ -1500,6 +1501,7 @@ class Deskd:
             log("refresh failed:", e)
             return False
         self.render_workspaces(workspaces)
+        self.hold_fitted(self.tree, workspaces)
         self.last_focused_ws = next((w["num"] for w in workspaces if w.get("focused")), None)
         self.sync_active_mark(self.last_focused_ws)
         self.hide_over_fullscreen(workspaces)
@@ -1510,6 +1512,40 @@ class Deskd:
             GLib.idle_add(self.refresh_controls)
         self.pump()
         return False
+
+    def hold_fitted(self, tree, workspaces):
+        """A maximized or snapped window stays on its rectangle of the work area: an app
+        that sends its own ConfigureRequest after we fitted it (Firefox restoring its saved
+        screen-sized frame a few hundred ms after it opened) made i3 give it that
+        geometry again - the frame ended up over the panel. The frame's ConfigureNotify
+        already triggers this refresh, so no polling is needed. Only visible workspaces
+        (i3 does not lay out hidden ones; the workspace event brings us here again), and
+        at most 4 corrections per window per 3 s so an app that fights back cannot loop."""
+        areas = {w["name"]: w["rect"] for w in workspaces if w["visible"]}
+        now = time.monotonic()
+        for node, parent in walk(tree):
+            if not node.get("window") or not parent or parent.get("type") != "floating_con" \
+                    or node.get("fullscreen_mode"):
+                continue
+            marks = node.get("marks") or []
+            kind = "max" if self.is_maximized(node) else self.snapped_side(node)
+            if not kind or any(m.startswith(MARK_MIN) for m in marks):
+                continue
+            ws = i3ipc.workspace_of(tree, node["id"])
+            area = areas.get(ws["name"]) if ws else None
+            if not area:
+                continue
+            x, y, w, h = self.fit_rect(area, kind)
+            r = parent["rect"]
+            if (r["x"], r["y"], r["width"], r["height"]) == (x, y, w, h):
+                continue
+            hist = [t for t in self._held.get(node["id"], []) if now - t < 3]
+            if len(hist) >= 4:
+                continue
+            self._held[node["id"]] = hist + [now]
+            log("hold fit:", node["id"], kind, (r["x"], r["y"], r["width"], r["height"]), "->", (x, y, w, h))
+            self.cmd(f"[con_id={node['id']}] move position {x} px {y} px, resize set {w} px {h} px")
+            self.fit_floating(node["id"], (x, y, w, h))
 
     def refresh_controls(self):
         self.controls_pending = False
