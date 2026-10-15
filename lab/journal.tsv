@@ -836,3 +836,10 @@
 2026-10-15T07:29:32+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/app-focus-or-launch	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_app-focus-or-launch.ToxPar.bak
 2026-10-15T07:29:32+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/audio-menu	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_audio-menu.mYzgGe.bak
 2026-10-15T07:29:32+03:00	74-audit-daemons	xfconf	xfce4-panel:/plugins/plugin-40/update-period	["-n", "-t", "int", "-s", "5000"]
+2026-10-15T11:10:15+03:00	75-followups	cmd	sudo pacman -S --needed --noconfirm ttf-iosevka-nerd archiso qemu-base edk2-ovmf	
+2026-10-15T11:18:32+03:00	75-followups	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.rzJFCB.bak
+2026-10-15T11:18:32+03:00	75-followups	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.hKHz4N.bak
+2026-10-15T11:18:32+03:00	75-followups	dir	/home/fanatic/.config/systemd/user/kitty-.scope.d	
+2026-10-15T11:18:32+03:00	75-followups	file	/home/fanatic/.config/systemd/user/kitty-.scope.d/50-below-desktop.conf	
+2026-10-15T11:18:32+03:00	75-followups	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.I0uwnu.bak
+2026-10-15T11:18:32+03:00	75-followups	backup	/home/fanatic/.local/share/light-year/api.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_api.py.4lSlNs.bak

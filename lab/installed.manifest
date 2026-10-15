@@ -47,6 +47,7 @@ config/pacman/makepkg.conf
 config/rofi/config.rasi
 config/rofi/sky.rasi
 config/systemd/user/deskd.service
+config/systemd/user/kitty-.scope.d/50-below-desktop.conf
 config/systemd/user/netqd.service
 config/systemd/user/osd.service
 config/systemd/user/sky-stars.service

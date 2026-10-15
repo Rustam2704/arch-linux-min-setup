@@ -173,7 +173,7 @@ def windows():
     """[(node, workspace, frame rect)] of the test windows."""
     out = []
     for n, ws, p in walk(tree()):
-        if n.get("window") and (n.get("window_properties") or {}).get("class") == "smoke":
+        if n.get("window") and ((n.get("window_properties") or {}).get("class") or "").startswith("smoke"):
             frame = p["rect"] if p and p.get("type") == "floating_con" else n["rect"]
             out.append((n, ws, frame))
     return out
@@ -431,13 +431,37 @@ with patch.object(deskd.GLib, "timeout_add"):
     check("Alt+Tab from a normal window skips the notification too", sorted(ids) == [1, 2] and
           u.alt_tab["idx"] == 1, str((ids, u.alt_tab["idx"])))
 
-# A3: a round does not outlive the workspace it was built for
+# A3: a global round survives workspace changes while Alt stays down
 u.schedule_refresh, u.pump, u.workspace_event_at = Mock(), Mock(), 0.0
 u.on_i3("workspace", {"change": "init"})
 check("a new workspace leaves the round alone", u.alt_tab is not None)
 u.on_i3("workspace", {"change": "focus"})
-check("switching workspace with Alt held cancels the round", u.alt_tab is None and
-      u.switcher.hide.call_count == 1)
+check("switching workspace with Alt held keeps the round", u.alt_tab is not None and
+      u.switcher.hide.call_count == 0)
+
+# The tree walk includes all output blocks, but never i3's internal scratchpad as a workspace.
+global_tree = tree_of(floating(1, focused=True), floating(2))
+output = global_tree["nodes"][0]["nodes"][0]
+output["nodes"].append({"id": 9004, "type": "workspace", "name": "2", "num": 2,
+                        "nodes": [], "floating_nodes": [floating(3)], "rect": {"x": 0, "y": 0, "width": 800, "height": 600}})
+global_tree["nodes"].append({"id": 9005, "type": "output", "nodes": [
+    {"id": 9006, "type": "con", "nodes": [
+        {"id": 9007, "type": "workspace", "name": "11", "num": 11,
+         "nodes": [], "floating_nodes": [floating(4)], "rect": {"x": 800, "y": 0, "width": 800, "height": 600}}],
+     "floating_nodes": []}], "floating_nodes": []})
+global_tree["nodes"].append({"id": 9008, "type": "output", "nodes": [
+    {"id": 9009, "type": "con", "nodes": [
+        {"id": 9010, "type": "workspace", "name": "__i3_scratch", "num": -1,
+         "nodes": [], "floating_nodes": [floating(5), floating(6)], "rect": {"x": 0, "y": 0, "width": 800, "height": 600}}],
+     "floating_nodes": []}], "floating_nodes": []})
+mini = global_tree["nodes"][-1]["nodes"][0]["nodes"][0]["floating_nodes"][0]["nodes"][0]
+mini["marks"] = [deskd.MARK_MIN + "_5"]
+u.alt_tab, u.focus_order = None, [1, 3, 5, 2, 4]
+with patch.object(deskd.GLib, "timeout_add"):
+    u.cycle(global_tree, 1)
+ids = [e[0] for e in u.alt_tab["order"]]
+check("Alt+Tab lists every real workspace and minimized windows, but no scratchpad extras",
+      ids == [1, 3, 5, 2, 4] and u.alt_tab["idx"] == 1, str(ids))
 
 # A4: a frame event dropped right after a workspace switch is not lost for a window deskd holds
 u = new_deskd()
@@ -852,6 +876,65 @@ xdo("keyup", "Alt_L")
 time.sleep(0.4)
 check("letting Alt go switches to the window Tab got to", focused_id() == cid and not switcher_shown(), str(focused_id()))
 
+# ------------------------------------------------------------------ 7c2. global Alt+Tab and the minimized window's own workspace
+msg(f"[con_id={third}] move container to workspace number 3")
+msg("workspace number 2")
+procs.append(subprocess.Popen(["kitty", "--class", "smoke-ws2-min", "--title", "smoke-ws2-min"], env=env,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+w = wait_windows(4)
+ws2_min = next(n["id"] for n, ws, _ in w if ws == "2")
+msg(f"[con_id={ws2_min}] focus")
+tick("minimize")
+check("workspace-2 window was minimized", wait_until(lambda: window(ws2_min)[1] == "__i3_scratch", 3))
+procs.append(subprocess.Popen(["kitty", "--class", "smoke-ws2", "--title", "smoke-ws2"], env=env,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+w = wait_windows(5)
+ws2_normal = next(n["id"] for n, ws, _ in w if ws == "2")
+check("two windows stay on workspace 1 and a normal plus minimized window are on workspace 2",
+      {window(c)[1] for c in (cid, other)} == {"1"} and window(third)[1] == "3" and
+      window(ws2_normal)[1] == "2" and
+      window(ws2_min)[1] == "__i3_scratch")
+msg(f"[con_id={cid}] focus")
+tick("cycle")
+check("Alt+Tab reaches a normal window on workspace 2",
+      wait_until(lambda: focused_id() == ws2_normal and focused_workspace() == "2", 3),
+      str((focused_id(), focused_workspace())))
+msg(f"[con_id={cid}] focus")
+xdo("keydown", "Alt_L")
+time.sleep(0.1)
+tick("cycle")
+time.sleep(0.1)
+tick("cycle")
+time.sleep(0.2)
+check("Alt+Tab can select a minimized window from workspace 2", switcher_shown() and focused_id() == cid)
+xdo("keyup", "Alt_L")
+check("a minimized Alt+Tab choice returns on its own workspace, focused",
+      wait_until(lambda: focused_id() == ws2_min and focused_workspace() == "2" and
+                 window(ws2_min)[1] == "2" and deskd.MARK_MIN + f"_{ws2_min}" not in marks(window(ws2_min)[0]), 3),
+      str((focused_id(), focused_workspace(), window(ws2_min)[1])))
+msg(f"[con_id={ws2_normal}] focus")
+tick("maximize")
+check("workspace-2 window fits its own work area", wait_until(lambda: fills(window(ws2_normal)[2], area), 3))
+msg(f"[con_id={cid}] focus")
+tick("cycle")
+check("cross-workspace Alt+Tab keeps a fitted window on its own work area",
+      wait_until(lambda: focused_id() == ws2_normal and focused_workspace() == "2" and
+                 fills(window(ws2_normal)[2], area), 3))
+msg(f"[con_id={third}] move container to workspace number 1")
+for c in (third, cid):
+    msg(f"[con_id={c}] focus")
+    time.sleep(0.2)
+xdo("keydown", "Alt_L")
+time.sleep(0.1)
+tick("cycle")
+time.sleep(0.2)
+msg("workspace number 2")
+check("an active Alt+Tab round survives a workspace switch", switcher_shown() and focused_workspace() == "2")
+xdo("keyup", "Alt_L")
+check("releasing Alt after a workspace switch follows the round's selection",
+      wait_until(lambda: focused_id() == third and focused_workspace() == "1" and not switcher_shown(), 3),
+      str((focused_id(), focused_workspace())))
+
 # ------------------------------------------------------------------ 7d. keep above
 # The window that asked to stay on top must be over the focused one - and stay there, with no
 # restacking back and forth (raise_focused used to lift the focused window over it and
@@ -1008,7 +1091,7 @@ def handle_windows():
 
 
 def left_handle(frame):
-    return (frame["x"] - deskd.HANDLE, frame["y"], deskd.HANDLE, frame["height"])
+    return (frame["x"] - deskd.HANDLE_EDGE, frame["y"], deskd.HANDLE_EDGE, frame["height"])
 
 
 def handle_above_frame(n, rect):
@@ -1021,6 +1104,17 @@ n, _, f = window(cid)
 shown = handle_windows()
 check("a floating window has its resize handles", left_handle(f) in shown.values() and len(shown) >= 8,
       f"{len(shown)} handles, wanted {left_handle(f)}")
+edge, corner = deskd.HANDLE_EDGE, deskd.HANDLE_CORNER
+x, y, width, height = (f[k] for k in ("x", "y", "width", "height"))
+expected = {(x - corner, y - corner, corner, corner), (x, y - edge, width, edge),
+            (x + width, y - corner, corner, corner), (x + width, y, edge, height),
+            (x + width, y + height, corner, corner), (x, y + height, width, edge),
+            (x - corner, y + height, corner, corner), (x - edge, y, edge, height)}
+check("edge handles extend 15 px and corner handles 20 by 20 px outside the frame",
+      expected <= set(shown.values()), str(expected - set(shown.values())))
+check("no resize handle of this frame covers a pixel inside it",
+      all(gx + gw <= x or gx >= x + width or gy + gh <= y or gy >= y + height
+          for gx, gy, gw, gh in expected))
 old_left = left_handle(f)
 msg("workspace number 4")
 check("the handles leave the screen with their workspace",

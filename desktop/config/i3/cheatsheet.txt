@@ -1,6 +1,6 @@
 ━━ WINDOWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Title bar  🟡 🟢 🔴                    minimize / maximize (panel stays) / close
-Alt + Tab   (Alt + Shift + Tab)       hold Alt: window list, switch on release
+Alt + Tab   (Alt + Shift + Tab)       all workspaces/screens; hold Alt: list, switch on release
 Super + ↑                             maximize; on a half: its top quarter
 Super + ↓                             restore; on a half: bottom quarter; plain: minimize
 Super + ← / →                         left / right half; opposite side restores;

@@ -13,8 +13,9 @@ What it adds (all event driven; idle cost is zero):
     quarter, on a workspace number in the panel moves it there (blue preview while
     dragging); dragging a maximized or snapped window away gives it its previous
     size back;
-  * Alt+Tab as in Windows: a switcher while Alt is held, the choice taken on release,
-    minimized windows included; a second window of an app opens beside its sibling
+  * Alt+Tab across all screens and workspaces: a switcher while Alt is held, the
+    choice taken on release, minimized windows included; a second window of an app
+    opens beside its sibling
     (cascade), never exactly on top of it;
   * maximize and snap keep the panel visible; restore puts the window back exactly
     where it was; app buttons (Telegram, ...) asking to minimize/maximize are obeyed;
@@ -88,7 +89,8 @@ STAR_MARK = False             # the drawn pentagram over the digit; off while th
 POPUP_OWNERS = ("net-menu", "power-menu", "panel-calendar")   # our pop-ups: no tooltip may cover them
 MENU_HOSTS = ("osd-daemon",)      # daemons whose *menus* (window type POPUP_MENU) count as pop-ups too
 BLOCK = 10                    # screen k owns workspaces k*10+1 .. k*10+9
-HANDLE = 10                   # grab width around floating windows (px)
+HANDLE_EDGE = 15              # px outside each floating frame edge; never covers the frame
+HANDLE_CORNER = 20            # px outside each frame corner in both directions
 DRAG_START = 8                # px of movement before a right press becomes a drag
 EDGE = 3                      # px from a screen edge that counts as "at the edge"
 POLL_MS = 16
@@ -1425,8 +1427,6 @@ class Deskd:
             # The coalesced refresh below takes one tree/workspaces/outputs snapshot;
             # rendering here would query and paint the strip a second time.
             self.workspace_event_at = time.monotonic()
-            if ev.get("change") == "focus" and self.alt_tab:
-                self.cancel_round()          # the list was this workspace's: releasing Alt must not switch back
         elif name == "output":
             GLib.timeout_add(700, self.outputs_changed)
         elif name == "mode":
@@ -1962,7 +1962,8 @@ class Deskd:
             area = ws["rect"]                     # the work area: handles stop at the panel
             for fl in ws.get("floating_nodes", []):
                 r = fl["rect"]
-                x, y, w, h, t = r["x"], r["y"], r["width"], r["height"], HANDLE
+                x, y, w, h = r["x"], r["y"], r["width"], r["height"]
+                edge, corner = HANDLE_EDGE, HANDLE_CORNER
                 frame = self.floating_frame(fl)
                 # the window's own container: it carries the marks and the saved place, and
                 # i3 moves only it - "[con_id=<the floating wrapper>] move position" is
@@ -1970,10 +1971,14 @@ class Deskd:
                 leaf = next((n for n, _ in walk(fl) if n.get("window")), None)
                 if leaf is None or leaf.get("window_type") == "notification":
                     continue
-                ring = [((x - t, y - t, t, t), "tl", "tl"), ((x, y - t, w, t), "t", "t"),
-                        ((x + w, y - t, t, t), "tr", "tr"), ((x + w, y, t, h), "r", "r"),
-                        ((x + w, y + h, t, t), "br", "br"), ((x, y + h, w, t), "b", "b"),
-                        ((x - t, y + h, t, t), "bl", "bl"), ((x - t, y, t, h), "l", "l")]
+                ring = [((x - corner, y - corner, corner, corner), "tl", "tl"),
+                        ((x, y - edge, w, edge), "t", "t"),
+                        ((x + w, y - corner, corner, corner), "tr", "tr"),
+                        ((x + w, y, edge, h), "r", "r"),
+                        ((x + w, y + h, corner, corner), "br", "br"),
+                        ((x, y + h, w, edge), "b", "b"),
+                        ((x - corner, y + h, corner, corner), "bl", "bl"),
+                        ((x - edge, y, edge, h), "l", "l")]
                 for geom, cur, edges in ring:
                     gx, gy, gw, gh = geom
                     cx, cy = max(gx, area["x"]), max(gy, area["y"])
@@ -2517,7 +2522,7 @@ class Deskd:
                 self.cmd(f"[con_id={n['id']}] mark --add {MARK_MIN}_{n['id']}, move scratchpad")
         saved = self.saved(cid) or self.remember(cid) or {}
         ws = i3ipc.workspace_of(tree, cid)
-        saved["ws"] = ws["name"] if ws else None          # Alt+Tab there still lists it
+        saved["ws"] = ws["name"] if ws else None          # restore it to its own workspace
         self.set_saved(cid, saved)
         self.cmd(f"[con_id={cid}] mark --add {MARK_MIN}_{cid}, move scratchpad")
 
@@ -2538,9 +2543,13 @@ class Deskd:
             return
         main = self.minimized_owner(tree, node)
         if main is not None:
-            if (i3ipc.workspace_of(tree, main["id"]) or {}).get("num", -1) < 0:
-                self.cmd(f"[con_id={main['id']}] scratchpad show")
             return self.unminimize(main["id"])
+        origin = (self.saved(cid) or {}).get("ws")
+        current_ws = i3ipc.workspace_of(tree, cid)
+        if current_ws is None or current_ws.get("name", "").startswith("__i3"):
+            self.cmd(f"[con_id={cid}] scratchpad show")
+        if origin and (i3ipc.workspace_of(self.i3.tree(), cid) or {}).get("name") != origin:
+            self.cmd(f"[con_id={cid}] move container to workspace {json.dumps(origin)}")
         self.cmd(f"[con_id={cid}] unmark {MARK_MIN}_{cid}")
         side = self.snapped_side(node)
         if self.is_maximized(node):
@@ -2566,7 +2575,6 @@ class Deskd:
                 and self.minimized_owner(tree, n) is None]
         if mins:
             node = min(mins, key=lambda n: rank.get(n["id"], len(rank)))
-            self.cmd(f"[con_id={node['id']}] scratchpad show")
             self.unminimize(node["id"])
             return
         self.cmd("scratchpad show")
@@ -3639,8 +3647,8 @@ class Deskd:
             self.snap(cid, action)
 
     def cycle(self, tree, step):
-        """Alt+Tab as in Windows and Plasma: while Alt is held, Tab walks the windows of
-        this workspace in the order they were last used - minimized ones included, as
+        """Alt+Tab as in Windows and Plasma: while Alt is held, Tab walks all windows
+        on all screens and workspaces in the order they were last used - minimized ones included, as
         both do - and the window is switched to when Alt is let go. A quick Alt+Tab goes
         to the previous window without showing anything; held a moment longer, the
         switcher shows where Tab has got to. Nothing is focused or raised on the way.
@@ -3655,29 +3663,29 @@ class Deskd:
         ws = i3ipc.workspace_of(tree, node["id"]) if node else None
         if not ws:
             return
-        entries = [(w, False) for w in i3ipc.leaves(ws)
-                   if w.get("window") and w.get("window_type") not in NO_SWITCH_TYPES]
+        entries = [(w, False) for area, _ in walk(tree)
+                   if area.get("type") == "workspace" and not area.get("name", "").startswith("__i3")
+                   for w in i3ipc.leaves(area)
+                   if w.get("window") and w.get("window_type") not in NO_SWITCH_TYPES
+                   and not any(m.startswith(MARK_MIN) for m in w.get("marks") or [])]
         for n, _ in walk(tree):
-            if n.get("window") and any(m.startswith(MARK_MIN) for m in n.get("marks") or []):
-                if (self.saved(n["id"]) or {}).get("ws") in (None, ws["name"]) \
-                        and self.minimized_owner(tree, n) is None:     # a dialog comes with its window
+            if n.get("window") and n.get("window_type") not in NO_SWITCH_TYPES and \
+                    any(m.startswith(MARK_MIN) for m in n.get("marks") or []):
+                if self.minimized_owner(tree, n) is None:     # a dialog comes with its window
                     entries.append((n, True))
         if len(entries) < 2:
             return
         rank = {cid: i for i, cid in enumerate(self.focus_order)}
+        tree_rank = {n["id"]: i for i, (n, _) in enumerate(walk(tree))}
         # a focused notification is not in the list: the walk then starts at the window used last
         focused_id = node["id"] if node.get("window") and any(e[0]["id"] == node["id"] for e in entries) else None
-        entries.sort(key=lambda e: (e[0]["id"] != focused_id, rank.get(e[0]["id"], len(rank))))
+        entries.sort(key=lambda e: (e[0]["id"] != focused_id, rank.get(e[0]["id"], len(rank)),
+                                    tree_rank[e[0]["id"]]))
         order = [(n["id"], n["window"], n.get("name") or "", mini) for n, mini in entries]
         start = 0 if focused_id is None else step
         self.alt_tab = {"order": order, "idx": start % len(order), "since": time.monotonic(),
                         "area": ws["rect"]}
         GLib.timeout_add(20, self.alt_tab_poll)
-
-    def cancel_round(self):
-        """Alt+Tab is over without a switch (the workspace changed under it)."""
-        self.alt_tab = None
-        self.switcher.hide()
 
     def drop_from_round(self, cid):
         """A window closed while Alt+Tab is held leaves the list at once."""
@@ -3707,7 +3715,11 @@ class Deskd:
         if not mask & X.Mod1Mask or now - r["since"] > 60:
             self.alt_tab = None
             self.switcher.hide()
-            self.cmd(f'[con_id={r["order"][r["idx"]][0]}] focus')     # a minimized one comes back
+            cid, _, _, mini = r["order"][r["idx"]]
+            if mini:
+                self.unminimize(cid)
+            else:
+                self.cmd(f"[con_id={cid}] focus")
             self.pump()
             return False
         if not self.switcher.shown and now - r["since"] >= ALT_TAB_SHOW_S:

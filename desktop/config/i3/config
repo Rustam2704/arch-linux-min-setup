@@ -106,7 +106,7 @@ bindsym Print exec --no-startup-id ~/.local/bin/snip screen
 bindsym $mod+Shift+s exec --no-startup-id ~/.local/bin/snip area
 
 # --- Windows habits -------------------------------------------------------
-# Alt+Tab: while Alt is held, deskd's switcher walks this workspace's windows (most recent
+# Alt+Tab: while Alt is held, deskd's switcher walks all workspaces on all screens (most recent
 # first, minimized ones too); the switch happens on release. Alt+Shift+Tab walks back
 bindsym Mod1+Tab nop deskd cycle
 bindsym Mod1+Shift+Tab nop deskd cycle prev
