@@ -308,6 +308,13 @@ def _event_times(start, end):
     raise ValueError("Event start and end must both be dates or times")
 
 
+def _patch_times(start, end):
+    """_event_times for a PATCH body: PATCH merges nested objects, so the other kind of time is nulled."""
+    start_body, end_body = _event_times(start, end)
+    cleared = {"dateTime": None, "timeZone": None} if "date" in start_body else {"date": None}
+    return {**start_body, **cleared}, {**end_body, **cleared}
+
+
 def create_event(summary, start, end, description="", with_zoom=False, recurrence=None):
     event_start, event_end = _event_times(start, end)
     body = {"summary": summary or "Untitled",
@@ -351,7 +358,7 @@ def update_event(event_id, summary=None, start=None, end=None, description=None,
     if description is not None:
         body["description"] = description
     if start is not None:
-        body["start"], body["end"] = _event_times(start, end)
+        body["start"], body["end"] = _patch_times(start, end)
     if recurrence is not None:
         body["recurrence"] = recurrence
     updated = google(f"/calendars/primary/events/{urllib.parse.quote(event_id)}", "PATCH", body)
@@ -510,25 +517,24 @@ def change_occurrence(event, scope, summary=None, start=None, end=None, descript
         if shift:
             ms = parse_time(master["start"].get("dateTime") or master["start"]["date"])[0]
             new_start = ms.replace(tzinfo=None) + shift
-            body["start"] = {"dateTime": _iso(new_start), "timeZone": TZ}
-            body["end"] = {"dateTime": _iso(new_start + length), "timeZone": TZ}
+            body["start"], body["end"] = _patch_times(new_start, new_start + length)
             body["recurrence"] = _shift_weekdays(rules, (new_start.date() - ms.date()).days)
         elif isinstance(start, dt.date) and not isinstance(start, dt.datetime):
             master_start = parse_time(master["start"].get("dateTime") or master["start"]["date"])[0]
             master_day = master_start.date() if isinstance(master_start, dt.datetime) else master_start
             event_day = event["start"].date() if isinstance(event["start"], dt.datetime) else event["start"]
             moved = master_day + (start - event_day)
-            body["start"], body["end"] = _event_times(moved, moved + length)
+            body["start"], body["end"] = _patch_times(moved, moved + length)
             body["recurrence"] = _shift_weekdays(rules, (moved - master_day).days)
         elif isinstance(start, dt.datetime) and event["all_day"]:
             master_day = parse_time(master["start"]["date"])[0]
             moved_day = master_day + (start.date() - event["start"])
             moved = dt.datetime.combine(moved_day, start.time())
-            body["start"], body["end"] = _event_times(moved, moved + length)
+            body["start"], body["end"] = _patch_times(moved, moved + length)
             body["recurrence"] = _shift_weekdays(rules, (moved_day - master_day).days)
         elif start is not None and length is not None:
             body["end"] = {"dateTime": _iso(parse_time(master["start"]["dateTime"])[0].replace(tzinfo=None)
-                                             + length), "timeZone": TZ}
+                                             + length), "timeZone": TZ, "date": None}
         if recurrence is not None:
             body["recurrence"] = recurrence
         return google(path, "PATCH", body)
