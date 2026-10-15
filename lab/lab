@@ -62,7 +62,11 @@ cmd_write() {
         "${elevate[@]}" tee "$stage" < "$tmp" > /dev/null
         if [ -e "$path" ]; then
             bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
-            cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; exit 1; }
+            if [ -r "$path" ]; then
+                cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; exit 1; }
+            else                     # root-only file (a 0600 sysctl drop-in): copy it as root, keep it ours
+                { sudo cp -a "$path" "$bak" && sudo chown "$(id -u):$(id -g)" "$bak"; } || { echo "backup failed: $path" >&2; exit 1; }
+            fi
             "${elevate[@]}" cp --attributes-only --preserve=mode,ownership "$path" "$stage"
         else
             "${elevate[@]}" chmod 644 "$stage"
@@ -88,7 +92,11 @@ cmd_remove() {
         bak=""
         trap 'rm -f -- ${bak:+"$bak"}' EXIT
         bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
-        cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; exit 1; }
+        if [ -r "$path" ] || [ -L "$path" ]; then
+            cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; exit 1; }
+        else                         # root-only file: copy it as root, keep the backup ours
+            { sudo cp -a "$path" "$bak" && sudo chown "$(id -u):$(id -g)" "$bak"; } || { echo "backup failed: $path" >&2; exit 1; }
+        fi
         if dir_blocked "$path"; then sudo rm -f -- "$path"; else rm -f -- "$path"; fi
         kept="$bak"; bak=""
         log "$exp" backup "$path" "$kept"

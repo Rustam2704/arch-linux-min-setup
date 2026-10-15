@@ -1,0 +1,3 @@
+# Active local sessions may observe touchpad contact boundaries for Qt/X11.
+# Keyboards and other input devices are deliberately not included.
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_TOUCHPAD}=="1", TAG+="uaccess"

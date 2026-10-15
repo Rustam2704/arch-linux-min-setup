@@ -241,11 +241,21 @@ def wanted_mode(source, dest):
     return None
 
 
+def installed_bytes(dest):
+    """What is installed at dest; root-only files (a 0600 sysctl drop-in) are read through sudo."""
+    if not dest.exists():
+        return b""
+    try:
+        return dest.read_bytes()
+    except PermissionError:
+        return subprocess.run(["sudo", "-n", "cat", str(dest)], capture_output=True, check=True).stdout
+
+
 def differences(show_diff=False):
     changed = []
     for source in sources():
         dest = target(source.relative_to(SOURCE))
-        old = dest.read_bytes() if dest.exists() else b""
+        old = installed_bytes(dest)
         new = render(source)
         if old == new and dest.exists():
             continue
