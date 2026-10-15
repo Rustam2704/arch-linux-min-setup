@@ -219,7 +219,9 @@ Zoom — приложение Server-to-Server OAuth с правами `meeting:
   `Ctrl+клик` по пути открывает его (`open-click.py` + `open-path`, в том числе путь, разбитый
   TUI на две строки), средняя кнопка — меню пути, `Ctrl+Shift+O` — открыть выделенное,
   `Shift+клик` расширяет выделение, правый клик глушится. `sky-edit` — внешний редактор GTK
-  для Codex (`VISUAL` задаётся в обёртке `codex()` в `~/.bashrc` и в `environment.d/60-sky-editor.conf`).
+  для Codex и Claude Code по `Ctrl+G` (`VISUAL` задаётся в обёртках `codex()` и `claude()` в `~/.bashrc`
+  и в `environment.d/60-sky-editor.conf`): в их поле ввода выделения нет, в sky-edit — `Ctrl+A`,
+  `Shift`+стрелки, мышь ([f-terminal-selection](research/audit-2026-10-15/f-terminal-selection.md)).
 - **Thunar**: `Ctrl+V` с картинкой в буфере сохраняет её в открытую папку как
   `ГГГГ-ММ-ДД ЧЧ-ММ-СС.png` (как в Проводнике Windows), на любой раскладке; файлы вставляются
   как раньше. Устройство: родная вставка Thunar по `Ctrl+V` **отвязана** (`config/Thunar/accels.scm`,
