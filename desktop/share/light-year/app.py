@@ -115,6 +115,10 @@ def month_grid(year, month):
     return [start + dt.timedelta(days=i) for i in range(6 * 7)]
 
 
+def event_date(value):
+    return value.date() if isinstance(value, dt.datetime) else value
+
+
 TIMES = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 15, 30, 45)]
 
 
@@ -466,10 +470,15 @@ class EventDialog(Gtk.Dialog):
 
         start = event["start"] if event and not event["all_day"] else dt.datetime.combine(day, dt.time(10))
         end = event["end"] if event and not event["all_day"] else start + dt.timedelta(hours=1)
+        self.all_day_days = (event["end"] - event["start"]).days if event and event["all_day"] else 1
 
         label("Title")
         self.title = Gtk.Entry(text=event["summary"] if event else "")
         box.pack_start(self.title, False, False, 0)
+
+        self.all_day = Gtk.CheckButton(label="All day")
+        self.all_day.set_active(bool(event and event["all_day"]))
+        box.pack_start(self.all_day, False, False, 0)
 
         row = Gtk.Box(spacing=10)
         self.duration = end - start          # moving the start keeps the length
@@ -484,6 +493,7 @@ class EventDialog(Gtk.Dialog):
             col.pack_start(widget, False, False, 0)
             row.pack_start(col, widget is self.date, True, 0)
         box.pack_start(row, False, False, 6)
+        self.all_day.connect("toggled", lambda button: self._all_day_toggled())
 
 
         label("Repeat")
@@ -504,6 +514,7 @@ class EventDialog(Gtk.Dialog):
             join = Gtk.Button(label="Join Zoom meeting")
             join.connect("clicked", lambda *_: subprocess.Popen(["xdg-open", event["zoom"]]))
             box.pack_start(join, False, False, 8)
+        self._all_day_toggled()
 
         self.error = Gtk.Label(xalign=0)
         self.error.get_style_context().add_class("ly-error")
@@ -525,6 +536,14 @@ class EventDialog(Gtk.Dialog):
             label("Save or delete applies to")      # one choice for both, no second popup
             box.pack_start(self.scope, False, False, 4)
         self.show_all()
+
+    def _all_day_toggled(self):
+        timed = not self.all_day.get_active()
+        self.start.set_sensitive(timed)
+        self.end.set_sensitive(timed)
+        self.zoom.set_sensitive(timed)
+        if not timed:
+            self.zoom.set_active(False)
 
     def _start_moved(self, value):
         """Start moved: the end follows, so the event keeps its length."""
@@ -552,6 +571,10 @@ class EventDialog(Gtk.Dialog):
         day = self.date.get_date()
         if day is None:
             raise ValueError("Date must look like 2026-09-18")
+        buf = self.notes.get_buffer()
+        notes = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False)
+        if self.all_day.get_active():
+            return self.title.get_text().strip(), day, day + dt.timedelta(days=self.all_day_days), notes
         start, end = self.start.get_time(), self.end.get_time()
         if not (start and end):
             raise ValueError("Times must look like 09:30 (9 becomes 09:00)")
@@ -559,8 +582,6 @@ class EventDialog(Gtk.Dialog):
         e = dt.datetime.combine(day, dt.time.fromisoformat(end))
         if e <= s:
             e += dt.timedelta(days=1)          # ends after midnight
-        buf = self.notes.get_buffer()
-        notes = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False)
         return self.title.get_text().strip(), s, e, notes
 
 
@@ -574,6 +595,7 @@ class Window(Gtk.ApplicationWindow):
         self.events = []
         self.state = {}
         self.loading = 0
+        self.mutation_error = None
         self.expanded_days = set()
         self.months = {}            # (year, month) -> events, so a swipe shows at once
         self.editing_id = None      # event open in the dialog: drawn in yellow
@@ -605,7 +627,7 @@ class Window(Gtk.ApplicationWindow):
         self.connect_btn = Gtk.Button(label="Connect Google")
         self.connect_btn.connect("clicked", self.sign_in)
         reload_btn = Gtk.Button(label="↻  Reload", tooltip_text="Reload (F5)")
-        reload_btn.connect("clicked", lambda *_: self.load(force=True))
+        reload_btn.connect("clicked", lambda *_: (self.clear_mutation_error(), self.load(force=True)))
         bar.pack_end(reload_btn, False, False, 0)
         bar.pack_end(self.connect_btn, False, False, 0)
         bar.pack_end(self.status, True, True, 8)
@@ -637,6 +659,11 @@ class Window(Gtk.ApplicationWindow):
         self.status.set_text(text)
         ctx = self.status.get_style_context()
         (ctx.add_class if error else ctx.remove_class)("error")
+
+    def clear_mutation_error(self):
+        if self.mutation_error:
+            self.mutation_error = None
+            self.set_status("")
 
     def refresh_state(self):
         self.state = api.state()
@@ -676,18 +703,20 @@ class Window(Gtk.ApplicationWindow):
                 return
         self.loading += 1
         token = self.loading
-        if cached is None:
+        if cached is None and not self.mutation_error:
             self.set_status("Loading…")
 
         def done(events, err):
             if token != self.loading:
                 return                        # a newer load already started
-            if err:
+            if err and not self.mutation_error:
                 self.set_status(err, True)
             else:
-                self.months[key] = events
-                self.events = events
-                self.set_status("Google · Zoom" if self.state.get("zoom") else "Google")
+                if not err:
+                    self.months[key] = events
+                    self.events = events
+                if not self.mutation_error and not err:
+                    self.set_status("Google · Zoom" if self.state.get("zoom") else "Google")
             self.draw()
             self.prefetch(key)
         self.fetch(key, done)
@@ -700,11 +729,15 @@ class Window(Gtk.ApplicationWindow):
                            if not err else None)
                 return                        # one at a time: the next one follows later
 
-    def mutate(self, work):
+    def mutate(self, work, on_error=None):
+        self.mutation_error = None
         self.set_status("Saving…")
 
         def done(res, err):
             if err:
+                if on_error:
+                    on_error()
+                self.mutation_error = err
                 self.set_status(err, True)
             else:
                 self.months.clear()           # the change can land in any month
@@ -718,11 +751,12 @@ class Window(Gtk.ApplicationWindow):
             self.grid.remove(child)
         today = dt.date.today()
         by_day = {}
+        days = month_grid(self.cursor.year, self.cursor.month)
         for e in self.events:
-            day = e["start"].date() if not e["all_day"] else e["start"]
-            by_day.setdefault(day, []).append(e)
+            for day in api.event_days(e, days[0], days[-1]):
+                by_day.setdefault(day, []).append(e)
 
-        for i, day in enumerate(month_grid(self.cursor.year, self.cursor.month)):
+        for i, day in enumerate(days):
             cell = Gtk.EventBox()
             ctx = cell.get_style_context()
             ctx.add_class("ly-day")
@@ -798,6 +832,7 @@ class Window(Gtk.ApplicationWindow):
 
     # ------------------------------------------------------------ actions
     def shift(self, months):
+        self.clear_mutation_error()
         m = self.cursor.month - 1 + months
         self.cursor = dt.date(self.cursor.year + m // 12, m % 12 + 1, 1)   # December -> January
         self.events = self.months.get(self.key_of(self.cursor), [])
@@ -840,6 +875,7 @@ class Window(Gtk.ApplicationWindow):
         return True
 
     def go_today(self):
+        self.clear_mutation_error()
         self.cursor = dt.date.today().replace(day=1)
         self.events = self.months.get(self.key_of(self.cursor), [])
         self.draw()
@@ -854,6 +890,7 @@ class Window(Gtk.ApplicationWindow):
         elif key in ("t", "T"):
             self.go_today()
         elif key == "F5" or (ctrl and key in ("r", "R")):
+            self.clear_mutation_error()
             self.load(force=True)
         else:
             return False
@@ -861,11 +898,13 @@ class Window(Gtk.ApplicationWindow):
 
     def on_day_click(self, ev, day):
         if ev.button == 1 and ev.type == Gdk.EventType.BUTTON_PRESS and self.state.get("google"):
+            self.clear_mutation_error()
             self.open_dialog(day, None)
         return True
 
     def edit(self, e):
-        day = e["start"] if e["all_day"] else e["start"].date()
+        self.clear_mutation_error()
+        day = event_date(e["start"])
         if e.get("recurring_id"):
             self.set_status("Loading recurrence…")
             def done(rules, err):
@@ -895,7 +934,7 @@ class Window(Gtk.ApplicationWindow):
                 return False
             try:
                 values = dlg.values()
-                rules = dlg.repeat.values(values[1].date())
+                rules = dlg.repeat.values(event_date(values[1]))
                 if not values[0]:
                     raise ValueError("Enter an event title")
             except ValueError as err:
@@ -926,11 +965,13 @@ class Window(Gtk.ApplicationWindow):
                     return
                 saved_values, saved_rules = values, rules
                 summary, start, end, notes = values
-                updated = dict(event, summary=summary, start=start.astimezone(), end=end.astimezone(),
-                               description=notes, recurrence=rules)
+                updated = dict(event, summary=summary,
+                               start=start.astimezone() if isinstance(start, dt.datetime) else start,
+                               end=end.astimezone() if isinstance(end, dt.datetime) else end,
+                               all_day=not isinstance(start, dt.datetime), description=notes, recurrence=rules)
                 if scope == "following" or not event.get("recurring_id"):
                     updated.update(id=result["id"], recurring_id=result["id"] if rules else None,
-                                   original_start=start.astimezone().isoformat())
+                                   original_start=start.isoformat())
                 event = updated
                 # The split is now a series of its own; subsequent edits use its master.
                 if scope == "following":
@@ -968,7 +1009,7 @@ class Window(Gtk.ApplicationWindow):
                 continue
             try:
                 values = dlg.values()
-                rules = dlg.repeat.values(values[1].date())
+                rules = dlg.repeat.values(event_date(values[1]))
                 if not values[0]:
                     raise ValueError("Enter an event title")
             except ValueError as err:
@@ -1006,10 +1047,14 @@ class Window(Gtk.ApplicationWindow):
         original = dict(e)
         e["start"], e["end"] = start.astimezone(), end.astimezone()    # show it moved right away
         self.draw()
-        self.mutate(lambda: api.change_occurrence(original, scope, start=start, end=end))
+        def restore():
+            e.update(original)
+            self.draw()
+        self.mutate(lambda: api.change_occurrence(original, scope, start=start, end=end), restore)
         return False
 
     def sign_in(self, *_):
+        self.clear_mutation_error()
         self.set_status("Finish the sign-in in the browser…")
         api.google_sign_in(lambda err: GLib.idle_add(self.signed_in, err))
 

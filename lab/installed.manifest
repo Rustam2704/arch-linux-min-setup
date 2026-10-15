@@ -1,5 +1,3 @@
-bin/app-focus-or-launch
-bin/audio-menu
 bin/deskd-ctl
 bin/deskd-favorites
 bin/firefox-limited
@@ -165,6 +163,7 @@ share/sky-desktop/sky_theme.py
 share/sky-desktop/sounds/accept.wav
 share/sky-desktop/sounds/move.wav
 share/sky-desktop/sysicons.py
+share/sky-desktop/telegram_panel.py
 share/sky-desktop/theme.json
 share/sky-desktop/xfpanel.py
 system/etc/X11/xorg.conf.d/00-keyboard.conf

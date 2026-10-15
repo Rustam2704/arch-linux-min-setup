@@ -2,6 +2,8 @@
 """Native, automatically saved editor for a CLI's external-editor protocol."""
 import os
 from pathlib import Path
+import stat
+import tempfile
 import sys
 import gi
 gi.require_version("Gtk", "3.0")
@@ -10,7 +12,7 @@ from gi.repository import Gdk, GLib, Gtk
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME
 
-path = Path(sys.argv[-1])
+path = Path(sys.argv[-1]).resolve()
 window = Gtk.Window(title="Edit message")
 window.set_default_size(900, 540)
 window.set_position(Gtk.WindowPosition.CENTER_ON_PARENT)
@@ -38,7 +40,23 @@ def save(*_):
         GLib.source_remove(pending)
         pending = None
     try:
-        path.write_text(buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True))
+        content = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+        previous = path.stat()
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+        try:
+            try:
+                os.fchown(fd, previous.st_uid, previous.st_gid)
+            except PermissionError:
+                owner = os.fstat(fd)
+                if (owner.st_uid, owner.st_gid) != (previous.st_uid, previous.st_gid):
+                    raise
+            os.fchmod(fd, stat.S_IMODE(previous.st_mode))
+            with os.fdopen(fd, "w") as stream:
+                stream.write(content)
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
         status.set_text("Saved · Close to return to chat")
         return True
     except OSError as error:

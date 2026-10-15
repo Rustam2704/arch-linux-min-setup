@@ -16,6 +16,7 @@ import datetime as dt
 import http.server
 import json
 import os
+import secrets
 import subprocess
 import threading
 import time
@@ -142,13 +143,22 @@ def google_sign_in(done):
         return
 
     result = {}
+    state_token = secrets.token_urlsafe(32)
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
 
         def do_GET(self):
-            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            url = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(url.query)
+            if (url.path != urllib.parse.urlparse(REDIRECT).path
+                    or not secrets.compare_digest(q.get("state", [""])[0], state_token)):
+                self.send_error(404)
+                return
+            if not q.get("code") and not q.get("error"):
+                self.send_error(400)
+                return
             result["code"] = q.get("code", [""])[0]
             result["error"] = q.get("error", [""])[0]
             msg = ("light-year is connected to Google. You can close this tab."
@@ -167,16 +177,23 @@ def google_sign_in(done):
         except OSError as e:
             done(f"Port {PORT} is busy: {e}")
             return
-        server.timeout = 300
         params = urllib.parse.urlencode({
             "client_id": creds["client_id"], "redirect_uri": REDIRECT, "response_type": "code",
-            "scope": SCOPE, "access_type": "offline", "prompt": "consent"})
-        subprocess.Popen(["xdg-open", f"{GOOGLE_AUTH}?{params}"],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        server.handle_request()                 # exactly one request, then gone
-        server.server_close()
+            "scope": SCOPE, "access_type": "offline", "prompt": "consent", "state": state_token})
+        try:
+            subprocess.Popen(["xdg-open", f"{GOOGLE_AUTH}?{params}"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            deadline = time.monotonic() + 300
+            while not result and time.monotonic() < deadline:
+                server.timeout = min(1, max(0, deadline - time.monotonic()))
+                server.handle_request()
+        except Exception as e:                  # noqa: BLE001 - shown in the window
+            done(str(e))
+            return
+        finally:
+            server.server_close()
         if not result.get("code"):
-            done("Google sign-in was cancelled or timed out")
+            done(result.get("error") or "Google sign-in was cancelled or timed out")
             return
         try:
             fresh = request(GOOGLE_TOKEN, "POST", {
@@ -264,27 +281,63 @@ def list_events(start, end):
     return out
 
 
+def event_days(event, first, last):
+    """Visible local dates covered by an event; Google all-day ends are exclusive."""
+    start, end = event["start"], event["end"]
+    if event["all_day"]:
+        begin, finish = start, end - dt.timedelta(days=1)
+    else:
+        begin = start.date()
+        finish = (end - dt.timedelta(microseconds=1)).date()
+    day = max(first, begin)
+    while day <= min(last, finish):
+        yield day
+        day += dt.timedelta(days=1)
+
+
 def _iso(d):
     return d.strftime("%Y-%m-%dT%H:%M:00")
 
 
+def _event_times(start, end):
+    if isinstance(start, dt.datetime) and isinstance(end, dt.datetime):
+        return {"dateTime": _iso(start), "timeZone": TZ}, {"dateTime": _iso(end), "timeZone": TZ}
+    if (isinstance(start, dt.date) and not isinstance(start, dt.datetime)
+            and isinstance(end, dt.date) and not isinstance(end, dt.datetime)):
+        return {"date": start.isoformat()}, {"date": end.isoformat()}
+    raise ValueError("Event start and end must both be dates or times")
+
+
 def create_event(summary, start, end, description="", with_zoom=False, recurrence=None):
+    event_start, event_end = _event_times(start, end)
     body = {"summary": summary or "Untitled",
-            "start": {"dateTime": _iso(start), "timeZone": TZ},
-            "end": {"dateTime": _iso(end), "timeZone": TZ},
+            "start": event_start, "end": event_end,
             "description": description}
     if recurrence:
         body["recurrence"] = recurrence
     if with_zoom:
+        if not isinstance(start, dt.datetime):
+            raise ValueError("Zoom meetings need a start time")
         minutes = max(15, int((end - start).total_seconds() // 60))
         meeting = zoom("/users/me/meetings", "POST", {
             "topic": body["summary"], "type": 2, "start_time": _iso(start), "timezone": TZ,
             "duration": minutes, "settings": {"join_before_host": True, "waiting_room": False}})
         if meeting:
+            if not meeting.get("id"):
+                raise ApiError("Zoom did not return a meeting ID")
             body["location"] = meeting.get("join_url", "")
             body["description"] = (description + "\n\n" + body["location"]).strip()
             body["extendedProperties"] = {"private": {"zoomMeetingId": str(meeting.get("id"))}}
-    return google("/calendars/primary/events", "POST", body)
+    try:
+        return google("/calendars/primary/events", "POST", body)
+    except Exception as error:
+        if with_zoom and meeting and meeting.get("id"):
+            try:
+                if zoom(f"/meetings/{meeting['id']}", "DELETE") is None:
+                    raise ApiError("Zoom is not connected")
+            except Exception as cleanup_error:
+                raise ApiError(f"Google event creation failed: {error}; Zoom meeting {meeting['id']} could not be deleted: {cleanup_error}") from error
+        raise
 
 
 def _meeting_id(event):
@@ -298,13 +351,12 @@ def update_event(event_id, summary=None, start=None, end=None, description=None,
     if description is not None:
         body["description"] = description
     if start is not None:
-        body["start"] = {"dateTime": _iso(start), "timeZone": TZ}
-        body["end"] = {"dateTime": _iso(end), "timeZone": TZ}
+        body["start"], body["end"] = _event_times(start, end)
     if recurrence is not None:
         body["recurrence"] = recurrence
     updated = google(f"/calendars/primary/events/{urllib.parse.quote(event_id)}", "PATCH", body)
     mid = _meeting_id(updated)
-    if mid and start is not None:          # keep the Zoom meeting in step with the event
+    if mid and isinstance(start, dt.datetime):  # keep the Zoom meeting in step with the event
         try:
             zoom(f"/meetings/{mid}", "PATCH", {"start_time": _iso(start), "timezone": TZ,
                                                 "duration": max(15, int((end - start).total_seconds() // 60))})
@@ -447,7 +499,7 @@ def change_occurrence(event, scope, summary=None, start=None, end=None, descript
     rules = master.get("recurrence", [])
     first = _is_first(master, event)
     # the change, expressed as a shift of the occurrence
-    shift = (start - event["start"].replace(tzinfo=None)) if start is not None and not event["all_day"] else None
+    shift = (start - event["start"].replace(tzinfo=None)) if isinstance(start, dt.datetime) and not event["all_day"] else None
     length = (end - start) if start is not None else None
     if scope == "all" or first:
         body = {}
@@ -461,6 +513,19 @@ def change_occurrence(event, scope, summary=None, start=None, end=None, descript
             body["start"] = {"dateTime": _iso(new_start), "timeZone": TZ}
             body["end"] = {"dateTime": _iso(new_start + length), "timeZone": TZ}
             body["recurrence"] = _shift_weekdays(rules, (new_start.date() - ms.date()).days)
+        elif isinstance(start, dt.date) and not isinstance(start, dt.datetime):
+            master_start = parse_time(master["start"].get("dateTime") or master["start"]["date"])[0]
+            master_day = master_start.date() if isinstance(master_start, dt.datetime) else master_start
+            event_day = event["start"].date() if isinstance(event["start"], dt.datetime) else event["start"]
+            moved = master_day + (start - event_day)
+            body["start"], body["end"] = _event_times(moved, moved + length)
+            body["recurrence"] = _shift_weekdays(rules, (moved - master_day).days)
+        elif isinstance(start, dt.datetime) and event["all_day"]:
+            master_day = parse_time(master["start"]["date"])[0]
+            moved_day = master_day + (start.date() - event["start"])
+            moved = dt.datetime.combine(moved_day, start.time())
+            body["start"], body["end"] = _event_times(moved, moved + length)
+            body["recurrence"] = _shift_weekdays(rules, (moved_day - master_day).days)
         elif start is not None and length is not None:
             body["end"] = {"dateTime": _iso(parse_time(master["start"]["dateTime"])[0].replace(tzinfo=None)
                                              + length), "timeZone": TZ}
@@ -470,15 +535,18 @@ def change_occurrence(event, scope, summary=None, start=None, end=None, descript
     # "following": cut the old series, start a new one here
     end_of_series = _series_end(rid, rules)
     new_rules = _until(rules, end_of_series) if end_of_series else _without_count(rules)
-    s0 = start if start is not None else event["start"].replace(tzinfo=None)
-    e0 = end if end is not None else event["end"].replace(tzinfo=None)
-    if shift:
-        new_rules = _shift_weekdays(new_rules, (s0.date() - event["start"].date()).days)
+    s0 = start if start is not None else (event["start"] if event["all_day"]
+                                         else event["start"].replace(tzinfo=None))
+    e0 = end if end is not None else (event["end"] if event["all_day"]
+                                     else event["end"].replace(tzinfo=None))
+    old_day = event["start"].date() if isinstance(event["start"], dt.datetime) else event["start"]
+    new_day = s0.date() if isinstance(s0, dt.datetime) else s0
+    new_rules = _shift_weekdays(new_rules, (new_day - old_day).days)
+    event_start, event_end = _event_times(s0, e0)
     body = {"summary": summary if summary is not None else master.get("summary", ""),
             "description": description if description is not None else master.get("description", ""),
             "location": master.get("location", ""),
-            "start": {"dateTime": _iso(s0), "timeZone": TZ},
-            "end": {"dateTime": _iso(e0), "timeZone": TZ},
+            "start": event_start, "end": event_end,
             "recurrence": new_rules if recurrence is None else recurrence}
     # Create first: an API failure must not silently delete the later occurrences.
     created = google("/calendars/primary/events", "POST", body)

@@ -32,6 +32,7 @@ import sys
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))
 from sky_theme import THEME, icon
 import sky_text  # noqa: E402
+from sky_text import write_changed  # noqa: E402
 import xfpanel  # noqa: E402
 ACCENT, WARN, CRIT, DIM, TEXT = (THEME[k] for k in ("light", "warning", "danger", "muted", "foreground"))
 GAP = '<span size="50%"> </span>'      # half a space: a word and its number belong together
@@ -309,9 +310,7 @@ def value(text, colour, width=3, size="", after="", before=""):
         font = sky_text.panel_font(PANEL_PLUGIN)
         cell = sky_text.width(f'<span{size} font_features="tnum">{"0" * width}</span>', font)
         return sky_text.pad_to(f'<span{size} foreground="{colour}">{text}</span>', cell, font, after=after, before=before)
-    room = "0" * max(0, width - len(text))
-    return (f'<span{size} foreground="{colour}"><span alpha="1">{room}</span>'
-            f'{text}</span>')
+    return sky_text.fixed_digits(text, colour, width, size)
 
 
 def numbers_markup(now, median, c_now, c_med):
@@ -412,13 +411,9 @@ def main():
             last_wifi_out = wifi_out
         out = (f"<txt>{text}</txt>\n<txtclick>{menu} info</txtclick>\n"
                f"<tool>{tip}</tool>\n")
-        with open(OUT + ".tmp", "w") as f:
-            f.write(out)
-        os.replace(OUT + ".tmp", OUT)
-        with open(STATE + ".tmp", "w") as f:
-            json.dump({"verdict": verdict, "internet": i, "router": r, "gateway": gw,
-                       "iface": iface, "down": down, "up": up}, f)
-        os.replace(STATE + ".tmp", STATE)
+        write_changed(OUT, out)
+        write_changed(STATE, json.dumps({"verdict": verdict, "internet": i, "router": r, "gateway": gw,
+                                         "iface": iface, "down": down, "up": up}))
         time.sleep(max(0.2, 1 - (time.monotonic() - t0)))
 
 

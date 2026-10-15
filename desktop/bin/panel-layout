@@ -4,8 +4,11 @@
 # font is proportional, and a change of layout must not nudge the neighbours);
 # osd-daemon also refreshes this plugin the moment the layout changes.
 run="${XDG_RUNTIME_DIR:-/tmp}"
-name=$(cat "$run/kbd-layout" 2>/dev/null || echo "--")
-markup=$(cat "$run/kbd-layout.markup" 2>/dev/null || echo "<span foreground=\"@COLOUR_MUTED@\">$name</span>")
+name=--
+markup='<span foreground="@COLOUR_MUTED@">--</span>'
+if [ -r "$run/kbd-layout" ]; then
+    { IFS= read -r name && IFS= read -r markup; } < "$run/kbd-layout"
+fi
 
 # genmon turns a plugin with a click command into a button, and the theme draws its
 # own hover box on it; only the veil deskd holds over the panel should show that.

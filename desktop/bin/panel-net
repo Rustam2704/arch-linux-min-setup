@@ -4,4 +4,9 @@
 # hover box on it. Only the veil deskd holds over the panel should show that, so the
 # button's own background is taken away.
 echo '<css>* { background-color: transparent; background-image: none; box-shadow: none; }</css>'
-cat "${XDG_RUNTIME_DIR:-/tmp}/netq.txt" 2>/dev/null || echo "<txt>…</txt>"
+file="${XDG_RUNTIME_DIR:-/tmp}/netq.txt"
+if [ -r "$file" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do printf '%s\n' "$line"; done < "$file"
+else
+    echo "<txt>…</txt>"
+fi

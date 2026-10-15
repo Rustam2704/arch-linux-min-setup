@@ -74,7 +74,7 @@
     </property>
     <property name="plugin-40" type="string" value="genmon">
       <property name="command" type="string" value="@HOME@/.local/bin/panel-telegram"/>
-      <property name="update-period" type="int" value="5000"/>
+      <property name="update-period" type="int" value="60000"/>
       <property name="use-label" type="bool" value="false"/>
       <property name="enable-single-row" type="bool" value="true"/>
       <property name="font" type="string" value="@PANEL_FONT@"/>

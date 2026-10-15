@@ -5,6 +5,7 @@ Survives being offline: the last reading is kept on disk and shown dimmed with
 its age, instead of the panel going blank or showing an error.
 """
 import json
+import math
 import os
 import time
 import urllib.request
@@ -46,14 +47,39 @@ CODES = {
 def load_cache():
     try:
         with open(CACHE) as f:
-            return json.load(f)
-    except (OSError, ValueError):
+            data = json.load(f)
+        return data if valid(data, fetched=True) else None
+    except (OSError, ValueError, TypeError):
         return None
+
+
+def valid(data, fetched=False):
+    def number(value):
+        try:
+            return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+        except OverflowError:
+            return False
+    try:
+        cur = data["current"]
+        for key in ("weather_code", "temperature_2m", "apparent_temperature"):
+            if not number(cur[key]):
+                return False
+        daily = data["daily"]
+        for key in ("temperature_2m_min", "temperature_2m_max"):
+            if not number(daily[key][0]):
+                return False
+        if fetched and not number(data["fetched"]):
+            return False
+        return True
+    except (TypeError, ValueError, KeyError, IndexError):
+        return False
 
 
 def fetch():
     with urllib.request.urlopen(URL, timeout=8) as r:
         data = json.load(r)
+    if not valid(data):
+        raise ValueError("Incomplete weather response")
     data["fetched"] = time.time()
     tmp = CACHE + ".tmp"
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
@@ -64,7 +90,7 @@ def fetch():
 
 
 cached = load_cache()
-age = time.time() - cached["fetched"] if cached else None
+age = time.time() - float(cached["fetched"]) if cached else None
 data, offline = cached, False
 if age is None or age > MAX_AGE:
     try:

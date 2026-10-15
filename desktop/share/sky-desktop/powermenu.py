@@ -4,8 +4,10 @@ slider and the power mode - Automatic, Performance, Balanced, Power saver. The m
 the charger, balanced on battery). The choice is kept in ~/.config/sky-desktop/power-mode
 and put back by osd-daemon at the next session. Hosted by osd-daemon (`osd menu power`)."""
 import os
+import glob
 import subprocess
 import sys
+import threading
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -16,7 +18,6 @@ from popmenu import PopMenu  # noqa: E402
 
 STATE = os.path.expanduser("~/.config/sky-desktop/power-mode")
 TLP_RUN = "/run/tlp/last_pwr"            # "<profile> <power source>", profile 0/1/2
-BATTERY = "/sys/class/power_supply/BAT0"
 MODES = [("auto", "Automatic", "Performance on the charger, balanced on battery"),
          ("performance", "Performance", "Full speed, turbo on"),
          ("balanced", "Balanced", "TLP's battery settings"),
@@ -46,24 +47,36 @@ def active_profile():
 def apply(mode=None):
     """Switch TLP to the mode (the saved one by default); 'auto' = `tlp start`."""
     mode = mode or saved_mode()
-    if mode == "auto" and active_profile() == "":
-        return                                    # nothing set yet, TLP is already automatic
     arg = "start" if mode == "auto" else mode
-    subprocess.run(["sudo", "-n", "/usr/bin/tlp", arg], capture_output=True, timeout=30)
+    try:
+        result = subprocess.run(["sudo", "-n", "/usr/bin/tlp", arg], capture_output=True,
+                                text=True, timeout=30)
+        return result.returncode == 0 and (mode == "auto" or active_profile() == mode)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 def set_mode(mode):
-    os.makedirs(os.path.dirname(STATE), exist_ok=True)
-    with open(STATE + ".tmp", "w") as f:
-        f.write(mode)
-    os.replace(STATE + ".tmp", STATE)
-    apply(mode)
+    if not apply(mode):
+        return False
+    try:
+        os.makedirs(os.path.dirname(STATE), exist_ok=True)
+        with open(STATE + ".tmp", "w") as f:
+            f.write(mode)
+        os.replace(STATE + ".tmp", STATE)
+        return True
+    except OSError:
+        return False
 
 
 def battery_line():
+    batteries = sorted(glob.glob("/sys/class/power_supply/BAT*"))
+    if not batteries:
+        return "No battery"
+    battery = batteries[0]
     def read(name):
         try:
-            return open(os.path.join(BATTERY, name)).read().strip()
+            return open(os.path.join(battery, name)).read().strip()
         except OSError:
             return ""
     line = f"Battery {read('capacity')}% · {read('status') or 'unknown'}"
@@ -125,17 +138,34 @@ def fill(grid, close):
         grid.attach(brightness_row(), 0, 1, 1, 1)
 
     current = saved_mode()
+    if current != "auto":
+        current = active_profile() or current
     buttons = {}
     state = {"busy": False}
 
     def chosen(button, mode):
         if state["busy"] or not button.get_active():
             return
+        previous = saved_mode()
         state["busy"] = True
-        for other, b in buttons.items():          # one lit at a time, like radio buttons
-            b.set_active(other == mode)
-        state["busy"] = False
-        GLib.idle_add(lambda: (set_mode(mode), False)[1])
+        for b in buttons.values():
+            b.set_sensitive(False)
+
+        def work():
+            ok = set_mode(mode)
+
+            def done():
+                actual = active_profile()
+                selected = mode if ok else actual if actual in buttons else previous
+                for other, b in buttons.items():
+                    b.set_active(other == selected)
+                    b.set_sensitive(True)
+                state["busy"] = False
+                if not ok:
+                    subprocess.Popen(["notify-send", "Power mode failed", "Could not apply or save the selected profile"])
+                return False
+            GLib.idle_add(done)
+        threading.Thread(target=work, daemon=True).start()
 
     for row, (mode, label, hint) in enumerate(MODES, start=2):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)

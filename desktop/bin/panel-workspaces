@@ -4,8 +4,8 @@
 # panel deskd copies onto another screen passes that screen's name (HDMI-2 ...) and
 # gets that screen's own workspaces.
 RUN="${XDG_RUNTIME_DIR:-/tmp}"
-if [ -n "$1" ] && [ -r "$RUN/deskd-workspaces-$1.txt" ]; then
-    cat "$RUN/deskd-workspaces-$1.txt"
+if [ -n "$1" ]; then
+    cat "$RUN/deskd-workspaces-$1.txt" 2>/dev/null || echo "<txt>…</txt>"
 else
     cat "$RUN/deskd-workspaces.txt" 2>/dev/null || echo "<txt>…</txt>"
 fi

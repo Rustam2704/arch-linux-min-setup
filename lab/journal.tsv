@@ -807,3 +807,32 @@
 2026-10-15T06:31:39+03:00	73-audit-deskd	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.zPHavA.bak
 2026-10-15T06:45:08+03:00	73-audit-deskd	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.JHn6wy.bak
 2026-10-15T06:59:34+03:00	73-audit-deskd	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.ehvJDA.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/netqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_netqd.uWvdSW.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/osd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd.KpEjtO.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/osd-daemon	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_osd-daemon.ERfTLN.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-audio	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-audio.Ql0IyK.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-battery	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-battery.S63ceO.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-clock	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-clock.vke08R.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-layout	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-layout.IAqApj.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-net	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-net.BxrwO4.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-telegram	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-telegram.65LrpY.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-weather	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-weather.1YcgrR.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/panel-workspaces	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_panel-workspaces.4GjLiF.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/paste-image	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_paste-image.XZzGbA.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/sky-edit	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sky-edit.wdSWAe.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/sysqd	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_sysqd.bFMz7F.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.config/systemd/user/deskd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_deskd.service.nlUYkc.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.config/systemd/user/osd.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_osd.service.M0yJna.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.config/systemd/user/sky-stars.service	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_sky-stars.service.Wm2XNv.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/light-year/api.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_api.py.rAh8Wn.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/light-year/app.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_app.py.tbWXyw.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/sky-desktop/audiomenu.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_audiomenu.py.P4hvOH.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/sky-desktop/netmenu.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_netmenu.py.021o0K.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/sky-desktop/powermenu.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_powermenu.py.Zmb3NX.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/sky-desktop/screensaver.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_screensaver.py.mfMIxM.bak
+2026-10-15T07:29:31+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/sky-desktop/sky_text.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_sky_text.py.5sChcp.bak
+2026-10-15T07:29:32+03:00	74-audit-daemons	file	/home/fanatic/.local/share/sky-desktop/telegram_panel.py	
+2026-10-15T07:29:32+03:00	74-audit-daemons	backup	/home/fanatic/.local/share/sky-desktop/xfpanel.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_sky-desktop_xfpanel.py.cpEOnS.bak
+2026-10-15T07:29:32+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/app-focus-or-launch	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_app-focus-or-launch.ToxPar.bak
+2026-10-15T07:29:32+03:00	74-audit-daemons	backup	/home/fanatic/.local/bin/audio-menu	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_audio-menu.mYzgGe.bak
+2026-10-15T07:29:32+03:00	74-audit-daemons	xfconf	xfce4-panel:/plugins/plugin-40/update-period	["-n", "-t", "int", "-s", "5000"]

@@ -15,7 +15,7 @@ Commands arrive on a FIFO (see the `osd` client):
 Layouts (Windows-style, switched on key RELEASE so Ctrl+Shift+V etc. keep working):
     Alt+Shift    from UA -> EN, otherwise EN <-> RU
     Ctrl+Shift   UA; pressed again on UA -> back to the previous layout
-The current layout name is written to $XDG_RUNTIME_DIR/kbd-layout for the panel.
+The layout name and padded markup are written together to $XDG_RUNTIME_DIR/kbd-layout.
 """
 import ctypes
 import json
@@ -28,12 +28,11 @@ import time
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib  # noqa: E402
+from gi.repository import Gtk, Gdk, Gio, GLib  # noqa: E402
 
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 FIFO = os.path.join(RUN, "osd.fifo")
 LAYOUT_FILE = os.path.join(RUN, "kbd-layout")
-LAYOUT_MARKUP = LAYOUT_FILE + ".markup"   # what panel-layout shows: padded to one width
 HIDE_MS = 1100
 MARGIN_TOP = 56          # one-row 44px panel + gap
 MARGIN_RIGHT = 24
@@ -46,6 +45,9 @@ import netmenu  # noqa: E402  (imported now: the menus must pop up warm)
 import audiomenu  # noqa: E402
 import powermenu  # noqa: E402
 import screensaver  # noqa: E402  (org.freedesktop.ScreenSaver -> power manager's inhibit)
+import telegram_panel  # noqa: E402
+from sky_text import write_changed  # noqa: E402
+import i3ipc  # noqa: E402
 ACCENT = THEME["light"]
 PANEL_FONT_FAMILY = THEME["panel_font"].rsplit(" ", 1)[0]   # the badge is set in the panel font
 OVER = THEME["warning"]     # above 100%
@@ -451,8 +453,87 @@ class Sounds:
 
 
 SOUNDS = Sounds({name: os.path.expanduser(f"~/.local/share/sky-desktop/sounds/{name}.wav") for name in ("accept", "move")})
-KEYSOUND = os.path.expanduser("~/.config/sky-desktop/keysound")   # "off" silences Enter (audio-menu)
+KEYSOUND = os.path.expanduser("~/.config/sky-desktop/keysound")   # "off" silences Enter in the sound menu
 AUDIO_STATE = os.path.join(RUN, "audio.json")
+TELEGRAM_STATE = os.path.join(RUN, "panel-telegram.txt")
+
+
+def start_telegram():
+    """Qt's badge API emits Unity LauncherEntry updates; i3 tracks start/exit."""
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    state = {"windows": set(), "count": 0, "sender": None, "watch": None}
+
+    def publish():
+        try:
+            running = bool(state["windows"]) or state["sender"] is not None
+            if write_changed(TELEGRAM_STATE, telegram_panel.render(running, state["count"])):
+                xfpanel.refresh("panel-telegram")
+        except OSError:
+            pass
+
+    def vanished(_bus, _name):
+        state["sender"] = None
+        state["watch"] = None
+        state["count"] = 0
+        state["windows"].clear()
+        publish()
+
+    def badge(_bus, sender, _path, _interface, _signal, params):
+        launcher, values = params.unpack()
+        if "telegram" not in launcher.lower():
+            return
+        if sender != state["sender"]:
+            if state["watch"] is not None:
+                Gio.bus_unwatch_name(state["watch"])
+            state["sender"] = sender
+            state["watch"] = Gio.bus_watch_name_on_connection(
+                bus, sender, Gio.BusNameWatcherFlags.NONE, None, vanished)
+        visible = values.get("count-visible", False)
+        count = values.get("count", 0)
+        visible = visible.unpack() if hasattr(visible, "unpack") else visible
+        count = count.unpack() if hasattr(count, "unpack") else count
+        state["count"] = int(count) if visible else 0
+        publish()
+
+    bus.signal_subscribe(None, "com.canonical.Unity.LauncherEntry", "Update", None, None,
+                         Gio.DBusSignalFlags.NONE, badge)
+
+    def is_telegram(con):
+        return (con.get("window_properties") or {}).get("class") == "TelegramDesktop"
+
+    try:
+        i3 = i3ipc.I3()
+        try:
+            tree = i3.tree()
+        finally:
+            i3.sock.close()
+        for con, _ in i3ipc.walk(tree):
+            if is_telegram(con):
+                state["windows"].add(con["id"])
+                match = re.search(r"\((\d+)\)", con.get("name") or "")
+                if match:
+                    state["count"] = max(state["count"], int(match.group(1)))
+
+        def window(_kind, event):
+            con = event.get("container") or {}
+            if event.get("change") == "new":
+                if not is_telegram(con):
+                    return
+                state["windows"].add(con["id"])
+            elif event.get("change") == "close":
+                if con.get("id") not in state["windows"]:
+                    return
+                state["windows"].discard(con["id"])
+                if not state["windows"]:
+                    state["count"] = 0
+            else:
+                return
+            publish()
+
+        i3ipc.Subscription(["window"], window)
+    except (OSError, RuntimeError) as error:
+        print("osd: Telegram window watch failed:", error, flush=True)
+    publish()
 
 
 def keysound_on():
@@ -468,26 +549,29 @@ def watch_audio():
     goes to AUDIO_STATE for panel-audio, which is then asked to redraw. No polling."""
     def pactl(*a):
         try:
-            return subprocess.run(["pactl", *a], capture_output=True, text=True, timeout=3).stdout
-        except OSError:
-            return ""
+            result = subprocess.run(["pactl", *a], capture_output=True, text=True, timeout=3)
+            return result.stdout if result.returncode == 0 else None
+        except (OSError, subprocess.TimeoutExpired):
+            return None
 
     def percent(out):
-        m = re.search(r"(\d+)%", out)
+        m = re.search(r"(\d+)%", out or "")
         return int(m.group(1)) if m else 0
 
     last = None
 
     def publish():
         nonlocal last
-        state = {"volume": percent(pactl("get-sink-volume", "@DEFAULT_SINK@")),
-                 "muted": "yes" in pactl("get-sink-mute", "@DEFAULT_SINK@"),
+        sink = pactl("get-sink-volume", "@DEFAULT_SINK@")
+        state = {"available": sink is not None,
+                 "volume": percent(sink),
+                 "muted": "yes" in (pactl("get-sink-mute", "@DEFAULT_SINK@") or ""),
                  "mic": percent(pactl("get-source-volume", "@DEFAULT_SOURCE@")),
-                 "mic_muted": "yes" in pactl("get-source-mute", "@DEFAULT_SOURCE@"),
+                 "mic_muted": "yes" in (pactl("get-source-mute", "@DEFAULT_SOURCE@") or ""),
                  # a recording = a client's stream on a source; module streams (the echo
                  # canceller's own capture) have no client and do not count
                  "recording": any(line.split("\t")[2:3] not in ([], ["-"])
-                                  for line in pactl("list", "source-outputs", "short").splitlines() if line.strip())}
+                                  for line in (pactl("list", "source-outputs", "short") or "").splitlines() if line.strip())}
         if state == last:
             return
         last = state
@@ -536,11 +620,8 @@ class Layouts:
         name = self.names[self.current] if self.current < len(self.names) else "?"
         try:
             with open(LAYOUT_FILE + ".tmp", "w") as f:
-                f.write(name)
+                f.write(name + "\n" + self.panel_markup(name) + "\n")
             os.replace(LAYOUT_FILE + ".tmp", LAYOUT_FILE)
-            with open(LAYOUT_MARKUP + ".tmp", "w") as f:
-                f.write(self.panel_markup(name))
-            os.replace(LAYOUT_MARKUP + ".tmp", LAYOUT_MARKUP)
         except OSError:
             pass
         xfpanel.refresh("panel-layout")
@@ -669,8 +750,13 @@ class Layouts:
 # ---------------------------------------------------------------- plumbing
 def main():
     osd = Osd()
+    try:
+        os.unlink(LAYOUT_FILE + ".markup")   # obsolete separate half of the old layout state
+    except FileNotFoundError:
+        pass
     layouts = Layouts(osd)
     screensaver.start()                # "keep the screen on" requests from videos and calls
+    start_telegram()
     threading.Thread(target=audiomenu.apply_echo, daemon=True).start()   # the saved echo-cancel state
     threading.Thread(target=powermenu.apply, daemon=True).start()        # the saved power mode
     jobs = queue.Queue()
@@ -701,8 +787,9 @@ def main():
                 print("osd:", e, flush=True)
 
     def fifo_reader():
-        if not os.path.exists(FIFO):
-            os.mkfifo(FIFO, 0o600)
+        if os.path.lexists(FIFO):
+            os.unlink(FIFO)
+        os.mkfifo(FIFO, 0o600)
         while True:
             with open(FIFO) as f:
                 for line in f:

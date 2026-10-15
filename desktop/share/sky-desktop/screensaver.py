@@ -108,11 +108,13 @@ class ScreenSaver:
                 log("power manager refused", app, "-", e)
                 invocation.return_dbus_error("org.freedesktop.DBus.Error.Failed", str(e))
                 return
+            first = not any(c is not None for c, _ in self.cookies.values())
             self.cookies[cookie] = (pm_cookie, sender)
             if sender not in self.watches:
                 self.watches[sender] = Gio.bus_watch_name_on_connection(
                     self.bus, sender, Gio.BusNameWatcherFlags.NONE, None, self._vanished)
-            log("inhibit", app, "-", reason)
+            if first:
+                log("inhibited", app, "-", reason)
             invocation.return_value(GLib.Variant("(u)", (cookie,)))
 
         self.bus.call(XFPM[0], XFPM[1], XFPM[2], "Inhibit", GLib.Variant("(ss)", (app, reason)),
@@ -123,7 +125,8 @@ class ScreenSaver:
         if pm_cookie is not None:
             self.bus.call(XFPM[0], XFPM[1], XFPM[2], "UnInhibit", GLib.Variant("(u)", (pm_cookie,)),
                           None, Gio.DBusCallFlags.NONE, 2000, None, self._uninhibited)
-            log("uninhibit", cookie)
+            if not any(c is not None for c, _ in self.cookies.values()):
+                log("uninhibited")
         if sender and sender in self.watches and all(s != sender for _, s in self.cookies.values()):
             Gio.bus_unwatch_name(self.watches.pop(sender))
 

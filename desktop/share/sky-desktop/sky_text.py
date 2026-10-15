@@ -5,10 +5,36 @@ proportional font) must not push their neighbours around.
 Widths come from Pango with the plugin's own font (xfconf) at the screen's DPI
 (xrdb), in Pango units (1024 per px); every string is measured once."""
 import subprocess
+import os
+from pathlib import Path
 
 from sky_theme import THEME
 
 _cache = {}
+
+
+def fixed_digits(text, colour, width=2, size="", outer_features=False):
+    """A fixed-width digit cell, with transparent zeroes on the left."""
+    room = "0" * max(0, width - len(text))
+    if outer_features:
+        return (f'<span font_features="tnum" foreground="{colour}"><span alpha="1">{room}</span>'
+                f'{text}</span>')
+    return (f'<span{size} foreground="{colour}"><span alpha="1">{room}</span>'
+            f'{text}</span>')
+
+
+def write_changed(path, content):
+    """Atomically replace a text file only when its contents change."""
+    path = Path(path)
+    try:
+        if path.read_text() == content:
+            return False
+    except FileNotFoundError:
+        pass
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(content)
+    os.replace(tmp, path)
+    return True
 
 
 def dpi():

@@ -16,6 +16,7 @@ The folder's context menu has the same thing as the custom action "Paste image"
 (uca.xml); from there the arguments are %f %d - the first selected item and its
 folder; with nothing selected, %f is the folder itself, so the title decides."""
 import os
+import subprocess
 import sys
 import time
 
@@ -25,6 +26,10 @@ gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 
 COPIED = "x-special/gnome-copied-files"
+
+
+def failed(error):
+    subprocess.run(["notify-send", "Paste failed", str(error)], check=False)
 
 
 def target_folder(argv):
@@ -67,11 +72,15 @@ def paste_files(clipboard, folder):
     uris = [line for line in lines[1:] if line]
     if not uris:
         return False
-    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-    method = "MoveInto" if lines[0] == "cut" else "CopyInto"
-    bus.call_sync("org.xfce.FileManager", "/org/xfce/FileManager", "org.xfce.FileManager", method,
-                  GLib.Variant("(sassss)", (folder, uris, folder, "", "")), None,
-                  Gio.DBusCallFlags.NONE, 5000, None)
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        method = "MoveInto" if lines[0] == "cut" else "CopyInto"
+        bus.call_sync("org.xfce.FileManager", "/org/xfce/FileManager", "org.xfce.FileManager", method,
+                      GLib.Variant("(sassss)", (folder, uris, folder, "", "")), None,
+                      Gio.DBusCallFlags.NONE, 5000, None)
+    except (GLib.Error, OSError) as error:
+        failed(error)
+        return False
     if lines[0] == "cut":                               # like Thunar: a cut is pasted once
         clipboard.set_text("", -1)
         clipboard.store()
@@ -83,12 +92,27 @@ def paste_image(clipboard, folder):
     if image is None:
         return
     stamp = time.strftime("%Y-%m-%d %H-%M-%S")
-    path = os.path.join(folder, f"{stamp}.png")
     n = 2
-    while os.path.exists(path):                         # two pastes within a second
-        path = os.path.join(folder, f"{stamp} ({n}).png")
-        n += 1
-    image.savev(path, "png", [], [])
+    while True:
+        path = os.path.join(folder, f"{stamp}.png" if n == 2 else f"{stamp} ({n-1}).png")
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            os.close(fd)
+            break
+        except FileExistsError:
+            n += 1
+        except OSError as error:
+            failed(error)
+            return
+    try:
+        if not image.savev(path, "png", [], []):
+            raise OSError("Could not save the image")
+    except (GLib.Error, OSError) as error:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        failed(error)
 
 
 def main():

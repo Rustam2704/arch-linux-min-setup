@@ -15,10 +15,12 @@ The speed test only ever runs from this menu, never by accident. It downloads
 25 MB and uploads 10 MB through Cloudflare's speed test endpoints (curl, no extra
 packages) and keeps the result for the tooltip."""
 import datetime
+import fcntl
 import json
 import os
 import subprocess
 import sys
+import tempfile
 
 RUN = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 STATE = os.path.join(RUN, "netq.json")
@@ -37,10 +39,11 @@ def curl_speed(args):
 
 
 def speedtest():
+    lock = open(LOCK, "a+")
     try:
-        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL)
-        os.close(fd)
-    except FileExistsError:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
         notify("Speed test is already running")
         return
     try:
@@ -54,14 +57,20 @@ def speedtest():
         up = float(up or 0) * 8 / 1e6
         when = datetime.datetime.now().strftime("%H:%M")
         os.makedirs(os.path.dirname(SPEED), exist_ok=True)
-        with open(SPEED, "w") as f:
-            json.dump({"down": down, "up": up, "when": when}, f)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(SPEED), prefix=".netq-speed-")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump({"down": down, "up": up, "when": when}, f)
+            os.replace(tmp, SPEED)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
         if down == 0 and up == 0:
             notify("Speed test failed", "No connection to speed.cloudflare.com")
         else:
             notify("Speed test", f"↓ {down:.1f} Mbit/s    ↑ {up:.1f} Mbit/s")
     finally:
-        os.unlink(LOCK)
+        lock.close()
 
 
 def split_fields(line):
@@ -141,9 +150,12 @@ def connect(ssid, secured):
     args = ["dev", "wifi", "connect", ssid] + (["password", password] if password else [])
     def work():
         notify(f"Connecting to {ssid}…")
-        result = subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=45)
-        notify(f"Connected to {ssid}" if result.returncode == 0 else f"Could not connect to {ssid}",
-               "" if result.returncode == 0 else result.stderr.strip())
+        try:
+            result = subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=45)
+            notify(f"Connected to {ssid}" if result.returncode == 0 else f"Could not connect to {ssid}",
+                   "" if result.returncode == 0 else result.stderr.strip())
+        except (OSError, subprocess.TimeoutExpired) as error:
+            notify(f"Could not connect to {ssid}", str(error))
     import threading
     threading.Thread(target=work, daemon=False).start()
 

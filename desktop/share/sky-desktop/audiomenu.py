@@ -2,7 +2,7 @@
 mute buttons, the key-sound switch and the mixer. Every change applies at once.
 Escape or a click outside closes it. Hosted by osd-daemon (`osd menu audio`): one
 instance, toggled - a second click on the speaker closes it instead of opening
-another; `audio-menu` is the thin command."""
+another."""
 import os
 import re
 import subprocess
