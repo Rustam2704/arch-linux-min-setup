@@ -42,6 +42,7 @@ bindsym $mod+Tab exec --no-startup-id ~/.local/bin/rofi-toggle window
 bindsym $mod+e exec thunar
 bindsym $mod+c exec --no-startup-id ~/.local/bin/light-year
 bindsym $mod+q kill
+bindsym Mod1+F4 kill
 
 # --- windows, as in Windows ----------------------------------------------
 # Super+arrows as in Windows (deskd's ARROWS table): max / half / quarter / restore / minimize;

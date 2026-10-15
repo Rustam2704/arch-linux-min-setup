@@ -1,5 +1,6 @@
 
 [Default Applications]
+inode/directory=thunar.desktop
 # video and audio: VLC (Parole was the Xfce default and had no AAC decoder)
 audio/ogg=vlc.desktop
 audio/vorbis=vlc.desktop

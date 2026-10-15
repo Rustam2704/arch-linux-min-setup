@@ -3,62 +3,137 @@
 # so "lab rollback" can undo all of it and leave no leftovers.
 #
 #   lab pkg <exp> <pkg>...        install packages (only those not already installed)
-#   lab write <exp> <path>        write stdin to <path> (backs up an existing file)
+#   lab write <exp> <path> [mode] write stdin to <path> (backs up an existing file)
+#   lab remove <exp> <path>       delete a file (a backup is kept for rollback)
+#   lab mkdir <exp> <path>        create a directory and its missing parents, each recorded
+#   lab rmdir <exp> <path>        remove an empty directory (rollback recreates it)
+#   lab chmod <exp> <mode> <path> change a file's mode (rollback restores the old one)
+#   lab xfconf <exp> <channel> <property> '<undo json>' -- <xfconf-query args>
+#                                 set a property; the undo is xfconf-query args as a JSON list
 #   lab undo <exp> '<command>'    record an arbitrary undo command
 #   lab status                    show what is currently applied
 #   lab rollback <exp|all>        undo, newest first
 #   lab prune <days>              forget records older than <days> (and their backups)
 #
 # Journal format (TSV): timestamp <TAB> experiment <TAB> action <TAB> arg1 <TAB> arg2
+#   backup <path> <backup copy> | file <path> | dir <path> | rmdir <path> | mode <path> <old mode>
+#   xfconf <channel>:<property> <undo json> | pkg <package> | cmd <shell command>
+# A record is written only after its change has succeeded, so the journal never
+# promises an undo for something that did not happen.
+# LAB_STATE_DIR moves the journal, backups and lock (default: this directory); tests use it.
 set -eu
 LAB_DIR="$(cd "$(dirname "$0")" && pwd)"
-JOURNAL="$LAB_DIR/journal.tsv"
-BACKUPS="$LAB_DIR/backups"
+STATE_DIR="${LAB_STATE_DIR:-$LAB_DIR}"
+JOURNAL="$STATE_DIR/journal.tsv"
+BACKUPS="$STATE_DIR/backups"
 mkdir -p "$BACKUPS"
-exec 9>"$LAB_DIR/.lock"
+exec 9>"$STATE_DIR/.lock"
 flock 9
 touch "$JOURNAL"
 
 log() { printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$1" "$2" "$3" "${4-}" >> "$JOURNAL"; }
 
+# sudo only for what the user cannot change: the nearest existing ancestor of a path's
+# directory decides whether an entry can be created, replaced or removed there.
+dir_blocked() {
+    [ "$(id -u)" -eq 0 ] && return 1
+    local dir
+    dir=$(dirname -- "$1")
+    while [ ! -e "$dir" ]; do dir=$(dirname -- "$dir"); done
+    [ ! -w "$dir" ] || [ ! -x "$dir" ]
+}
+
 # write to a path, as root when needed, keeping a backup of what was there
 cmd_write() {
-    local exp="$1" path="$2" tmp bak stage
-    tmp=$(mktemp); cat > "$tmp"
-    if [ -e "$path" ] && cmp -s "$tmp" "$path"; then
-        rm -f "$tmp"
-        return 0
-    fi
-    local elevate=()
-    if [ ! -w "$(dirname "$path")" ] || { [ -e "$path" ] && [ ! -w "$path" ]; }; then
-        elevate=(sudo)
-    fi
-    stage=$("${elevate[@]}" mktemp "$(dirname "$path")/.lab-write.XXXXXX")
-    if [ -e "$path" ]; then
-        bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
-        cp -a "$path" "$bak" || { rm -f "$tmp"; echo "backup failed: $path" >&2; return 1; }
-        "${elevate[@]}" cp --preserve=mode,ownership "$path" "$stage"
-        log "$exp" backup "$path" "$bak"
-    else
-        "${elevate[@]}" chmod 644 "$stage"
-        log "$exp" file "$path"
-    fi
-    # Atomic replacement also supports binaries which are currently mapped.
-    "${elevate[@]}" tee "$stage" < "$tmp" > /dev/null
-    "${elevate[@]}" mv -f "$stage" "$path"
-    rm -f "$tmp"
-    echo "wrote $path"
+    local exp="$1" path="$2" mode="${3-}"
+    # A subshell, so the trap cleans the temp, stage and backup files on every failure.
+    (
+        tmp=$(mktemp); stage=""; bak=""; elevate=()
+        trap 'rm -f -- "$tmp" ${bak:+"$bak"}; [ -z "$stage" ] || "${elevate[@]}" rm -f -- "$stage"' EXIT
+        cat > "$tmp"
+        if [ -e "$path" ] && cmp -s "$tmp" "$path"; then
+            exit 0
+        fi
+        if dir_blocked "$path" || { [ -e "$path" ] && [ ! -O "$path" ] && [ "$(id -u)" -ne 0 ]; }; then
+            elevate=(sudo)
+        fi
+        stage=$("${elevate[@]}" mktemp "$(dirname "$path")/.lab-write.XXXXXX")
+        # Atomic replacement also supports binaries which are currently mapped.
+        "${elevate[@]}" tee "$stage" < "$tmp" > /dev/null
+        if [ -e "$path" ]; then
+            bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
+            cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; exit 1; }
+            "${elevate[@]}" cp --attributes-only --preserve=mode,ownership "$path" "$stage"
+        else
+            "${elevate[@]}" chmod 644 "$stage"
+        fi
+        [ -z "$mode" ] || "${elevate[@]}" chmod "$mode" "$stage"
+        "${elevate[@]}" mv -f "$stage" "$path"
+        stage=""
+        if [ -n "$bak" ]; then
+            kept="$bak"; bak=""      # from here the backup belongs to the journal
+            log "$exp" backup "$path" "$kept"
+        else
+            log "$exp" file "$path"
+        fi
+        echo "wrote $path"
+    )
 }
 
 cmd_remove() {
     # Delete a file we no longer install; the backup lets rollback bring it back.
-    local exp="$1" path="$2" bak
-    [ -e "$path" ] || return 0
-    bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
-    cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; return 1; }
-    log "$exp" backup "$path" "$bak"
-    if [ -w "$(dirname "$path")" ]; then rm -f "$path"; else sudo rm -f "$path"; fi
-    echo "removed $path"
+    local exp="$1" path="$2"
+    [ -e "$path" ] || [ -L "$path" ] || return 0
+    (
+        bak=""
+        trap 'rm -f -- ${bak:+"$bak"}' EXIT
+        bak=$(mktemp "$BACKUPS/$(echo "$path" | tr '/' '_').XXXXXX.bak")
+        cp -a "$path" "$bak" || { echo "backup failed: $path" >&2; exit 1; }
+        if dir_blocked "$path"; then sudo rm -f -- "$path"; else rm -f -- "$path"; fi
+        kept="$bak"; bak=""
+        log "$exp" backup "$path" "$kept"
+        echo "removed $path"
+    )
+}
+
+cmd_mkdir() {
+    # Every directory that did not exist is recorded after it was created, parent first;
+    # rollback removes them in reverse, with sudo only where the parent is not ours.
+    local exp="$1" dir="$2" missing=()
+    while [ ! -d "$dir" ]; do missing=("$dir" ${missing[@]+"${missing[@]}"}); dir=$(dirname -- "$dir"); done
+    for dir in ${missing[@]+"${missing[@]}"}; do
+        if dir_blocked "$dir"; then sudo mkdir -- "$dir"; else mkdir -- "$dir"; fi
+        log "$exp" dir "$dir"
+        echo "created $dir"
+    done
+}
+
+cmd_rmdir() {
+    local exp="$1" path="$2"
+    [ -d "$path" ] || return 0
+    if dir_blocked "$path"; then sudo rmdir -- "$path"; else rmdir -- "$path"; fi
+    log "$exp" rmdir "$path"
+    echo "removed directory $path"
+}
+
+cmd_chmod() {
+    local exp="$1" mode="$2" path="$3" old
+    [ -e "$path" ] || { echo "no such file: $path" >&2; return 1; }
+    old=$(stat -c %a -- "$path")
+    [ "$old" = "$(printf '%o' "$((8#$mode))")" ] && return 0
+    if [ "$(id -u)" -ne 0 ] && [ ! -O "$path" ]; then sudo chmod "$mode" -- "$path"; else chmod "$mode" -- "$path"; fi
+    log "$exp" mode "$path" "$old"
+    echo "mode $old -> $mode: $path"
+}
+
+cmd_xfconf() {
+    # The mutation runs here so the undo record is written only once it has worked.
+    local exp="$1" channel="$2" prop="$3" undo="$4"
+    shift 4
+    [ "${1-}" = "--" ] && shift
+    xfconf-query -c "$channel" -p "$prop" "$@"
+    log "$exp" xfconf "$channel:$prop" "$undo"
+    echo "set $channel$prop"
 }
 
 cmd_pkg() {
@@ -103,9 +178,13 @@ case "${1-}" in
     pkg)      shift; cmd_pkg "$@" ;;
     write)    shift; cmd_write "$@" ;;
     remove)   shift; cmd_remove "$@" ;;
+    mkdir)    shift; cmd_mkdir "$@" ;;
+    rmdir)    shift; cmd_rmdir "$@" ;;
+    chmod)    shift; cmd_chmod "$@" ;;
+    xfconf)   shift; cmd_xfconf "$@" ;;
     undo)     shift; cmd_undo "$@" ;;
     status)   cmd_status ;;
     rollback) shift; cmd_rollback "${1:-all}" ;;
     prune)    shift; cmd_prune "${1:?days}" ;;
-    *) sed -n '2,12p' "$0" ;;
+    *) sed -n '2,23p' "$0" ;;
 esac

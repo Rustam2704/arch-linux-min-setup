@@ -11,6 +11,11 @@ The tree under desktop/ is the whole installed desktop:
     desktop/xfconf/<channel>.xml                 xfconf properties (the panel layout), set live
                                                  with xfconf-query, one undo per changed property
 
+Every change goes through lab/lab and is journaled. lab/installed.manifest lists the sources the
+last apply installed: a source deleted from the tree has its installed file removed (also
+journaled, so rollback brings it back), and `status` reports it until then. Scripts are
+installed 0755 and the mode is part of the comparison.
+
 Text files are rendered: @HOME@, @USER@, @PROJECT@ and the style tokens from
 desktop/share/sky-desktop/theme.json (@COLOUR_ACCENT@, @RGB_LIGHT@, @HEX_ACCENT@,
 @FONT@ ...). Binary files (icons) are copied as they are. `check` refuses a
@@ -19,9 +24,9 @@ stays the single place where colours live.
 """
 import ast
 import difflib
+import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -29,8 +34,13 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "desktop"
 XFCONF = SOURCE / "xfconf"
-LIVE_XFCONF = Path.home() / ".config/xfce4/xfconf/xfce-perchannel-xml"
 BUILD = ROOT / ".build/desktop"
+# Where the files go and where the journal lives. The defaults are the real machine; the
+# environment variables let a rehearsal (and tests/test_installer.py) run in a temp tree.
+HOME = Path(os.environ.get("DESKTOP_HOME") or Path.home())
+SYSTEM_ROOT = Path(os.environ.get("DESKTOP_SYSTEM_ROOT") or "/")
+STATE = Path(os.environ.get("LAB_STATE_DIR") or ROOT / "lab")
+MANIFEST = STATE / "installed.manifest"
 KINDS = {"bin": ".local/bin", "share": ".local/share", "config": ".config", "home": "", "system": None}
 # The files that define the tokens must not have them filled in.
 RAW = ("share/sky-desktop/sky_theme.py", "share/sky-desktop/theme.json")
@@ -52,8 +62,8 @@ def sources():
 def target(relative):
     kind, *parts = relative.parts
     if kind == "system":
-        return Path("/", *parts)
-    return Path.home() / KINDS[kind] / Path(*parts)
+        return SYSTEM_ROOT.joinpath(*parts)
+    return HOME / KINDS[kind] / Path(*parts)
 
 
 def render(path):
@@ -65,8 +75,8 @@ def render(path):
         return raw
     if str(path.relative_to(SOURCE)) in RAW:
         return raw
-    data = (data.replace("@HOME@", str(Path.home())).replace("@PROJECT@", str(ROOT))
-            .replace("@USER@", Path.home().name))
+    data = (data.replace("@HOME@", str(HOME)).replace("@PROJECT@", str(ROOT))
+            .replace("@USER@", HOME.name))
     for token, value in TOKENS.items():
         data = data.replace(token, value)
     return data.encode()
@@ -95,9 +105,36 @@ def xfconf_parse(text):
     return out
 
 
+# GVariant type letter -> xfconf type name
+XFCONF_TYPES = {"b": "bool", "i": "int", "u": "uint", "d": "double", "s": "string",
+                "x": "int64", "t": "uint64", "y": "uchar", "n": "int16", "q": "uint16"}
+
+
+def xfconf_value(variant):
+    """(type, value) of one property as the daemon returns it, in the form xfconf_parse gives."""
+    kind = variant.get_type_string()
+    if kind == "av":
+        return "array", [xfconf_value(variant.get_child_value(i).get_variant()) for i in range(variant.n_children())]
+    value = variant.unpack()
+    return XFCONF_TYPES.get(kind, kind), str(value).lower() if kind == "b" else str(value)
+
+
 def xfconf_live(channel):
-    path = LIVE_XFCONF / f"{channel}.xml"
-    return xfconf_parse(path.read_text()) if path.exists() else {}
+    """{property path: (type, value)} of a channel as the running xfconf daemon holds it now.
+    The perchannel XML on disk lags behind the daemon's memory (the panel flushes it on exit),
+    so comparing against it - and recording undo values from it - can use stale state."""
+    from gi.repository import Gio, GLib
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        reply = bus.call_sync("org.xfce.Xfconf", "/org/xfce/Xfconf", "org.xfce.Xfconf", "GetAllProperties",
+                              GLib.Variant("(ss)", (channel, "/")), GLib.VariantType("(a{sv})"),
+                              Gio.DBusCallFlags.NONE, 5000, None)
+    except GLib.Error as error:
+        sys.exit(f"xfconf is not reachable ({error.message}): run this inside the desktop session")
+    entries = reply.get_child_value(0)
+    return {entries.get_child_value(i).get_child_value(0).get_string():
+            xfconf_value(entries.get_child_value(i).get_child_value(1).get_variant())
+            for i in range(entries.n_children())}
 
 
 # Arrays the session extends at run time: deskd appends a panel for every extra screen to
@@ -139,18 +176,28 @@ def xfconf_args(value):
 def xfconf_apply():
     changes = xfconf_differences()
     for channel, path, wanted, live in changes:
-        undo = ["xfconf-query", "-c", channel, "-p", path] + (["-r"] if live is None else xfconf_args(live))
-        lab("undo", EXPERIMENT, " ".join(shlex.quote(a) for a in undo))
-        subprocess.run(["xfconf-query", "-c", channel, "-p", path, "-n", *xfconf_args(wanted)], check=True)
-        print(f"set {channel}{path}")
+        # lab sets the property and journals the undo (xfconf-query arguments that restore the
+        # value the daemon held a moment ago) only after the set worked.
+        undo = ["-r"] if live is None else ["-n", *xfconf_args(live)]
+        lab("xfconf", EXPERIMENT, channel, path, json.dumps(undo), "--", "-n", *xfconf_args(wanted))
     return changes
 
 
 def build():
+    if not MANIFEST.exists():
+        manifest_write(manifest_read())     # remember what the old build tree knew before it is pruned
+    kept = set()
     for source in sources():
         dest = BUILD / source.relative_to(SOURCE)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(render(source))
+        kept.add(dest)
+    # Sources deleted from the tree must not linger in the build output.
+    for path in sorted(BUILD.rglob("*"), reverse=True):
+        if path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+        elif path.is_file() and path not in kept:
+            path.unlink()
 
 
 def check():
@@ -184,13 +231,23 @@ def check():
     print(f"Checked {count} source files")
 
 
+def wanted_mode(source, dest):
+    """0o755 for a script - everything under bin, a system file in a bin directory or whose
+    source is executable (e.g. a systemd system-sleep hook) - else None: any other file keeps the
+    mode it has (lab gives a new one 644)."""
+    parts = source.relative_to(SOURCE).parts
+    if parts[0] == "bin" or (parts[0] == "system" and ("bin" in parts[:-1] or source.stat().st_mode & 0o111)):
+        return 0o755
+    return None
+
+
 def differences(show_diff=False):
     changed = []
     for source in sources():
         dest = target(source.relative_to(SOURCE))
         old = dest.read_bytes() if dest.exists() else b""
         new = render(source)
-        if old == new:
+        if old == new and dest.exists():
             continue
         changed.append((source, dest, new))
         if show_diff:
@@ -202,36 +259,96 @@ def differences(show_diff=False):
     return changed
 
 
+def mode_differences(changed=()):
+    """[(source, dest, wanted, actual)] - installed scripts with the wrong mode. A file whose
+    content differs too is skipped: writing it sets the mode."""
+    skip = {dest for _, dest, _ in changed}
+    out = []
+    for source in sources():
+        dest = target(source.relative_to(SOURCE))
+        wanted = wanted_mode(source, dest)
+        if wanted is not None and dest not in skip and dest.is_file():
+            actual = dest.stat().st_mode & 0o7777
+            if actual != wanted:
+                out.append((source, dest, wanted, actual))
+    return out
+
+
+# ------------------------------------------------------------------ install manifest
+def manifest_read():
+    """Relative paths (bin/foo, config/x/y) of the sources the last apply installed.
+    With no manifest yet, the files of the last build stand in: .build/desktop holds a copy
+    of every source that was ever built here, deleted ones included."""
+    if MANIFEST.exists():
+        return {line for line in MANIFEST.read_text().splitlines() if line}
+    if not BUILD.is_dir():
+        return set()
+    return {str(p.relative_to(BUILD)) for p in BUILD.rglob("*") if p.is_file()}
+
+
+def manifest_write(relatives):
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    temp = MANIFEST.with_suffix(".tmp")
+    temp.write_text("".join(f"{relative}\n" for relative in sorted(relatives)))
+    temp.replace(MANIFEST)
+
+
+def removed():
+    """[(relative path, installed file)] - installed earlier, source deleted since, file still there.
+    A file that a source still in the tree installs under the same name is not stale."""
+    current = {str(source.relative_to(SOURCE)) for source in sources()}
+    wanted = {target(Path(relative)) for relative in current}
+    out = []
+    for relative in sorted(manifest_read() - current):
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts or path.parts[0] not in KINDS:
+            continue
+        dest = target(path)
+        if dest not in wanted and (dest.is_file() or dest.is_symlink()):
+            out.append((path, dest))
+    return out
+
+
 def lab(*args, **kw):
     return subprocess.run([str(ROOT / "lab/lab"), *args], check=True, **kw)
 
 
+def forget_empty_parents(relative, dest):
+    """After a removal: the directories it left empty go too - but only below the kind's root, never
+    under /, and only where the tree no longer declares that directory."""
+    kind = relative.parts[0]
+    if kind == "system":
+        return
+    top = target(Path(kind))
+    parent, declared = dest.parent, (SOURCE / relative).parent
+    while parent != top and top in parent.parents and not declared.exists() and parent.is_dir() and not any(parent.iterdir()):
+        lab("rmdir", EXPERIMENT, str(parent))
+        parent, declared = parent.parent, declared.parent
+
+
 def apply():
     changes = differences()
+    modes = mode_differences(changes)
+    stale = removed()
+    # Until the run is over the manifest is a superset, so an interrupted run forgets nothing.
+    installed = {str(source.relative_to(SOURCE)) for source in sources()}
+    if manifest_read() != installed:
+        manifest_write(manifest_read() | installed)
     for source, dest, content in changes:
-        if not dest.parent.exists():
-            # Parent directories are recorded too, so rollback leaves no empty junk.
-            missing, parent = [], dest.parent
-            while not parent.exists():
-                missing.append(parent)
-                parent = parent.parent
-            for parent in reversed(missing):
-                lab("undo", EXPERIMENT, "rmdir -- " + shlex.quote(str(parent)))
-                if os.access(parent.parent, os.W_OK):
-                    parent.mkdir()
-                else:
-                    subprocess.run(["sudo", "mkdir", str(parent)], check=True)
-        lab("write", EXPERIMENT, str(dest), input=content)
-        kind = source.relative_to(SOURCE).parts[0]
-        # scripts: everything under bin, and any system file whose source is executable
-        # (e.g. a systemd system-sleep hook)
-        if kind == "bin" or (kind == "system" and ("bin" in dest.parts or source.stat().st_mode & 0o111)):
-            if os.access(dest, os.W_OK):
-                dest.chmod(0o755)
-            else:
-                subprocess.run(["sudo", "chmod", "755", str(dest)], check=True)
+        # lab creates the missing directories (each recorded) and elevates only where it must.
+        if not dest.parent.is_dir():
+            lab("mkdir", EXPERIMENT, str(dest.parent))
+        mode = wanted_mode(source, dest)
+        lab("write", EXPERIMENT, str(dest), *([f"{mode:o}"] if mode else []), input=content)
+    for _, dest, wanted, _ in modes:
+        lab("chmod", EXPERIMENT, f"{wanted:o}", str(dest))
+    for relative, dest in stale:
+        lab("remove", EXPERIMENT, str(dest))
+        forget_empty_parents(relative, dest)
+    manifest_write(installed)
     settings = xfconf_apply()
-    print(f"Installed {len(changes)} changed files and {len(settings)} xfconf properties; recorded in lab/journal.tsv")
+    print(f"Installed {len(changes)} changed files, fixed {len(modes)} modes, removed {len(stale)} files of deleted "
+          f"sources and set {len(settings)} xfconf properties; recorded in the lab journal")
 
 
 def packages():
@@ -253,7 +370,11 @@ if __name__ == "__main__":
     elif action == "check":
         check()
     elif action == "diff":
-        differences(True)
+        changes = differences(True)
+        for _, path, wanted, actual in mode_differences(changes):
+            print(f"mode {path}: {actual:o} -> {wanted:o}")
+        for _, path in removed():
+            print(f"stale {path}: its source was deleted, apply removes it")
         for channel, path, wanted, live in xfconf_differences():
             print(f"xfconf {channel}{path}: {live} -> {wanted}")
     elif action == "apply":
@@ -262,11 +383,18 @@ if __name__ == "__main__":
         sys.exit(1 if packages() else 0)
     elif action == "status":
         changes = differences()
+        modes = mode_differences(changes)
+        stale = removed()
         for _, path, _ in changes:
             print("Differs:", path)
+        for _, path, wanted, actual in modes:
+            print(f"Differs: mode {actual:o}, wanted {wanted:o}: {path}")
+        for _, path in stale:
+            print("Stale (source deleted):", path)
         settings = xfconf_differences()
         for channel, path, _, _ in settings:
             print(f"Differs: xfconf {channel}{path}")
-        print(f"{len(changes)} files and {len(settings)} xfconf properties differ from the declared desktop")
+        print(f"{len(changes) + len(modes) + len(stale)} files and {len(settings)} xfconf properties "
+              "differ from the declared desktop")
     else:
         sys.exit("Use check, build, diff, apply, packages or status")

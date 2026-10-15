@@ -36,6 +36,5 @@ touchegg &                                      # gesture client (daemon is a sy
 # TearFree (20-intel.conf).
 "$HOME/.local/bin/root-black"                  # black, not xcompmgr's grey, where nothing painted
 xcompmgr -c -C -f -r 14 -o 0.45 -l -14 -t -10 -I 0.06 -O 0.06 -D 8 &
-dex -a -s "$HOME/.config/autostart" >/dev/null 2>&1 &
 
 exec i3

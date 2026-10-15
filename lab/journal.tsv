@@ -779,3 +779,24 @@
 2026-10-15T02:26:24+03:00	71-sleep-mark	file	/etc/systemd/journald.conf.d/50-sync.conf	
 2026-10-15T02:26:24+03:00	71-sleep-mark	file	/usr/lib/systemd/system-sleep/zz-sleep-mark	
 2026-10-15T02:26:51+03:00	71-sleep-mark	file	/usr/lib/systemd/system-sleep/zz-sleep-mark	
+2026-10-15T06:15:33+03:00	72-audit-cleanup	backup	/etc/systemd/journald.conf.d/50-sync.conf	/home/fanatic/ai/claude/setup/lab/backups/_etc_systemd_journald.conf.d_50-sync.conf.BPAeFm.bak
+2026-10-15T06:15:33+03:00	72-audit-cleanup	dir	/etc/systemd/system/touchegg.service.d	
+2026-10-15T06:15:33+03:00	72-audit-cleanup	file	/etc/systemd/system/touchegg.service.d/50-quiet.conf	
+2026-10-15T06:15:33+03:00	72-audit-cleanup	dir	/etc/systemd/coredump.conf.d	
+2026-10-15T06:15:33+03:00	72-audit-cleanup	file	/etc/systemd/coredump.conf.d/50-size.conf	
+2026-10-15T06:15:33+03:00	72-audit-cleanup	backup	/home/fanatic/.config/mimeapps.list	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_mimeapps.list.tElIfQ.bak
+2026-10-15T06:15:33+03:00	72-audit-cleanup	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.VdNEBA.bak
+2026-10-15T06:15:34+03:00	72-audit-cleanup	backup	/usr/local/bin/xfce-i3-session	/home/fanatic/ai/claude/setup/lab/backups/_usr_local_bin_xfce-i3-session.Lc5j0W.bak
+2026-10-15T06:15:59+03:00	72-audit-cleanup	backup	/etc/X11/xorg.conf.d/30-touchpad.conf	/home/fanatic/ai/claude/setup/lab/backups/_etc_X11_xorg.conf.d_30-touchpad.conf.MuUNOe.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/etc/lightdm/lightdm.conf.bak	/home/fanatic/ai/claude/setup/lab/backups/_etc_lightdm_lightdm.conf.bak.5jIKul.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/boot/loader/entries/arch-lts.conf.bak	/home/fanatic/ai/claude/setup/lab/backups/_boot_loader_entries_arch-lts.conf.bak.PP1wey.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/etc/systemd/zram-generator.conf	/home/fanatic/ai/claude/setup/lab/backups/_etc_systemd_zram-generator.conf.kJhYvh.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/etc/systemd/system/systemd-zram-setup@zram0.service	/home/fanatic/ai/claude/setup/lab/backups/_etc_systemd_system_systemd-zram-setup@zram0.service.5wIPwx.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/parole.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_parole.xml.4Q7NaH.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-appfinder.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-appfinder.xml.bv5F1D.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-taskmanager.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-taskmanager.xml.Gm7k2v.bak
+2026-10-15T06:16:00+03:00	72-audit-cleanup	backup	/home/fanatic/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-terminal.xml	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_xfce4_xfconf_xfce-perchannel-xml_xfce4-terminal.xml.TcsAdV.bak
+2026-10-15T06:16:01+03:00	72-audit-cleanup	cmd	sudo pacman -S --needed --noconfirm acpid zram-generator && sudo systemctl enable --now acpid	
+2026-10-15T06:16:01+03:00	72-audit-cleanup	cmd	yay -S --needed --noconfirm dex xkb-switch xfce4-pulseaudio-plugin	
+2026-10-15T06:16:17+03:00	72-audit-cleanup	dir	/home/fanatic/.config/pacman	
+2026-10-15T06:16:17+03:00	72-audit-cleanup	file	/home/fanatic/.config/pacman/makepkg.conf	
