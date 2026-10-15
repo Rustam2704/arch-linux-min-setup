@@ -4,7 +4,6 @@
     deskd-favorites              show the menu under the Apple button
     deskd-favorites --login      at login: start favorites if "Launch at login" is on
     deskd-favorites --launch     start all favorites now
-    deskd-favorites --i3         regenerate the i3 app -> workspace rules
 
 The menu: a "Launch favorites at login" switch (stays on for every start until
 switched off), "Launch all now", the favorite apps as icons (left click includes
@@ -408,7 +407,5 @@ if __name__ == "__main__":
             launch_all(cp, stagger=1.5)
     elif "--launch" in sys.argv:
         launch_all(load())
-    elif "--i3" in sys.argv:
-        write_i3_rules(load())
     else:
         menu()

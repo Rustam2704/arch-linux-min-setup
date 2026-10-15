@@ -800,3 +800,8 @@
 2026-10-15T06:16:01+03:00	72-audit-cleanup	cmd	yay -S --needed --noconfirm dex xkb-switch xfce4-pulseaudio-plugin	
 2026-10-15T06:16:17+03:00	72-audit-cleanup	dir	/home/fanatic/.config/pacman	
 2026-10-15T06:16:17+03:00	72-audit-cleanup	file	/home/fanatic/.config/pacman/makepkg.conf	
+2026-10-15T06:31:19+03:00	73-audit-deskd	backup	/home/fanatic/.local/bin/deskd-ctl	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-ctl.iwJwvY.bak
+2026-10-15T06:31:19+03:00	73-audit-deskd	backup	/home/fanatic/.local/bin/deskd-favorites	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_bin_deskd-favorites.p34OU0.bak
+2026-10-15T06:31:19+03:00	73-audit-deskd	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.ckjeqv.bak
+2026-10-15T06:31:19+03:00	73-audit-deskd	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.TFxGuE.bak
+2026-10-15T06:31:39+03:00	73-audit-deskd	backup	/home/fanatic/.config/touchegg/touchegg.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_touchegg_touchegg.conf.zPHavA.bak

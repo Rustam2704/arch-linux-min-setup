@@ -35,6 +35,7 @@ import ctypes
 import subprocess
 import sys
 import time
+import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 sys.path.insert(0, os.path.expanduser("~/.local/share/sky-desktop"))   # i3ipc, sky_theme, xfpanel
@@ -91,8 +92,12 @@ HANDLE = 10                   # grab width around floating windows (px)
 DRAG_START = 8                # px of movement before a right press becomes a drag
 EDGE = 3                      # px from a screen edge that counts as "at the edge"
 POLL_MS = 16
+WS_DEBOUNCE_S = 0.2           # after a workspace switch i3 lays everything out again: frame events inside this are dropped
+EXPECT_S = 20                 # "open the next window of this app here" (Ctrl + panel button) holds this long
 PANEL_FONT = THEME["panel_font"]
 CURSOR_PNG = os.path.expanduser("~/.local/share/sky-desktop/cursor-diablo.png")   # the game's pointer, 1.5x
+# i3-managed windows that are no task: Alt+Tab skips them (a notification can be on screen while you switch)
+NO_SWITCH_TYPES = ("notification", "tooltip", "popup_menu", "dropdown_menu", "menu")
 PASSTHROUGH_CLASSES = {"rustdesk"}   # remote desktops: keys go to the remote machine
 DEBUG = bool(os.environ.get("DESKD_DEBUG"))
 
@@ -136,36 +141,101 @@ def rgb(c, a=1.0):
 
 
 # ================================================================== X helpers
+class XErrorLog:
+    """The X error handler. Windows vanish between two requests, so BadWindow and
+    BadDrawable are expected and dropped; any other error of a request of ours is logged,
+    once per (request, error) a minute so a loop of failing requests cannot flood the journal."""
+    EXPECTED = (error.BadWindow, error.BadDrawable)
+    EVERY_S = 60
+    REQUESTS = {1: "CreateWindow", 2: "ChangeWindowAttributes", 4: "DestroyWindow", 8: "MapWindow",
+                10: "UnmapWindow", 12: "ConfigureWindow", 18: "ChangeProperty", 55: "CreateGC",
+                62: "CopyArea", 72: "PutImage"}
+
+    def __init__(self):
+        self.seen = {}            # (opcode, minor opcode, error name) -> (when last logged, how many dropped since)
+
+    def __call__(self, err, request):
+        if isinstance(err, self.EXPECTED):
+            return
+        key = (getattr(err, "major_opcode", 0), getattr(err, "minor_opcode", 0), type(err).__name__)
+        now = time.monotonic()
+        when, dropped = self.seen.get(key, (None, 0))
+        if when is not None and now - when < self.EVERY_S:
+            self.seen[key] = (when, dropped + 1)
+            return
+        self.seen[key] = (now, 0)
+        res = getattr(err, "resource_id", 0)          # a plain number, or a resource object for the Bad<Resource> errors
+        log("X error:", key[2], "from", self.REQUESTS.get(key[0], f"request {key[0]}"),
+            f"(minor {key[1]}), resource {int(getattr(res, 'id', res) or 0):#x}",
+            f"[{dropped} like it dropped in the last minute]" if dropped else "")
+
+
+# the handle cursors, by the names of the Xcursor theme the rest of the desktop uses
+THEMED_CURSORS = {"tl": "top_left_corner", "tr": "top_right_corner", "bl": "bottom_left_corner",
+                  "br": "bottom_right_corner", "t": "top_side", "b": "bottom_side",
+                  "l": "left_side", "r": "right_side"}
+# ... and the glyphs of the X core cursor font, for a theme that lacks one
+GLYPH_CURSORS = {"tl": 134, "tr": 136, "bl": 12, "br": 14, "t": 138, "b": 16, "l": 70, "r": 96, "hand": 60}
+
+
 class XServer:
     def __init__(self):
         self.d = display.Display()
-        self.d.set_error_handler(lambda *a: None)          # windows vanish all the time
+        self.d.set_error_handler(XErrorLog())
         self.screen = self.d.screen()
         self.root = self.screen.root
         self.atom = lambda name: self.d.intern_atom(name)
         self.argb = self._argb_visual()
-        font = self.d.open_font("cursor")
+        self._xc = None
+        font = None
         self.cursors = {}
-        for name, glyph in (("h", 108), ("v", 116), ("tl", 134), ("tr", 136), ("bl", 12),
-                            ("br", 14), ("t", 138), ("b", 16), ("l", 70), ("r", 96), ("hand", 60)):
-            self.cursors[name] = font.create_glyph_cursor(font, glyph, glyph + 1,
-                                                          (0, 0, 0), (65535, 65535, 65535))
+        for name, glyph in GLYPH_CURSORS.items():
+            cursor = self.themed_cursor(THEMED_CURSORS[name]) if name in THEMED_CURSORS else None
+            if cursor is None:
+                if font is None:
+                    font = self.d.open_font("cursor")
+                cursor = font.create_glyph_cursor(font, glyph, glyph + 1, (0, 0, 0), (65535, 65535, 65535))
+            self.cursors[name] = cursor
         diablo = self.image_cursor(CURSOR_PNG, 0, 0)
         if diablo is not None:
             self.cursors["hand"] = diablo          # the game's gauntlet instead of X's hand
         self.gc_cache = {}
 
-    def image_cursor(self, path, xhot, yhot):
-        """An ARGB cursor from a PNG through libXcursor. Cursor ids are server-wide, so
-        the one made on a ctypes connection serves python-xlib windows; that connection
-        stays open, the cursor lives as long as it does."""
-        try:
-            surface = cairo.ImageSurface.create_from_png(path)
-            w, h = surface.get_width(), surface.get_height()
+    def _xcursor(self):
+        """libXcursor and a connection of its own, opened once. Cursor ids are server-wide,
+        so a cursor made on it serves python-xlib windows; that connection stays open, the
+        cursors live as long as it does."""
+        if self._xc is None:
             xc = ctypes.CDLL("libXcursor.so.1")
             x11 = ctypes.CDLL("libX11.so.6")
             x11.XOpenDisplay.restype = ctypes.c_void_p
             x11.XFlush.argtypes = [ctypes.c_void_p]
+            dpy = x11.XOpenDisplay(None)
+            if not dpy:
+                raise OSError("libXcursor: no display")
+            xc.XcursorLibraryLoadCursor.restype = ctypes.c_ulong
+            xc.XcursorLibraryLoadCursor.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+            self._xc = (xc, x11, dpy)
+        return self._xc
+
+    def themed_cursor(self, name):
+        """The cursor `name` of the Xcursor theme and size (Xcursor.size) the rest of the
+        desktop draws, or None if there is no such cursor."""
+        try:
+            xc, x11, dpy = self._xcursor()
+            cursor = xc.XcursorLibraryLoadCursor(dpy, name.encode())
+            x11.XFlush(dpy)
+            return int(cursor) or None
+        except Exception as e:                       # noqa: BLE001 - the core font cursor will do
+            log("themed cursor failed:", name, e)
+            return None
+
+    def image_cursor(self, path, xhot, yhot):
+        """An ARGB cursor from a PNG through libXcursor (see _xcursor)."""
+        try:
+            surface = cairo.ImageSurface.create_from_png(path)
+            w, h = surface.get_width(), surface.get_height()
+            xc, x11, dpy = self._xcursor()
 
             class Image(ctypes.Structure):
                 _fields_ = [("version", ctypes.c_uint32), ("size", ctypes.c_uint32), ("width", ctypes.c_uint32),
@@ -174,9 +244,6 @@ class XServer:
             xc.XcursorImageCreate.restype = ctypes.POINTER(Image)
             xc.XcursorImageLoadCursor.restype = ctypes.c_ulong
             xc.XcursorImageLoadCursor.argtypes = [ctypes.c_void_p, ctypes.POINTER(Image)]
-            self._cursor_dpy = x11.XOpenDisplay(None)
-            if not self._cursor_dpy:
-                return None
             img = xc.XcursorImageCreate(w, h)
             img.contents.xhot, img.contents.yhot = xhot, yhot
             surface.flush()
@@ -185,8 +252,8 @@ class XServer:
             base = ctypes.addressof(img.contents.pixels.contents)
             for y in range(h):
                 ctypes.memmove(base + y * w * 4, data[y * stride:y * stride + w * 4], w * 4)
-            cursor = xc.XcursorImageLoadCursor(self._cursor_dpy, img)
-            x11.XFlush(self._cursor_dpy)
+            cursor = xc.XcursorImageLoadCursor(dpy, img)
+            x11.XFlush(dpy)
             return int(cursor) or None
         except Exception as e:                       # noqa: BLE001 - the X hand will do
             log("image cursor failed:", e)
@@ -683,6 +750,9 @@ class Deskd:
         self.pending_modal = None
         self.last_focused_ws = None
         self.workspace_event_at = 0.0
+        self.guarded_frames = set()     # frames of the windows deskd corrects (fitted, keep-above)
+        self.debounce_timer = None      # a refresh owed for a frame event dropped right after a workspace switch
+        self.outputs_pending = False    # a screen event arrived mid-gesture: reconcile when it ends
         self.state = self._load_state()
         self.blocks = self.state.setdefault("blocks", {})     # output name -> block index
         self.last_ws_text = {}
@@ -706,6 +776,7 @@ class Deskd:
         self.sub = i3ipc.Subscription(["window", "workspace", "output", "binding", "shutdown", "tick", "mode"],
                                       self.on_i3)
         self.normalize_marks()
+        self.sweep_saved()
         self.outputs_changed()
         self.refresh()
         self.skip_dock_existing()
@@ -751,9 +822,12 @@ class Deskd:
                 if k.endswith("/command") and os.path.basename(v.strip()) == "panel-audio"]
         for pid in pids:
             geom = self.plugin_geometry(pid)
-            if not geom:
-                continue
             win = self.audio_layers.get(pid)
+            if not geom:
+                if win is not None:              # the plugin is gone for now: nothing of ours stays over its place
+                    self.show_layer(win, False)
+                self.audio_geoms.pop(pid, None)
+                continue
             if win is None:
                 win = self.xs.window(self.xs.root, *geom, input_only=True,
                                      events=X.ButtonPressMask, cursor=self.xs.cursors["hand"])
@@ -761,12 +835,9 @@ class Deskd:
             win.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3], stack_mode=X.Above)
             self.audio_geoms[pid] = geom
             out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + 2)
-            self.show_layer(win, (out or {}).get("name") not in self.busy_outputs)
+            self.show_layer(win, self.layer_ok((out or {}).get("name")))
         for pid in [p for p in self.audio_layers if p not in pids]:   # a panel that went away
-            try:
-                self.audio_layers.pop(pid).destroy()
-            except error.XError:
-                pass
+            self.drop_layer(self.audio_layers.pop(pid))
             self.audio_geoms.pop(pid, None)
 
     def audio_click(self, e):
@@ -969,12 +1040,8 @@ class Deskd:
             self.strip_plugins(fresh=True)
             active = {pid for pid, _ in self._strips}
             for pid in set(self.click_layers) - active:
-                win = self.click_layers.pop(pid)
-                self.click_by_win.pop(win.id, None)
-                self.layer_visible.pop(win.id, None)
+                self.drop_layer(self.click_layers.pop(pid))
                 self.click_layouts.pop(pid, None)
-                self.xs.gc_cache.pop(win.id, None)
-                win.destroy()
             self.strip_geoms.clear()
             self.docks = None
             self.panel_windows = set()  # the panel may have restarted with new windows
@@ -1184,6 +1251,22 @@ class Deskd:
             json.dump(self.state, f)
         os.replace(tmp, STATE_FILE)
 
+    def sweep_saved(self):
+        """At start: the saved places of windows that closed while deskd was not running go
+        (normalize_marks has just carried over those of windows i3 renumbered)."""
+        try:
+            alive = {str(n["id"]) for n, _ in walk(self.i3.tree())}
+        except Exception as e:                       # noqa: BLE001
+            log("saved-place sweep failed:", e)
+            return
+        wins = self.state.get("windows") or {}
+        gone = [k for k in wins if k not in alive]
+        for k in gone:
+            del wins[k]
+        if gone:
+            log("saved places of", len(gone), "closed windows dropped")
+            self.save_state()
+
     def saved(self, con_id):
         return self.state.setdefault("windows", {}).get(str(con_id))
 
@@ -1273,6 +1356,8 @@ class Deskd:
             change = ev.get("change")
             con = ev.get("container", {})
             props = con.get("window_properties") or {}
+            if change in ("floating", "fullscreen_mode", "move"):
+                self.recheck_frame(con)
             # i3 reports an Xfce dock as window_type="unknown" in window events.
             if change in ("new", "close") and (con.get("window_type") == "dock" or
                                                 props.get("class") == "Xfce4-panel"):
@@ -1327,6 +1412,8 @@ class Deskd:
             # The coalesced refresh below takes one tree/workspaces/outputs snapshot;
             # rendering here would query and paint the strip a second time.
             self.workspace_event_at = time.monotonic()
+            if ev.get("change") == "focus" and self.alt_tab:
+                self.cancel_round()          # the list was this workspace's: releasing Alt must not switch back
         elif name == "output":
             GLib.timeout_add(700, self.outputs_changed)
         elif name == "mode":
@@ -1384,7 +1471,7 @@ class Deskd:
             return False
         want = None
         hint = self.expect.pop(cls, None)
-        if hint and time.monotonic() - hint[1] < 20:
+        if hint and time.monotonic() - hint[1] < EXPECT_S:
             want = hint[0]                                  # Ctrl + panel button: here
         else:
             # minimized windows do not count: their "workspace" is the scratchpad (-1)
@@ -1497,20 +1584,20 @@ class Deskd:
             self.tree = self.i3.tree()
             workspaces = self.i3.workspaces()
             self._refresh_outputs = self.i3.outputs()
-        except Exception as e:
-            log("refresh failed:", e)
-            return False
-        self.render_workspaces(workspaces)
-        self.hold_fitted(self.tree, workspaces)
-        self.last_focused_ws = next((w["num"] for w in workspaces if w.get("focused")), None)
-        self.sync_active_mark(self.last_focused_ws)
-        self.hide_over_fullscreen(workspaces)
-        self._refresh_outputs = None
-        self._controls_snapshot = (self.tree, workspaces)
-        if not self.controls_pending:
-            self.controls_pending = True
-            GLib.idle_add(self.refresh_controls)
-        self.pump()
+            self.render_workspaces(workspaces)
+            self.hold_fitted(self.tree, workspaces)
+            self.last_focused_ws = next((w["num"] for w in workspaces if w.get("focused")), None)
+            self.sync_active_mark(self.last_focused_ws)
+            self.hide_over_fullscreen(workspaces)
+            self._controls_snapshot = (self.tree, workspaces)
+            if not self.controls_pending:
+                self.controls_pending = True
+                GLib.idle_add(self.refresh_controls)
+            self.pump()
+        except Exception:                           # noqa: BLE001 - the next event retries with fresh data
+            log("refresh failed:", traceback.format_exc().strip())
+        finally:
+            self._refresh_outputs = None            # a failed pass must not leave stale screens behind
         return False
 
     def hold_fitted(self, tree, workspaces):
@@ -1523,10 +1610,14 @@ class Deskd:
         at most 4 corrections per window per 3 s so an app that fights back cannot loop."""
         areas = {w["name"]: w["rect"] for w in workspaces if w["visible"]}
         now = time.monotonic()
+        guarded = set()
         for node, parent in walk(tree):
             if not node.get("window") or not parent or parent.get("type") != "floating_con" \
                     or node.get("fullscreen_mode"):
                 continue
+            cached = self.frames.get(node["window"])
+            if cached and (node["window"] in self.above or self.is_fitted(node)):
+                guarded.add(cached[0].id)
             marks = node.get("marks") or []
             kind = "max" if self.is_maximized(node) else self.snapped_side(node)
             if not kind or any(m.startswith(MARK_MIN) for m in marks):
@@ -1546,6 +1637,9 @@ class Deskd:
             log("hold fit:", node["id"], kind, (r["x"], r["y"], r["width"], r["height"]), "->", (x, y, w, h))
             self.cmd(f"[con_id={node['id']}] move position {x} px {y} px, resize set {w} px {h} px")
             self.fit_floating(node["id"], (x, y, w, h))
+        self.guarded_frames = guarded
+        # a correction counts for 3 s only: drop what has gone quiet, and with it the windows that closed
+        self._held = {cid: hist for cid, hist in self._held.items() if hist and now - hist[-1] < 3}
 
     def refresh_controls(self):
         self.controls_pending = False
@@ -1593,8 +1687,16 @@ class Deskd:
             frames = {fr[0].id for n, _ in walk(workspace)
                       if n.get("window") and n.get("window_type") != "notification"
                       if (fr := self.frame_of(n["window"]))}
-            stack = [wid for wid in order if wid in frames]
-            if stack and stack[-1] != focused[0].id:
+            # keep-above windows are raise_above()'s: counted here, the focused window would be
+            # lifted over one, put back under it by raise_above, and each of the two requests
+            # brings a ConfigureNotify and another refresh - 25 a second, for as long as one
+            # such window is up. Over a full-screen one they stay out of the way (see raise_above)
+            kept_above = set() if node.get("fullscreen_mode") else {
+                fr[0].id for n, _ in walk(workspace)
+                if n.get("window") in self.above and n.get("window_type") != "notification"
+                and (fr := self.frame_of(n["window"]))}
+            stack = [wid for wid in order if wid in frames and wid not in kept_above]
+            if stack and focused[0].id not in kept_above and stack[-1] != focused[0].id:
                 focused[0].configure(sibling=self.xs.d.create_resource_object("window", stack[-1]), stack_mode=X.Above)
                 self.stack_after(order, focused[0].id, stack[-1])
             # a dialog (WM_TRANSIENT_FOR) belongs on top of the window it came from.
@@ -1764,11 +1866,34 @@ class Deskd:
         try:
             w = self.xs.d.create_resource_object("window", client_id)
             parent = w.query_tree().parent
+            if parent.id == self.xs.root.id:             # not framed (yet / any more): no frame to cache
+                return None
             depth = parent.get_geometry().depth
         except Exception:
             return None
         self.frames[client_id] = (parent, depth)
         return parent, depth
+
+    def recheck_frame(self, con):
+        """i3 moved a window between containers (floating, full screen, another workspace):
+        the frame cached for it must still be its parent, or its button strip and resize
+        handles would sit on a frame that is not the window's. Asked on those events only."""
+        wid = con.get("window")
+        cached = self.frames.get(wid) if wid else None
+        if not cached:
+            return
+        try:
+            parent = self.xs.d.create_resource_object("window", wid).query_tree().parent
+        except error.XError:
+            return
+        if parent.id == cached[0].id:
+            return
+        log("frame of", wid, "changed:", cached[0].id, "->", parent.id)
+        del self.frames[wid]
+        strip = self.strips.pop(con.get("id"), None)      # drawn on the old frame: rebuilt on the next refresh
+        if strip:
+            self.strip_by_win.pop(strip.win.id, None)
+            strip.destroy()
 
     def sync_strips(self):
         want = {}
@@ -1809,6 +1934,7 @@ class Deskd:
             s.destroy()
         if con.get("window"):
             self.frames.pop(con["window"], None)
+        self._held.pop(cid, None)
         if self.saved(cid):
             self.set_saved(cid, None)
 
@@ -1933,7 +2059,14 @@ class Deskd:
         elif self.monitors.is_randr(e):
             self.monitors.changed()
         elif t == X.DestroyNotify:
-            self.frames.pop(e.window.id, None)
+            wid = e.window.id
+            self.frames.pop(wid, None)                   # a client that closed ...
+            for client in [c for c, (frame, _) in self.frames.items() if frame.id == wid]:
+                del self.frames[client]                  # ... or a frame i3 took down under a live one
+            for cid in [c for c, st in self.strips.items() if st.frame.id == wid]:
+                st = self.strips.pop(cid)                # its buttons went with it
+                self.strip_by_win.pop(st.win.id, None)
+                st.destroy()
             if e.window.id in self.veils or e.window.id in self.panel_windows:
                 veil = self.veils.pop(e.window.id, None)
                 if veil is not None:
@@ -1964,7 +2097,14 @@ class Deskd:
         elif t == X.ConfigureNotify:
             if e.window.id in self.panel_windows or e.window.id in self.veils:
                 return self.panel_reflowed()
-            if time.monotonic() - self.workspace_event_at < 0.2:
+            if time.monotonic() - self.workspace_event_at < WS_DEBOUNCE_S:
+                # i3 re-lays everything out on a switch: no refresh per frame event. But an app
+                # resizing a window we hold (fitted, keep-above) in that moment is not to be
+                # missed: one refresh when the quiet period ends, however many came
+                if e.window.id in self.guarded_frames and self.debounce_timer is None \
+                        and self.drag is None and self.resizing is None:
+                    left = WS_DEBOUNCE_S - (time.monotonic() - self.workspace_event_at)
+                    self.debounce_timer = GLib.timeout_add(int(left * 1000) + 5, self.debounce_over)
                 return
             # i3 can restore its tiled/floating split after a resize or maximize.
             # Only managed frames need reconciliation, never our own overlays - and
@@ -1973,6 +2113,11 @@ class Deskd:
                     frame.id == e.window.id for frame, _ in self.frames.values()):
                 self.schedule_refresh()
 
+
+    def debounce_over(self):
+        self.debounce_timer = None
+        self.schedule_refresh()
+        return False
 
     def strip_event(self, strip, e):
         if strip is None:
@@ -2085,6 +2230,7 @@ class Deskd:
                 r["command_in_flight"] = False
         if final:
             self.resizing = None
+            self.gesture_ended()
             self.schedule_refresh()
             if self.panel_dirty:
                 self.schedule_recheck()
@@ -2604,6 +2750,7 @@ class Deskd:
     def drag_end(self, x, y):
         d, self.drag = self.drag, None
         self._ws_snap = None
+        self.gesture_ended()
         self.show_preview(None)
         self.hide_targets()
         if not d["moving"]:
@@ -2852,6 +2999,21 @@ class Deskd:
                     self._dpi = float(line.split()[1])
         return self._dpi
 
+    def layer_ok(self, output):
+        """May one of our input layers sit over this screen's panel? Not under a full-screen
+        window (a click on its own toolbar up there must reach it) and not while Zoom shares."""
+        return output not in self.busy_outputs and not self.sharing
+
+    def drop_layer(self, win):
+        """Destroy one of our input layers and forget everything kept about it."""
+        self.click_by_win.pop(win.id, None)
+        self.layer_visible.pop(win.id, None)
+        self.xs.gc_cache.pop(win.id, None)
+        try:
+            win.destroy()
+        except error.XError:
+            pass
+
     def show_layer(self, win, visible):
         if self.layer_visible.get(win.id) == visible:
             return
@@ -2878,6 +3040,9 @@ class Deskd:
         for pid, out in self.strip_plugins():
             geom = self.strip_geoms.get(pid) or self.plugin_geometry(pid)
             if not geom:
+                win = self.click_layers.get(pid)
+                if win is not None:              # the strip is gone for now: its layer must not stay over the panel's place
+                    self.show_layer(win, False)
                 continue
             self.strip_geoms[pid] = geom
             win = self.click_layers.get(pid)
@@ -2891,7 +3056,7 @@ class Deskd:
             if self.click_layouts.get(pid) != geom:
                 win.configure(x=geom[0], y=geom[1], width=geom[2], height=geom[3])
                 self.click_layouts[pid] = geom
-            self.show_layer(win, self.strip_output(out) not in self.busy_outputs)
+            self.show_layer(win, self.layer_ok(self.strip_output(out)))
         self.raise_click_layers()
         self.sync_active_mark(self.last_focused_ws)
         self.pump()
@@ -2918,6 +3083,8 @@ class Deskd:
         if sharing:
             for veil in self.veils.values():
                 veil.set_visible(False)
+            for win in list(self.click_layers.values()) + list(self.audio_layers.values()):
+                self.show_layer(win, False)         # the share border and toolbar next to the panel get their clicks
             if self.ws_mark is not None:
                 self.ws_mark.hide()
                 self.mark_file.hide()
@@ -2953,12 +3120,12 @@ class Deskd:
         # there must reach it, not switch the workspace
         for pid, win in self.click_layers.items():
             out = self.click_by_win.get(win.id, (None, None))[1]
-            self.show_layer(win, self.strip_output(out) not in busy)
+            self.show_layer(win, self.layer_ok(self.strip_output(out)))
         for pid, win in self.audio_layers.items():
             geom = self.audio_geoms.get(pid)
             if geom:
                 out = self.output_rect_at(geom[0] + geom[2] // 2, geom[1] + 2)
-                self.show_layer(win, (out or {}).get("name") not in busy)
+                self.show_layer(win, self.layer_ok((out or {}).get("name")))
 
     def sync_active_mark(self, focused=None):
         """Put the pentagram over the number of the workspace in front of you. The
@@ -3132,9 +3299,25 @@ class Deskd:
     def block_for(self, name):
         if name not in self.blocks:
             used = set(self.blocks.values())
-            self.blocks[name] = next(k for k in range(0, 10) if k not in used)
+            free = next((k for k in range(0, 10) if k not in used), None)
+            self.blocks[name] = self.reclaim_block() if free is None else free
             self.save_state()
         return self.blocks[name]
+
+    def reclaim_block(self):
+        """All ten blocks belong to names seen once (a driver that renames its outputs,
+        eDP-1 -> eDP1, spends one per name): take one back from a screen that is gone -
+        best one that owns no workspace any more."""
+        live = {o["name"] for o in self.outputs() if o.get("active")}
+        owned = {w["num"] // BLOCK for w in self.i3.workspaces() if w["num"] > 0}
+        gone = sorted((k in owned, k, name) for name, k in self.blocks.items() if name not in live)
+        if not gone:
+            log("no free workspace block and every screen is live: block 0 is shared")
+            return 0
+        _, k, name = gone[0]
+        log("workspace block", k, "taken back from", name)
+        del self.blocks[name]
+        return k
 
     def items_for_output(self, out_name, workspaces):
         """(label, ws_number) as shown for one screen: its own 1..5 always, its own
@@ -3161,10 +3344,29 @@ class Deskd:
             return items[n - 1][1]
         return self.block_for(out) * BLOCK + n
 
+    def step_ws(self, step):
+        """Swipe / Ctrl+Win+Left/Right: the neighbouring workspace of the focused screen, in
+        the order of its panel strip (empty ones included, unlike i3's next_on_output). At
+        the first or last one it stays, as Windows does. None: nothing to switch to."""
+        workspaces = self.i3.workspaces()
+        cur = next((w for w in workspaces if w["focused"]), None)
+        if not cur:
+            return None
+        nums = [num for _, num in self.items_for_output(cur["output"], workspaces)]
+        if cur["num"] not in nums:
+            return nums[0] if nums else None
+        i = nums.index(cur["num"]) + step
+        return nums[i] if 0 <= i < len(nums) else None
+
     def outputs_changed(self):
         """A screen appeared or went away. i3 already moved the workspaces of a
         vanished screen to a remaining one; here, workspaces whose screen is gone
-        move to a newly connected screen."""
+        move to a newly connected screen. Not in the middle of a drag or a resize: the
+        lists a gesture works from are frozen, and the plan would mix them with live ones;
+        gesture_ended() brings it back."""
+        if self.drag or self.resizing:
+            self.outputs_pending = True
+            return False
         outs = self.outputs_sorted()
         names = [o["name"] for o in outs]
         workspaces = self.i3.workspaces()
@@ -3232,6 +3434,12 @@ class Deskd:
         self.schedule_refresh()
         return False
 
+    def gesture_ended(self):
+        """A drag or a resize is over: do what was held back meanwhile."""
+        if self.outputs_pending:
+            self.outputs_pending = False
+            GLib.timeout_add(100, self.outputs_changed)
+
     def refit_all(self):
         """Maximized and snapped windows fill the screen they are on now: when a screen
         goes away or arrives, i3 moves workspaces and leaves such windows at their old
@@ -3286,13 +3494,18 @@ class Deskd:
         if what == "titlebar":
             self.titlebar_press(int(args[1]) if len(args) > 1 else 3, tree=tree)
         elif what == "ws" and len(args) > 1:
-            self.cmd(f"workspace number {self.target_ws(int(args[1]))}")
+            num = self.step_ws(1 if args[1] == "next" else -1) if args[1] in ("next", "prev") \
+                else self.target_ws(int(args[1]))
+            if num is not None:
+                self.cmd(f"workspace number {num}")
         elif what == "move" and len(args) > 1:
             self.cmd(f"move container to workspace number {self.target_ws(int(args[1]))}")
         elif what == "cycle":
             self.cycle(tree, -1 if len(args) > 1 and args[1] == "prev" else 1)
         elif what == "expect" and len(args) > 2:
-            self.expect[args[1].lower()] = (int(args[2]), time.monotonic())
+            now = time.monotonic()
+            self.expect = {c: h for c, h in self.expect.items() if now - h[1] < EXPECT_S}    # asked for, never opened
+            self.expect[args[1].lower()] = (int(args[2]), now)
         elif what == "unminimize":
             self.unminimize_last()
         elif what == "refit":
@@ -3399,7 +3612,8 @@ class Deskd:
         ws = i3ipc.workspace_of(tree, node["id"]) if node else None
         if not ws:
             return
-        entries = [(w, False) for w in i3ipc.leaves(ws) if w.get("window")]
+        entries = [(w, False) for w in i3ipc.leaves(ws)
+                   if w.get("window") and w.get("window_type") not in NO_SWITCH_TYPES]
         for n, _ in walk(tree):
             if n.get("window") and any(m.startswith(MARK_MIN) for m in n.get("marks") or []):
                 if (self.saved(n["id"]) or {}).get("ws") in (None, ws["name"]) \
@@ -3408,13 +3622,19 @@ class Deskd:
         if len(entries) < 2:
             return
         rank = {cid: i for i, cid in enumerate(self.focus_order)}
-        focused_id = node["id"] if node.get("window") else None
+        # a focused notification is not in the list: the walk then starts at the window used last
+        focused_id = node["id"] if node.get("window") and any(e[0]["id"] == node["id"] for e in entries) else None
         entries.sort(key=lambda e: (e[0]["id"] != focused_id, rank.get(e[0]["id"], len(rank))))
         order = [(n["id"], n["window"], n.get("name") or "", mini) for n, mini in entries]
         start = 0 if focused_id is None else step
         self.alt_tab = {"order": order, "idx": start % len(order), "since": time.monotonic(),
                         "area": ws["rect"]}
         GLib.timeout_add(20, self.alt_tab_poll)
+
+    def cancel_round(self):
+        """Alt+Tab is over without a switch (the workspace changed under it)."""
+        self.alt_tab = None
+        self.switcher.hide()
 
     def drop_from_round(self, cid):
         """A window closed while Alt+Tab is held leaves the list at once."""
