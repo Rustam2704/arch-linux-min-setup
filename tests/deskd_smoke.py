@@ -988,6 +988,53 @@ check("pulling the left edge widens the window to the left, the right edge stays
       abs(g["x"] - (f["x"] - 100)) <= 3 and abs(g["x"] + g["width"] - (f["x"] + f["width"])) <= 3,
       json.dumps(f) + " -> " + json.dumps(g))
 
+# ------------------------------------------------------------------ 8b2. the resize handles survive a workspace round trip
+# deskd keeps its handle windows (rectangle, cursor) while they are unmapped; a window that moved
+# on the other workspace must still get its handles on the new rectangle, above its own frame.
+def handle_windows():
+    """{window id: (x, y, w, h)} of the mapped input-only windows on the root, the 1x1 ones other
+    clients keep aside excluded: the resize handles."""
+    out = {}
+    for w in xconn().screen().root.query_tree().children:
+        try:
+            a = w.get_attributes()
+            if a.win_class == XX.InputOnly and a.map_state == XX.IsViewable:
+                g = w.get_geometry()
+                if (g.width, g.height) != (1, 1):
+                    out[w.id] = (g.x, g.y, g.width, g.height)
+        except xerror.BadWindow:
+            pass
+    return out
+
+
+def left_handle(frame):
+    return (frame["x"] - deskd.HANDLE, frame["y"], deskd.HANDLE, frame["height"])
+
+
+def handle_above_frame(n, rect):
+    ids = [w.id for w in xconn().screen().root.query_tree().children]
+    hid = next((i for i, g in handle_windows().items() if g == rect), None)
+    return hid in ids and ids.index(hid) > ids.index(frame_of(n).id)
+
+
+n, _, f = window(cid)
+shown = handle_windows()
+check("a floating window has its resize handles", left_handle(f) in shown.values() and len(shown) >= 8,
+      f"{len(shown)} handles, wanted {left_handle(f)}")
+old_left = left_handle(f)
+msg("workspace number 4")
+check("the handles leave the screen with their workspace",
+      wait_until(lambda: not set(shown) & set(handle_windows()), 3), str(len(handle_windows())))
+msg(f"[con_id={cid}] move position 250 px 130 px")
+time.sleep(0.5)
+msg("workspace number 1")
+n, _, f = window(cid)
+check("the handles follow a window that moved while the workspace was away",
+      wait_until(lambda: left_handle(f) in handle_windows().values(), 3), f"{left_handle(f)} not in {len(handle_windows())}")
+check("no handle stays on the rectangle the window left", old_left not in handle_windows().values(),
+      str(old_left))
+check("a returning handle sits above its frame", wait_until(lambda: handle_above_frame(n, left_handle(f)), 3))
+
 # ------------------------------------------------------------------ 8c. the green title button uses the same maximize path
 def click_title_button(cid, index):
     node, _, rect = window(cid)

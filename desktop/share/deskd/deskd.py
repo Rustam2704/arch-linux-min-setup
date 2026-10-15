@@ -716,7 +716,7 @@ class Deskd:
         self._ws_snap = None        # workspaces, kept for half a second during a drag
         self._ws_snap_at = 0.0
         self.docks = None           # the panel's frames, for stacking
-        self.handles = []           # [(xwindow, info)]
+        self.handles = []           # [xwindow, info while mapped, its rectangle, its cursor kind]
         self.handle_by_win = {}
         self.resizing = None
         self._held = {}             # con id -> times of recent hold_fitted corrections
@@ -1984,33 +1984,26 @@ class Deskd:
                     specs.append(((cx, cy, cw, ch), cur, {"kind": "float", "con": leaf["id"], "edges": edges,
                                                           "rect": dict(r), "frame": frame, "xid": leaf["window"],
                                                           "fitted": self.is_fitted(leaf)}))
-        # reuse windows; create or destroy the difference
         managed_frames = {info["frame"].id for _, _, info in specs if info.get("frame")}
-        while len(self.handles) < len(specs):
-            w = self.xs.window(self.xs.root, 0, 0, 1, 1, input_only=True,
-                               events=X.ButtonPressMask | X.ButtonReleaseMask | X.PointerMotionMask)
-            self.handles.append([w, None, None])
-        for i, h in enumerate(self.handles):
+        picked, spare = self.pick_handles(specs)
+        for h in spare:
+            if h[1] is not None:                  # leaves the screen, keeps its rectangle and cursor
+                h[0].unmap()
+                h[1] = None
+                self.handle_by_win.pop(h[0].id, None)
+        for h, (geom, cur, info) in zip(picked, specs):
             w = h[0]
-            if i >= len(specs):
-                if h[1] is not None:
-                    w.unmap()
-                    h[1] = None
-                    h[2] = None
-                    self.handle_by_win.pop(w.id, None)
-                continue
-            geom, cur, info = specs[i]
-            x, y, gw, gh = geom
-            key = (geom, cur, info.get("frame"))
-            if h[2] != key:
+            if h[3] != cur:
                 w.change_attributes(cursor=self.xs.cursors[cur])
-                w.configure(x=x, y=y, width=max(1, gw), height=max(1, gh))
-                h[2] = key
+                h[3] = cur
+            if h[2] != geom:
+                x, y, gw, gh = geom
+                w.configure(x=x, y=y, width=gw, height=gh)
+                h[2] = geom
             if h[1] is None:
                 w.map()
-                if w.id in stack:
-                    stack.remove(w.id)
-                stack.append(w.id)
+                if w.id not in stack:             # new windows are born on top; an old one stays where it was
+                    stack.append(w.id)
             frame = info.get("frame")
             if frame and frame.id in stack:
                 here, below = stack.index(w.id), stack.index(frame.id)
@@ -2022,6 +2015,41 @@ class Deskd:
                     self.stack_after(stack, w.id, frame.id)
             h[1] = info
             self.handle_by_win[w.id] = h
+
+    def pick_handles(self, specs):
+        """One handle window for every spec, with as few X requests as the cache allows.
+        A handle record is [window, info, rectangle, cursor]: the last two are what the X
+        window really carries, kept while it is unmapped (a workspace that comes back finds
+        its handles where it left them and only maps them). First a handle that already sits
+        on the spec's rectangle with its cursor; then the ones still on the screen (they
+        only move); then unmapped ones; a window is created only when the pool is short, with
+        the rectangle and cursor in the CreateWindow request. Returns the handles for the
+        specs and the spare ones, which the caller takes off the screen."""
+        by_key = {}
+        for h in self.handles:
+            if h[2] is not None:
+                by_key.setdefault((h[2], h[3]), []).append(h)
+        picked = [None] * len(specs)
+        taken = set()
+        for i, (geom, cur, _) in enumerate(specs):
+            same = by_key.get((geom, cur))
+            if same:
+                picked[i] = same.pop()
+                taken.add(id(picked[i]))
+        rest = sorted((h for h in self.handles if id(h) not in taken), key=lambda h: h[1] is None)
+        rest.reverse()                            # pop() hands out the mapped ones first
+        for i, (geom, cur, _) in enumerate(specs):
+            if picked[i] is not None:
+                continue
+            if rest:
+                picked[i] = rest.pop()
+                continue
+            x, y, gw, gh = geom
+            w = self.xs.window(self.xs.root, x, y, gw, gh, input_only=True, cursor=self.xs.cursors[cur],
+                               events=X.ButtonPressMask | X.ButtonReleaseMask | X.PointerMotionMask)
+            picked[i] = [w, None, geom, cur]
+            self.handles.append(picked[i])
+        return picked, rest
 
     def floating_frame(self, floating_con):
         for leaf, _ in walk(floating_con):
