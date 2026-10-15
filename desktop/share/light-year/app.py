@@ -647,6 +647,7 @@ class Window(Gtk.ApplicationWindow):
         self.placeholder_chip = self.placeholder_area = None
         self.history = collections.deque()   # api.Change, newest last
         self.undoing = False
+        self.dialog_open = False    # also while a series' rule is being fetched for it
         self.notice = None          # a calm message that stays until the next action
         self.editing_id = None      # event open in the dialog: drawn in yellow
         self.pending_day = None     # day a new event is being created on
@@ -701,6 +702,10 @@ class Window(Gtk.ApplicationWindow):
         root.pack_start(self.grid, True, True, 0)
 
         self.connect("key-press-event", self.on_key)
+        # back from sleep, on the network again, or simply looked at: the month is
+        # checked at once rather than at the next 5-minute tick
+        self.connect("focus-in-event", lambda *_: (self.load(), False)[1])
+        self.watch_system()
         self.add_events(Gdk.EventMask.SCROLL_MASK | Gdk.EventMask.SMOOTH_SCROLL_MASK)
         self.connect("scroll-event", self.on_scroll)
         root.show_all()
@@ -1027,19 +1032,41 @@ class Window(Gtk.ApplicationWindow):
             return False
         return True
 
+    def watch_system(self):
+        try:
+            self.system_bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        except GLib.Error:
+            return
+        # PrepareForSleep(false) arrives on wake-up; the network may still be coming up,
+        # and NetworkManager's "connected" (70) then fetches again
+        self.system_bus.signal_subscribe(
+            "org.freedesktop.login1", "org.freedesktop.login1.Manager", "PrepareForSleep",
+            "/org/freedesktop/login1", None, Gio.DBusSignalFlags.NONE,
+            lambda *a: None if a[5].unpack()[0] else self.load(force=True))
+        self.system_bus.signal_subscribe(
+            "org.freedesktop.NetworkManager", "org.freedesktop.NetworkManager", "StateChanged",
+            "/org/freedesktop/NetworkManager", None, Gio.DBusSignalFlags.NONE,
+            lambda *a: self.load(force=True) if a[5].unpack()[0] == 70 else None)
+
     def on_day_click(self, ev, day):
+        if self.dialog_open:
+            return True
         if ev.button == 1 and ev.type == Gdk.EventType.BUTTON_PRESS and self.state.get("google"):
             self.clear_mutation_error()
             self.open_dialog(day, None)
         return True
 
     def edit(self, e):
+        if self.dialog_open:                  # a double click must not open two windows
+            return
         self.clear_mutation_error()
         day = event_date(e["start"])
         if e.get("recurring_id"):
+            self.dialog_open = True
             self.set_status("Loading recurrence…")
             def done(rules, err):
                 if err:
+                    self.dialog_open = False
                     self.set_status(err, True)
                     return
                 self.set_status("")
@@ -1049,6 +1076,7 @@ class Window(Gtk.ApplicationWindow):
             self.open_dialog(day, e)
 
     def open_dialog(self, day, event):
+        self.dialog_open = True
         # only the chip being edited (or the new one's placeholder) changes on the
         # grid, so it is marked in place rather than by rebuilding the month
         self.editing_id = event["id"] if event else None
@@ -1165,6 +1193,7 @@ class Window(Gtk.ApplicationWindow):
         dlg.destroy()
         self.mark_editing(False)
         self.editing_id = self.pending_day = None
+        self.dialog_open = False
 
     def sign_in(self, *_):
         self.clear_mutation_error()
