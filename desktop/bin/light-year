@@ -1,4 +1,8 @@
 #!/bin/sh
-# light-year: small native month calendar (Google Calendar + Zoom). Brings the
-# window forward if it is already open.
+# Activate an open calendar over D-Bus before starting Python for a new one.
+if gdbus call --session --dest space.fanatic.lightyear \
+    --object-path /space/fanatic/lightyear \
+    --method org.freedesktop.Application.Activate '{}' >/dev/null 2>&1; then
+    exit 0
+fi
 exec python3 "$HOME/.local/share/light-year/app.py" "$@"

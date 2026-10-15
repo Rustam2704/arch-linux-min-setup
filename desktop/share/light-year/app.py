@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """light-year — a small month calendar for Google Calendar, with Zoom meetings.
 
-A native GTK3 window, no browser engine: month grid, create, edit, drag an event
-to another day, delete, Zoom link on request, Reload. One process; closing the
-window ends it. Launching it again just brings the open window forward.
+A native GTK3 window, no browser engine: month grid, create, edit, delete,
+Zoom link on request, Reload. One process; closing the window ends it.
+Launching it again just brings the open window forward.
 
-Keys: ← → month · T today · F5 / Ctrl+R reload · Esc close a dialog
+Keys: ← → month · T today · F5 / Ctrl+R reload · Ctrl+Z undo · Esc close a dialog
 """
 import calendar
+import collections
 import datetime as dt
 import os
 import subprocess
 import sys
 import threading
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import gi  # noqa: E402
@@ -27,6 +29,8 @@ from sky_theme import css as theme_css
 
 APP_ID = "space.fanatic.lightyear"
 REFRESH_MS = 5 * 60 * 1000
+FRESH_S = 60              # a cached month older than this is fetched again when shown
+UNDO_DEPTH = 30
 
 CSS = """
 window, .ly { background-color: @COLOUR_BACKGROUND@; color: @COLOUR_FOREGROUND@; }
@@ -50,7 +54,6 @@ window, .ly { background-color: @COLOUR_BACKGROUND@; color: @COLOUR_FOREGROUND@;
 .ly-day.other.tint { background-color: #0b0e10; }
 .ly-day.other.weekend { background-color: #0b0b0d; }
 .ly-day.past label { opacity: 0.55; }          /* days gone by are paler */
-.ly-day.drop { background-color: #0f1d24; }
 .ly-num { color: @COLOUR_MUTED@; font-size: 9.5pt; padding: 0 6px; border-radius: 6px; }
 .ly-day.today .ly-num { background-color: @COLOUR_LIGHT@; color: @COLOUR_BACKGROUND@; font-weight: 600; }
 .ly-chip { background-color: rgba(@RGB_LIGHT@, 0.16); border-left: 3px solid @COLOUR_LIGHT@;
@@ -104,6 +107,18 @@ def run_async(work, done):
             res, err = None, str(e)
         GLib.idle_add(lambda: done(res, err) and False)
     threading.Thread(target=target, daemon=True).start()
+
+
+def physical_key_name(ev):
+    keymap = Gdk.Keymap.get_for_display(Gdk.Display.get_default())
+    translated = keymap.translate_keyboard_state(ev.hardware_keycode, Gdk.ModifierType(0), 0)
+    keyval = translated[1] if translated[0] else ev.keyval
+    return (Gdk.keyval_name(keyval) or "").lower()
+
+
+def set_message(label, text):
+    label.set_text(" ".join(text.split()) or "\u00a0")
+    label.set_tooltip_text(text or None)
 
 
 def month_grid(year, month):
@@ -418,6 +433,7 @@ class DateField(Gtk.Entry):
         # modal: the dialog itself holds a GTK grab, and without one of its own the
         # mini calendar would never see a click - it would fall through to the dialog
         self.popover = Gtk.Popover(relative_to=self, modal=True)
+        self.connect("destroy", lambda *_: self.popover.destroy())
         self.popover.get_style_context().add_class("ly")
         self.mini = MiniCalendar(day, self._picked)
         self.popover.add(self.mini)
@@ -481,8 +497,11 @@ class EventDialog(Gtk.Dialog):
         box.pack_start(self.all_day, False, False, 0)
 
         row = Gtk.Box(spacing=10)
-        self.duration = end - start          # moving the start keeps the length
-        self.date = DateField(start.date())
+        # moving the start keeps the length, and an event of a day or more keeps its
+        # end date: the End field holds only a time
+        self.duration = end - start
+        self.end_days = (end.date() - start.date()).days     # the End field's day, from the start's
+        self.date = DateField(start.date(), on_change=lambda day: self._show_end())
         self.start = TimeField(start, on_change=self._start_moved)
         self.end = TimeField(end, on_change=self._end_moved)
         for caption, widget in (("Date", self.date), ("Start", self.start), ("End", self.end)):
@@ -493,6 +512,9 @@ class EventDialog(Gtk.Dialog):
             col.pack_start(widget, False, False, 0)
             row.pack_start(col, widget is self.date, True, 0)
         box.pack_start(row, False, False, 6)
+        self.end_note = Gtk.Label(xalign=0)           # "Ends Sun 12 Oct" when not the same day
+        self.end_note.get_style_context().add_class("ly-label")
+        box.pack_start(self.end_note, False, False, 0)
         self.all_day.connect("toggled", lambda button: self._all_day_toggled())
 
 
@@ -516,8 +538,10 @@ class EventDialog(Gtk.Dialog):
             box.pack_start(join, False, False, 8)
         self._all_day_toggled()
 
-        self.error = Gtk.Label(xalign=0)
+        self.error = Gtk.Label(xalign=0, single_line_mode=True, ellipsize=3,
+                               width_chars=45, max_width_chars=45)
         self.error.get_style_context().add_class("ly-error")
+        set_message(self.error, "")
         box.pack_start(self.error, False, False, 0)
 
         if event:
@@ -544,6 +568,18 @@ class EventDialog(Gtk.Dialog):
         self.zoom.set_sensitive(timed)
         if not timed:
             self.zoom.set_active(False)
+        self._show_end()
+
+    def _show_end(self):
+        """Say on which day the event ends, when that is not the day it starts."""
+        text = "\u00a0"                    # an empty line keeps its height
+        try:
+            _, start, end, _ = self.values()
+            if isinstance(start, dt.datetime) and end.date() != start.date():
+                text = f"Ends {end:%a} {end.day} {api.MONTHS[end.month - 1]} at {end:%H:%M}"
+        except ValueError:
+            pass
+        self.end_note.set_text(text)
 
     def _start_moved(self, value):
         """Start moved: the end follows, so the event keeps its length."""
@@ -551,9 +587,11 @@ class EventDialog(Gtk.Dialog):
         if not start:
             return
         h, m = (int(x) for x in start.split(":"))
-        new_end = (dt.datetime(2000, 1, 1, h, m) + self.duration).strftime("%H:%M")
-        if new_end != self.end.get_time():
-            self.end.set_time(new_end)
+        new_end = dt.datetime(2000, 1, 1, h, m) + self.duration
+        self.end_days = (new_end.date() - dt.date(2000, 1, 1)).days
+        if new_end.strftime("%H:%M") != self.end.get_time():
+            self.end.set_time(new_end.strftime("%H:%M"))
+        self._show_end()
 
     def _end_moved(self, value):
         """End moved by hand: that is the new length."""
@@ -561,10 +599,13 @@ class EventDialog(Gtk.Dialog):
         if not (start and end):
             return
         a = dt.datetime.strptime(start, "%H:%M")
-        b = dt.datetime.strptime(end, "%H:%M")
-        if b <= a:
-            b += dt.timedelta(days=1)
+        long_event = self.duration >= dt.timedelta(days=1)    # keeps its end date
+        b = dt.datetime.strptime(end, "%H:%M") + dt.timedelta(days=self.end_days if long_event else 0)
+        if b < a:
+            b += dt.timedelta(days=1)          # ends after midnight
+        self.end_days = (b.date() - a.date()).days
         self.duration = b - a
+        self._show_end()
 
     def values(self):
         """(summary, start, end, notes) or raises ValueError with a readable message."""
@@ -579,8 +620,8 @@ class EventDialog(Gtk.Dialog):
         if not (start and end):
             raise ValueError("Times must look like 09:30 (9 becomes 09:00)")
         s = dt.datetime.combine(day, dt.time.fromisoformat(start))
-        e = dt.datetime.combine(day, dt.time.fromisoformat(end))
-        if e <= s:
+        e = dt.datetime.combine(day + dt.timedelta(days=self.end_days), dt.time.fromisoformat(end))
+        if e < s:
             e += dt.timedelta(days=1)          # ends after midnight
         return self.title.get_text().strip(), s, e, notes
 
@@ -598,6 +639,15 @@ class Window(Gtk.ApplicationWindow):
         self.mutation_error = None
         self.expanded_days = set()
         self.months = {}            # (year, month) -> events, so a swipe shows at once
+        self.fetched = {}           # (year, month) -> time.monotonic() of that fetch
+        self.generation = 0         # bumped by every saved change; older fetches are not cached
+        self.drawn = None           # (month, today) the grid was last built for
+        self.chips_of = {}          # event id -> its chips on the grid
+        self.areas = {}             # day -> its DayEvents
+        self.placeholder_chip = self.placeholder_area = None
+        self.history = collections.deque()   # api.Change, newest last
+        self.undoing = False
+        self.notice = None          # a calm message that stays until the next action
         self.editing_id = None      # event open in the dialog: drawn in yellow
         self.pending_day = None     # day a new event is being created on
         self.swipe = 0.0
@@ -622,13 +672,18 @@ class Window(Gtk.ApplicationWindow):
             b = Gtk.Button(label=text, tooltip_text=tip)
             b.connect("clicked", cb)
             bar.pack_start(b, False, False, 0)
-        self.status = Gtk.Label(xalign=1)
+        self.status = Gtk.Label(xalign=1, single_line_mode=True, ellipsize=3,
+                                width_chars=40, max_width_chars=40)
         self.status.get_style_context().add_class("ly-status")
+        set_message(self.status, "")
         self.connect_btn = Gtk.Button(label="Connect Google")
         self.connect_btn.connect("clicked", self.sign_in)
         reload_btn = Gtk.Button(label="↻  Reload", tooltip_text="Reload (F5)")
         reload_btn.connect("clicked", lambda *_: (self.clear_mutation_error(), self.load(force=True)))
         bar.pack_end(reload_btn, False, False, 0)
+        self.undo_btn = Gtk.Button(label="↶  Undo", sensitive=False)
+        self.undo_btn.connect("clicked", lambda *_: self.undo())
+        bar.pack_end(self.undo_btn, False, False, 0)
         bar.pack_end(self.connect_btn, False, False, 0)
         bar.pack_end(self.status, True, True, 8)
         root.pack_start(bar, False, False, 0)
@@ -650,19 +705,20 @@ class Window(Gtk.ApplicationWindow):
         self.connect("scroll-event", self.on_scroll)
         root.show_all()
         self.connect_btn.hide()
+        self.update_undo()
         self.draw()
         self.refresh_state()
         GLib.timeout_add(REFRESH_MS, lambda: (self.load(force=True), True)[1])
 
     # ------------------------------------------------------------ data
     def set_status(self, text, error=False):
-        self.status.set_text(text)
+        set_message(self.status, text)
         ctx = self.status.get_style_context()
         (ctx.add_class if error else ctx.remove_class)("error")
 
     def clear_mutation_error(self):
-        if self.mutation_error:
-            self.mutation_error = None
+        if self.mutation_error or self.notice:
+            self.mutation_error = self.notice = None
             self.set_status("")
 
     def refresh_state(self):
@@ -684,21 +740,18 @@ class Window(Gtk.ApplicationWindow):
         m = key[1] - 1 + offset
         return (key[0] + m // 12, m % 12 + 1)
 
-    def fetch(self, key, done):
-        days = month_grid(*key)
-        run_async(lambda: api.list_events(days[0], days[-1] + dt.timedelta(days=1)), done)
-
     def load(self, force=False):
         """Show the month: from the cache at once when it is there, then refresh it
-        and quietly fetch the neighbouring months, so a swipe has nothing to wait for."""
+        and quietly fetch the neighbouring months, so a swipe has nothing to wait for.
+        A month cached less than a minute ago is shown as it is; an older one is
+        fetched again, and the grid is rebuilt only if something actually changed."""
         if not self.state.get("google"):
             return
         key = self.key_of(self.cursor)
         cached = self.months.get(key)
         if cached is not None:
-            self.events = cached
-            self.draw()
-            if not force:
+            self.show(cached)
+            if not force and time.monotonic() - self.fetched.get(key, 0) < FRESH_S:
                 self.prefetch(key)
                 return
         self.loading += 1
@@ -709,47 +762,117 @@ class Window(Gtk.ApplicationWindow):
         def done(events, err):
             if token != self.loading:
                 return                        # a newer load already started
+            if err and not api.state()["google"]:
+                self.refresh_state()
             if err and not self.mutation_error:
                 self.set_status(err, True)
-            else:
-                if not err:
-                    self.months[key] = events
-                    self.events = events
-                if not self.mutation_error and not err:
-                    self.set_status("Google · Zoom" if self.state.get("zoom") else "Google")
-            self.draw()
-            self.prefetch(key)
+            elif not self.mutation_error and not err:
+                self.set_status(self.notice or ("Google · Zoom" if self.state.get("zoom") else "Google"))
+            if not err and key == self.key_of(self.cursor):   # the month may have changed meanwhile
+                self.show(events)
+            if self.state.get("google"):
+                self.prefetch(key)
         self.fetch(key, done)
+
+    def fetch(self, key, done):
+        """Fetch a month into the cache. A fetch that started before a change was
+        saved brings the old state, so it is not cached (the generation moved on)."""
+        days = month_grid(*key)
+        generation = self.generation
+
+        def fetched(events, err):
+            if not err and generation == self.generation:
+                self.months[key] = events
+                self.fetched[key] = time.monotonic()
+            done(events, err)
+        run_async(lambda: api.list_events(days[0], days[-1] + dt.timedelta(days=1)), fetched)
+
+    def forget(self):
+        """A change was saved: every cached month may be out of date."""
+        self.months.clear()
+        self.fetched.clear()
+        self.generation += 1
+
+    def show(self, events):
+        """Put a month's events on the grid - unless exactly these are already there."""
+        drawn = (self.key_of(self.cursor), dt.date.today())
+        if drawn == self.drawn and events == self.events:
+            return
+        self.events = events
+        self.draw()
 
     def prefetch(self, key):
         for offset in (1, -1):
             side = self.month_of(key, offset)
             if side not in self.months:
-                self.fetch(side, lambda events, err, k=side: self.months.__setitem__(k, events)
-                           if not err else None)
+                self.fetch(side, lambda events, err: None)
                 return                        # one at a time: the next one follows later
 
-    def mutate(self, work, on_error=None):
-        self.mutation_error = None
+    def mutate(self, work):
+        self.mutation_error = self.notice = None
         self.set_status("Saving…")
 
-        def done(res, err):
+        def done(change, err):
             if err:
-                if on_error:
-                    on_error()
                 self.mutation_error = err
                 self.set_status(err, True)
             else:
-                self.months.clear()           # the change can land in any month
+                self.remember(change)
+                self.forget()                 # the change can land in any month
             self.load(force=True)
         run_async(work, done)
+
+    # ------------------------------------------------------------ undo
+    def remember(self, change):
+        """Keep a saved change for Ctrl+Z. The oldest falls off after UNDO_DEPTH; Zoom
+        meetings of events it deleted go then, not before (an undo needs them)."""
+        if change.warning:
+            self.mutation_error = change.warning
+            self.set_status(change.warning, True)
+        for older in self.history:
+            older.loosen(change.touches())
+        self.history.append(change)
+        while len(self.history) > UNDO_DEPTH:
+            old = self.history.popleft()
+            for mid in old.meetings:
+                run_async(lambda m=mid: api.release_meeting(m), lambda *_: None)
+        self.update_undo()
+
+    def update_undo(self):
+        last = self.history[-1] if self.history else None
+        self.undo_btn.set_sensitive(bool(last) and not self.undoing)
+        self.undo_btn.set_tooltip_text(f"Undo: {last.label} (Ctrl+Z)" if last else "Nothing to undo (Ctrl+Z)")
+
+    def undo(self):
+        if not self.history or self.undoing:
+            return
+        change = self.history.pop()
+        self.undoing = True
+        self.update_undo()
+        self.mutation_error = None
+        self.set_status(f"Undoing: {change.label}…")
+
+        def done(_, err):
+            self.undoing = False
+            if err:
+                self.mutation_error = err
+                self.set_status(err, True)
+            else:
+                self.notice = f"Undone: {change.label}"
+            self.update_undo()
+            self.forget()
+            self.load(force=True)
+        run_async(lambda: api.revert(change), done)
 
     # ------------------------------------------------------------ drawing
     def draw(self):
         self.title_label.set_text(f"{calendar.month_name[self.cursor.month]} {self.cursor.year}")
         for child in self.grid.get_children():
-            self.grid.remove(child)
+            child.destroy()
         today = dt.date.today()
+        self.drawn = (self.key_of(self.cursor), today)
+        self.chips_of, self.areas = {}, {}
+        self.placeholder_chip = self.placeholder_area = None
         by_day = {}
         days = month_grid(self.cursor.year, self.cursor.month)
         for e in self.events:
@@ -777,19 +900,31 @@ class Window(Gtk.ApplicationWindow):
             events = by_day.get(day, [])
             chips = [self.chip(e) for e in events]
             if self.pending_day == day:
-                chips.append(self.placeholder())
+                self.placeholder_chip = self.placeholder()
+                chips.append(self.placeholder_chip)
             area = DayEvents(chips, day in self.expanded_days,
                              lambda expanded, d=day: self.expanded_days.add(d) if expanded else self.expanded_days.discard(d))
+            self.areas[day] = area
+            if self.placeholder_chip in chips:
+                self.placeholder_area = area
             box.pack_start(area, True, True, 0)
             cell.add(box)
             cell.connect("button-press-event", lambda w, ev, d=day: self.on_day_click(ev, d))
-            cell.drag_dest_set(Gtk.DestDefaults.ALL, [Gtk.TargetEntry.new("light-year/event", Gtk.TargetFlags.SAME_APP, 0)],
-                               Gdk.DragAction.MOVE)
-            cell.connect("drag-data-received", lambda w, c, x, y, data, info, t, d=day: self.drop(data.get_text(), d))
-            cell.connect("drag-motion", lambda w, *a: w.get_style_context().add_class("drop") or False)
-            cell.connect("drag-leave", lambda w, *a: w.get_style_context().remove_class("drop"))
             self.grid.attach(cell, i % 7, i // 7, 1, 1)
         self.grid.show_all()
+
+    def mark_editing(self, on):
+        """Yellow for the chip being edited, or a placeholder chip on the day a new
+        event is being created - without rebuilding the grid."""
+        for chip in self.chips_of.get(self.editing_id, []):
+            (chip.get_style_context().add_class if on else chip.get_style_context().remove_class)("editing")
+        if self.placeholder_chip is not None:
+            self.placeholder_area.remove_chip(self.placeholder_chip)
+            self.placeholder_chip = self.placeholder_area = None
+        if on and self.pending_day in self.areas:
+            self.placeholder_area = self.areas[self.pending_day]
+            self.placeholder_chip = self.placeholder()
+            self.placeholder_area.add_chip(self.placeholder_chip)
 
     @staticmethod
     def describe(e):
@@ -821,13 +956,9 @@ class Window(Gtk.ApplicationWindow):
         row.pack_start(name, True, True, 0)
         eb.add(row)
         eb.set_tooltip_text(self.describe(e))
+        self.chips_of.setdefault(e["id"], []).append(eb)
         eb.connect("button-release-event", lambda w, ev: self.edit(e) or True)
         eb.connect("button-press-event", lambda *a: True)        # not a click on the day
-        if not e["all_day"]:
-            eb.drag_source_set(Gdk.ModifierType.BUTTON1_MASK,
-                               [Gtk.TargetEntry.new("light-year/event", Gtk.TargetFlags.SAME_APP, 0)],
-                               Gdk.DragAction.MOVE)
-            eb.connect("drag-data-get", lambda w, c, data, info, t: data.set_text(e["id"], -1))
         return eb
 
     # ------------------------------------------------------------ actions
@@ -835,8 +966,7 @@ class Window(Gtk.ApplicationWindow):
         self.clear_mutation_error()
         m = self.cursor.month - 1 + months
         self.cursor = dt.date(self.cursor.year + m // 12, m % 12 + 1, 1)   # December -> January
-        self.events = self.months.get(self.key_of(self.cursor), [])
-        self.draw()
+        self.show(self.months.get(self.key_of(self.cursor), []))
         self.load()
 
     def on_scroll(self, w, ev):
@@ -877,8 +1007,7 @@ class Window(Gtk.ApplicationWindow):
     def go_today(self):
         self.clear_mutation_error()
         self.cursor = dt.date.today().replace(day=1)
-        self.events = self.months.get(self.key_of(self.cursor), [])
-        self.draw()
+        self.show(self.months.get(self.key_of(self.cursor), []))
         self.load()
 
     def on_key(self, w, ev):
@@ -887,11 +1016,13 @@ class Window(Gtk.ApplicationWindow):
             self.shift(-1)
         elif key == "Right":
             self.shift(1)
-        elif key in ("t", "T"):
+        elif physical_key_name(ev) == "t":
             self.go_today()
-        elif key == "F5" or (ctrl and key in ("r", "R")):
+        elif key == "F5" or (ctrl and physical_key_name(ev) == "r"):
             self.clear_mutation_error()
             self.load(force=True)
+        elif ctrl and physical_key_name(ev) == "z":
+            self.undo()
         else:
             return False
         return True
@@ -918,9 +1049,11 @@ class Window(Gtk.ApplicationWindow):
             self.open_dialog(day, e)
 
     def open_dialog(self, day, event):
+        # only the chip being edited (or the new one's placeholder) changes on the
+        # grid, so it is marked in place rather than by rebuilding the month
         self.editing_id = event["id"] if event else None
         self.pending_day = None if event else day
-        self.draw()
+        self.mark_editing(True)
         dlg = EventDialog(self, day, event, zoom_available=self.state.get("zoom"))
         busy = False
         closing = False
@@ -938,7 +1071,7 @@ class Window(Gtk.ApplicationWindow):
                 if not values[0]:
                     raise ValueError("Enter an event title")
             except ValueError as err:
-                dlg.error.set_text(str(err))
+                set_message(dlg.error, str(err))
                 closing = False
                 return False
             if values == saved_values and rules == saved_rules:
@@ -953,14 +1086,14 @@ class Window(Gtk.ApplicationWindow):
             busy = True
             dlg.get_content_area().set_sensitive(False)
             dlg.get_action_area().set_sensitive(False)
-            dlg.error.set_text("Saving…")
+            set_message(dlg.error, "Saving…")
             def done(result, err):
                 nonlocal busy, closing, saved_values, saved_rules, event
                 busy = False
                 dlg.get_content_area().set_sensitive(True)
                 dlg.get_action_area().set_sensitive(True)
                 if err:
-                    dlg.error.set_text(err + " · Edit a field to retry")
+                    set_message(dlg.error, err + " · Edit a field to retry")
                     closing = False
                     return
                 saved_values, saved_rules = values, rules
@@ -970,7 +1103,7 @@ class Window(Gtk.ApplicationWindow):
                                end=end.astimezone() if isinstance(end, dt.datetime) else end,
                                all_day=not isinstance(start, dt.datetime), description=notes, recurrence=rules)
                 if scope == "following" or not event.get("recurring_id"):
-                    updated.update(id=result["id"], recurring_id=result["id"] if rules else None,
+                    updated.update(id=result.event["id"], recurring_id=result.event["id"] if rules else None,
                                    original_start=start.isoformat())
                 event = updated
                 # The split is now a series of its own; subsequent edits use its master.
@@ -978,9 +1111,10 @@ class Window(Gtk.ApplicationWindow):
                     dlg.scope.set_active_id("all")
                 dlg.repeat.dirty = False
                 dlg.repeat.original = list(rules)
-                self.months.clear()
+                self.remember(result)
+                self.forget()
                 self.load(force=True)
-                dlg.error.set_text("Saved")
+                set_message(dlg.error, "Saved")
                 if closing:
                     dlg.response(3)
             run_async(lambda: api.change_occurrence(event, scope, *values, recurrence=changed_rules), done)
@@ -1013,7 +1147,7 @@ class Window(Gtk.ApplicationWindow):
                 if not values[0]:
                     raise ValueError("Enter an event title")
             except ValueError as err:
-                dlg.error.set_text(str(err))
+                set_message(dlg.error, str(err))
                 continue
             with_zoom = dlg.zoom.get_active()
             # Keep the draft open on API failure; never discard a user's input.
@@ -1021,37 +1155,16 @@ class Window(Gtk.ApplicationWindow):
             def created(result, err):
                 dlg.set_sensitive(True)
                 if err:
-                    dlg.error.set_text(err)
+                    set_message(dlg.error, err)
                 else:
-                    self.months.clear()
+                    self.remember(result)
+                    self.forget()
                     self.load(force=True)
                     dlg.response(3)
             run_async(lambda: api.create_event(*values, with_zoom, rules), created)
         dlg.destroy()
+        self.mark_editing(False)
         self.editing_id = self.pending_day = None
-        self.draw()
-
-    def drop(self, event_id, day):
-        e = next((x for x in self.events if x["id"] == event_id), None)
-        if not e or e["all_day"]:
-            return
-        start = dt.datetime.combine(day, e["start"].time().replace(tzinfo=None))
-        end = start + (e["end"] - e["start"])
-        # after the drag has fully finished (work inside the drop handler breaks it)
-        GLib.idle_add(self.finish_drop, e, start, end)
-
-    def finish_drop(self, e, start, end):
-        # a drag moves only this occurrence - the series is moved from the event window,
-        # where "this / following / all" is chosen, the same as for saving and deleting
-        scope = "this"
-        original = dict(e)
-        e["start"], e["end"] = start.astimezone(), end.astimezone()    # show it moved right away
-        self.draw()
-        def restore():
-            e.update(original)
-            self.draw()
-        self.mutate(lambda: api.change_occurrence(original, scope, start=start, end=end), restore)
-        return False
 
     def sign_in(self, *_):
         self.clear_mutation_error()

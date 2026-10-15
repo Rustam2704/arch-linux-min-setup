@@ -18,6 +18,7 @@ import json
 import os
 import secrets
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
@@ -40,7 +41,7 @@ SCOPE = "https://www.googleapis.com/auth/calendar.events"
 ZOOM_TOKEN = "https://zoom.us/oauth/token"
 ZOOM_API = "https://api.zoom.us/v2"
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 
 
 class ApiError(RuntimeError):
@@ -69,11 +70,16 @@ def read_json(path):
 
 def write_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 def credentials():
@@ -117,21 +123,31 @@ def google_token():
         if not g.get("refresh_token"):
             return None
         creds = credentials().get("google", {})
-        fresh = request(GOOGLE_TOKEN, "POST", {
-            "client_id": creds.get("client_id", ""), "client_secret": creds.get("client_secret", ""),
-            "refresh_token": g["refresh_token"], "grant_type": "refresh_token"}, form=True)
+        try:
+            fresh = request(GOOGLE_TOKEN, "POST", {
+                "client_id": creds.get("client_id", ""), "client_secret": creds.get("client_secret", ""),
+                "refresh_token": g["refresh_token"], "grant_type": "refresh_token"}, form=True)
+        except ApiError as e:
+            if "invalid_grant" not in str(e):
+                raise
+            store.pop("google", None)
+            write_json(TOKENS, store)
+            raise ApiError("Google sign-in expired - press Connect Google") from None
         g.update(access_token=fresh["access_token"], expires_at=time.time() + fresh.get("expires_in", 3600))
         store["google"] = g
         write_json(TOKENS, store)
         return g["access_token"]
 
 
-def google(path, method="GET", data=None, params=None):
+def google(path, method="GET", data=None, params=None, etag=None):
     token = google_token()
     if not token:
         raise ApiError("Google is not connected")
     url = GOOGLE_API + path + ("?" + urllib.parse.urlencode(params) if params else "")
-    return request(url, method, data, {"Authorization": f"Bearer {token}"})
+    headers = {"Authorization": f"Bearer {token}"}
+    if etag:
+        headers["If-Match"] = etag          # 412 if the event changed since
+    return request(url, method, data, headers)
 
 
 def google_sign_in(done):
@@ -200,11 +216,12 @@ def google_sign_in(done):
                 "code": result["code"], "client_id": creds["client_id"],
                 "client_secret": creds["client_secret"], "redirect_uri": REDIRECT,
                 "grant_type": "authorization_code"}, form=True)
-            store = tokens()
-            store["google"] = {"refresh_token": fresh["refresh_token"],
-                               "access_token": fresh["access_token"],
-                               "expires_at": time.time() + fresh.get("expires_in", 3600)}
-            write_json(TOKENS, store)
+            with _lock:
+                store = tokens()
+                store["google"] = {"refresh_token": fresh["refresh_token"],
+                                   "access_token": fresh["access_token"],
+                                   "expires_at": time.time() + fresh.get("expires_in", 3600)}
+                write_json(TOKENS, store)
             done(None)
         except Exception as e:                  # noqa: BLE001 - shown in the window
             done(str(e))
@@ -217,18 +234,19 @@ def zoom_token():
     creds = credentials().get("zoom", {})
     if not creds.get("client_id"):
         return None
-    store = tokens()
-    z = store.get("zoom", {})
-    if z.get("access_token") and z.get("expires_at", 0) > time.time() + 60:
-        return z["access_token"]
-    basic = base64.b64encode(f"{creds['client_id']}:{creds['client_secret']}".encode()).decode()
-    fresh = request(ZOOM_TOKEN, "POST", {"grant_type": "account_credentials",
-                                         "account_id": creds["account_id"]},
-                    {"Authorization": f"Basic {basic}"}, form=True)
-    store["zoom"] = {"access_token": fresh["access_token"],
-                     "expires_at": time.time() + fresh.get("expires_in", 3600)}
-    write_json(TOKENS, store)
-    return store["zoom"]["access_token"]
+    with _lock:
+        store = tokens()
+        z = store.get("zoom", {})
+        if z.get("access_token") and z.get("expires_at", 0) > time.time() + 60:
+            return z["access_token"]
+        basic = base64.b64encode(f"{creds['client_id']}:{creds['client_secret']}".encode()).decode()
+        fresh = request(ZOOM_TOKEN, "POST", {"grant_type": "account_credentials",
+                                             "account_id": creds["account_id"]},
+                        {"Authorization": f"Basic {basic}"}, form=True)
+        store["zoom"] = {"access_token": fresh["access_token"],
+                         "expires_at": time.time() + fresh.get("expires_in", 3600)}
+        write_json(TOKENS, store)
+        return store["zoom"]["access_token"]
 
 
 def zoom(path, method, data=None):
@@ -315,6 +333,56 @@ def _patch_times(start, end):
     return {**start_body, **cleared}, {**end_body, **cleared}
 
 
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _path(event_id):
+    return f"/calendars/primary/events/{urllib.parse.quote(event_id)}"
+
+
+def _short(day):
+    return f"{day.day} {MONTHS[day.month - 1]}"
+
+
+class Change:
+    """One saved action: the event it left behind, and how to take it back.
+
+    `steps` run last first. ("PATCH" or "DELETE", event id, body, etag) is a request;
+    the etag is the event's right after the action, so an undo stops instead of
+    overwriting a change made on the phone in the meantime. ("REAPPLY", series id,
+    exceptions) puts back cancelled, moved and edited occurrences, which Google
+    forgets whenever a series' times or rule change."""
+    def __init__(self, label, event=None):
+        self.label, self.event = label, event
+        self.steps = []
+        self.meetings = []          # Zoom meetings to delete once this can no longer be undone
+        self.new_meetings = []      # Zoom meetings it created: deleted if it is undone
+        self.warning = None
+
+    def inverse(self, *step):
+        self.steps.append(step)
+
+    def touches(self):
+        return {step[1].split("_")[0] for step in self.steps}     # an occurrence counts as its series
+
+    def loosen(self, ids):
+        """A later change of ours touched these events as well, so their etags no
+        longer tell anything about edits made elsewhere: undo them without the check."""
+        self.steps = [step if step[0] == "REAPPLY" or step[1].split("_")[0] not in ids
+                      else step[:3] + (None,) for step in self.steps]
+
+
+def _restore_time(value):
+    """A Google start/end as it was, for a PATCH that puts it back."""
+    if "date" in value:
+        return {"date": value["date"], "dateTime": None, "timeZone": None}
+    return {"dateTime": value["dateTime"], "timeZone": value.get("timeZone"), "date": None}
+
+
+def _inverse_body(before, body):
+    return {k: _restore_time(before[k]) if k in ("start", "end") else before.get(k) for k in body}
+
+
 def create_event(summary, start, end, description="", with_zoom=False, recurrence=None):
     event_start, event_end = _event_times(start, end)
     body = {"summary": summary or "Untitled",
@@ -322,6 +390,7 @@ def create_event(summary, start, end, description="", with_zoom=False, recurrenc
             "description": description}
     if recurrence:
         body["recurrence"] = recurrence
+    meeting = None
     if with_zoom:
         if not isinstance(start, dt.datetime):
             raise ValueError("Zoom meetings need a start time")
@@ -336,19 +405,55 @@ def create_event(summary, start, end, description="", with_zoom=False, recurrenc
             body["description"] = (description + "\n\n" + body["location"]).strip()
             body["extendedProperties"] = {"private": {"zoomMeetingId": str(meeting.get("id"))}}
     try:
-        return google("/calendars/primary/events", "POST", body)
+        created = google("/calendars/primary/events", "POST", body)
     except Exception as error:
-        if with_zoom and meeting and meeting.get("id"):
+        if meeting and meeting.get("id"):
             try:
                 if zoom(f"/meetings/{meeting['id']}", "DELETE") is None:
                     raise ApiError("Zoom is not connected")
             except Exception as cleanup_error:
                 raise ApiError(f"Google event creation failed: {error}; Zoom meeting {meeting['id']} could not be deleted: {cleanup_error}") from error
         raise
+    change = Change(f"created “{body['summary']}”", created)
+    change.inverse("DELETE", created["id"], None, created.get("etag"))
+    if meeting:
+        change.new_meetings.append(str(meeting["id"]))
+    return change
 
 
 def _meeting_id(event):
     return ((event.get("extendedProperties") or {}).get("private") or {}).get("zoomMeetingId")
+
+
+def _follow_zoom(event):
+    """A one-off event's own Zoom meeting moves with it. A series shares one meeting
+    between all its lessons - a room rather than an appointment - so moving one
+    lesson, or the whole series, leaves the meeting alone."""
+    mid = _meeting_id(event)
+    if (not mid or event.get("status") == "cancelled" or event.get("recurringEventId")
+            or event.get("recurrence") or "dateTime" not in event.get("start", {})):
+        return
+    start = parse_time(event["start"]["dateTime"])[0]
+    end = parse_time(event["end"]["dateTime"])[0]
+    try:
+        zoom(f"/meetings/{mid}", "PATCH", {"start_time": _iso(start), "timezone": TZ,
+                                            "duration": max(15, int((end - start).total_seconds() // 60))})
+    except ApiError:
+        pass
+
+
+def release_meeting(mid):
+    """Delete a Zoom meeting once no event refers to it (the two halves of a split
+    series share one)."""
+    users = google("/calendars/primary/events",
+                   params={"privateExtendedProperty": f"zoomMeetingId={mid}", "maxResults": "1"})
+    if users.get("items"):
+        return
+    try:
+        zoom(f"/meetings/{mid}", "DELETE")
+    except ApiError as e:
+        if not str(e).startswith("404"):
+            raise
 
 
 def update_event(event_id, summary=None, start=None, end=None, description=None, recurrence=None):
@@ -361,30 +466,44 @@ def update_event(event_id, summary=None, start=None, end=None, description=None,
         body["start"], body["end"] = _patch_times(start, end)
     if recurrence is not None:
         body["recurrence"] = recurrence
-    updated = google(f"/calendars/primary/events/{urllib.parse.quote(event_id)}", "PATCH", body)
-    mid = _meeting_id(updated)
-    if mid and isinstance(start, dt.datetime):  # keep the Zoom meeting in step with the event
-        try:
-            zoom(f"/meetings/{mid}", "PATCH", {"start_time": _iso(start), "timezone": TZ,
-                                                "duration": max(15, int((end - start).total_seconds() // 60))})
-        except ApiError:
-            pass
-    return updated
+    before = google(_path(event_id))
+    updated = google(_path(event_id), "PATCH", body)
+    change = Change(f"edited “{before.get('summary', '')}”", updated)
+    change.inverse("PATCH", event_id, _inverse_body(before, body), updated.get("etag"))
+    _follow_zoom(updated)
+    return change
 
 
 def delete_event(event_id):
-    path = f"/calendars/primary/events/{urllib.parse.quote(event_id)}"
-    mid = None
-    try:
-        mid = _meeting_id(google(path))
-    except ApiError:
-        pass
-    google(path, "DELETE")
-    if mid:                                 # the meeting goes with its event
+    before = google(_path(event_id))
+    google(_path(event_id), "DELETE")
+    change = Change(f"deleted “{before.get('summary', '')}”")
+    change.inverse("PATCH", event_id, {"status": "confirmed"}, None)   # Google keeps deleted events
+    mid = _meeting_id(before)
+    if mid and not before.get("recurringEventId"):   # one lesson keeps the series' meeting
+        change.meetings.append(mid)
+    return change
+
+
+def revert(change):
+    """Undo a Change. Raises ApiError if an event was changed elsewhere since."""
+    for step in reversed(change.steps):
+        if step[0] == "REAPPLY":
+            _reapply(step[1], step[2])
+            continue
+        method, event_id, body, etag = step
         try:
-            zoom(f"/meetings/{mid}", "DELETE")
-        except ApiError:
-            pass
+            result = google(_path(event_id), method, body, etag=etag)
+        except ApiError as e:
+            if str(e).startswith("412"):
+                raise ApiError("Not undone: the event was changed elsewhere since") from None
+            if method == "DELETE" and str(e).startswith("410"):
+                continue                    # already deleted
+            raise
+        if method == "PATCH":
+            _follow_zoom(result)
+    for mid in change.new_meetings:
+        release_meeting(mid)
 
 
 # ------------------------------------------------------------------ recurring events
@@ -494,6 +613,142 @@ def get_recurrence(event):
     return google(f"/calendars/primary/events/{urllib.parse.quote(rid)}").get("recurrence", [])
 
 
+def _local(value):
+    """A Google start/end/originalStartTime -> local naive datetime, or a date."""
+    t, all_day = parse_time(value.get("dateTime") or value["date"])
+    return t if all_day else t.replace(tzinfo=None)
+
+
+def _day(value):
+    t = _local(value)
+    return t.date() if isinstance(t, dt.datetime) else t
+
+
+def _original(event):
+    """Where an occurrence sits in its series' rule: local naive time, or a date."""
+    t = parse_time(event["original_start"])[0]
+    return t.replace(tzinfo=None) if isinstance(t, dt.datetime) else t
+
+
+def _moment(t):
+    """A local date or naive datetime as RFC 3339, for timeMin/timeMax."""
+    if not isinstance(t, dt.datetime):
+        t = dt.datetime.combine(t, dt.time())
+    return t.astimezone().isoformat()
+
+
+def _instances(series_id, first, last=None, deleted=False):
+    """Occurrences of a series between two local times (or dates); with no end, an
+    endless series is looked at two years past today or past `first`, if later."""
+    last = last or max(_as_time(first), dt.datetime.now()) + dt.timedelta(days=730)
+    params = {"timeMin": _moment(first), "timeMax": _moment(last), "maxResults": "2500"}
+    if deleted:
+        params["showDeleted"] = "true"
+    items = []
+    while True:
+        page = google(_path(series_id) + "/instances", params=params)
+        items.extend(page.get("items", []))
+        if not page.get("nextPageToken"):
+            return items
+        params["pageToken"] = page["nextPageToken"]
+
+
+EXCEPTION_FIELDS = ("summary", "description", "location", "colorId")
+
+
+def _exceptions(master, since=None):
+    """The occurrences of a series that differ from its rule - cancelled, moved or
+    edited - from the occurrence originally at `since` on. Google forgets them for
+    good whenever the series' times or rule change (and when it is cut short), so
+    they are noted first and put back afterwards."""
+    length = _local(master["end"]) - _local(master["start"])
+    first = _local(master["start"]) if since is None else since
+    found = []
+    for inst in _instances(master["id"], first, deleted=True):
+        orig = inst.get("originalStartTime")
+        if not orig or _local(orig) < first:
+            continue
+        ex = {"day": _day(orig)}
+        if inst.get("status") == "cancelled":
+            ex["cancelled"] = True
+        else:
+            begin, finish = _local(inst["start"]), _local(inst["end"])
+            if begin != _local(orig) or finish - begin != length:
+                ex["start"], ex["end"] = inst["start"], inst["end"]
+            fields = {f: inst.get(f) for f in EXCEPTION_FIELDS if inst.get(f) != master.get(f)}
+            if fields:
+                ex["fields"] = fields
+            if len(ex) == 1:
+                continue                    # an ordinary occurrence
+        found.append(ex)
+    return found
+
+
+def _reapply(series_id, exceptions, day_shift=0):
+    """Put noted exceptions back onto a series whose occurrences moved by
+    `day_shift` days. A moved lesson keeps the time it was moved to. Returns how
+    many found no occurrence to land on."""
+    if not exceptions:
+        return 0
+    days = [ex["day"] + dt.timedelta(days=day_shift) for ex in exceptions]
+    by_day = {}
+    for inst in _instances(series_id, min(days) - dt.timedelta(days=1), max(days) + dt.timedelta(days=2)):
+        if inst.get("originalStartTime"):
+            by_day.setdefault(_day(inst["originalStartTime"]), inst)
+    missed = 0
+    for ex, day in zip(exceptions, days):
+        inst = by_day.get(day)
+        if inst is None:
+            missed += not ex.get("cancelled")  # a cancelled one with nothing there is done
+            continue
+        if ex.get("cancelled"):
+            google(_path(inst["id"]), "DELETE")
+            continue
+        body = dict(ex.get("fields", {}))
+        if "start" in ex:
+            body["start"], body["end"] = _restore_time(ex["start"]), _restore_time(ex["end"])
+        google(_path(inst["id"]), "PATCH", body)
+    return missed
+
+
+# Everything a new series carries over from the one it continues: guests,
+# reminders, colour, the Zoom/Meet data in extendedProperties and conferenceData.
+COPIED = ("summary", "description", "location", "colorId", "transparency", "visibility", "attendees",
+          "guestsCanInviteOthers", "guestsCanModify", "guestsCanSeeOtherGuests", "anyoneCanAddSelf",
+          "reminders", "extendedProperties", "source", "conferenceData", "attachments")
+
+
+def _insert_copy(body):
+    params = {"supportsAttachments": "true"}
+    if "conferenceData" in body:
+        params["conferenceDataVersion"] = "1"
+    try:
+        return google("/calendars/primary/events", "POST", body, params=params)
+    except ApiError as e:
+        if "conferenceData" not in body or not str(e).startswith("400"):
+            raise
+        body = {k: v for k, v in body.items() if k != "conferenceData"}   # a conference that cannot be copied
+        return google("/calendars/primary/events", "POST", body, params={"supportsAttachments": "true"})
+
+
+def _as_time(t):
+    return t if isinstance(t, dt.datetime) else dt.datetime.combine(t, dt.time())
+
+
+def _until_for(until, all_day, delta):
+    """An UNTIL for a series that moved by `delta`: later by as much (a series moved
+    later must not lose its last occurrence) and of the series' own kind - a date
+    for all-day events, a UTC time for timed ones."""
+    if "T" in until:
+        t = dt.datetime.strptime(until, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+    else:
+        t = dt.datetime.combine(dt.datetime.strptime(until, "%Y%m%d").date(), dt.time(23, 59, 59)).astimezone()
+    t += max(delta, dt.timedelta(0))
+    if all_day:
+        return t.astimezone().strftime("%Y%m%d")
+    return t.astimezone(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
 def change_occurrence(event, scope, summary=None, start=None, end=None, description=None, recurrence=None):
     """Edit or move one occurrence of a recurring event with the chosen scope."""
     if recurrence is not None and event.get("recurring_id") and scope == "this":
@@ -501,7 +756,7 @@ def change_occurrence(event, scope, summary=None, start=None, end=None, descript
     if scope == "this" or not event.get("recurring_id"):
         return update_event(event["id"], summary, start, end, description, recurrence)
     rid = event["recurring_id"]
-    path = f"/calendars/primary/events/{urllib.parse.quote(rid)}"
+    path = _path(rid)
     master = google(path)
     rules = master.get("recurrence", [])
     first = _is_first(master, event)
@@ -537,43 +792,74 @@ def change_occurrence(event, scope, summary=None, start=None, end=None, descript
                                              + length), "timeZone": TZ, "date": None}
         if recurrence is not None:
             body["recurrence"] = recurrence
-        return google(path, "PATCH", body)
+        # a new time or rule makes Google drop every exception of the series
+        kept = _exceptions(master) if {"start", "end", "recurrence"} & set(body) else []
+        updated = google(path, "PATCH", body)
+        change = Change(f"edited “{master.get('summary', '')}”", updated)
+        if kept:
+            missed = _reapply(rid, kept, (_day(updated["start"]) - _day(master["start"])).days)
+            if missed:
+                change.warning = f"{missed} changed occurrence(s) found no place in the new series"
+            change.inverse("REAPPLY", rid, kept)
+            updated = google(path)          # changed occurrences move the series' etag
+        change.inverse("PATCH", rid, _inverse_body(master, body), updated.get("etag"))
+        return change
     # "following": cut the old series, start a new one here
-    end_of_series = _series_end(rid, rules)
-    new_rules = _until(rules, end_of_series) if end_of_series else _without_count(rules)
+    since = _original(event)
+    kept = _exceptions(master, since)
     s0 = start if start is not None else (event["start"] if event["all_day"]
                                          else event["start"].replace(tzinfo=None))
     e0 = end if end is not None else (event["end"] if event["all_day"]
                                      else event["end"].replace(tzinfo=None))
-    old_day = event["start"].date() if isinstance(event["start"], dt.datetime) else event["start"]
+    all_day = not isinstance(s0, dt.datetime)
+    delta = _as_time(s0) - _as_time(since)
+    end_of_series = _series_end(rid, rules)
+    new_rules = (_until(rules, _until_for(end_of_series, all_day, delta)) if end_of_series
+                 else _without_count(rules))
+    old_day = since.date() if isinstance(since, dt.datetime) else since
     new_day = s0.date() if isinstance(s0, dt.datetime) else s0
     new_rules = _shift_weekdays(new_rules, (new_day - old_day).days)
     event_start, event_end = _event_times(s0, e0)
-    body = {"summary": summary if summary is not None else master.get("summary", ""),
-            "description": description if description is not None else master.get("description", ""),
-            "location": master.get("location", ""),
-            "start": event_start, "end": event_end,
-            "recurrence": new_rules if recurrence is None else recurrence}
+    body = {k: master[k] for k in COPIED if k in master}
+    body.update(start=event_start, end=event_end, recurrence=new_rules if recurrence is None else recurrence)
+    if summary is not None:
+        body["summary"] = summary
+    if description is not None:
+        body["description"] = description
     # Create first: an API failure must not silently delete the later occurrences.
-    created = google("/calendars/primary/events", "POST", body)
+    created = _insert_copy(body)
     try:
-        google(path, "PATCH", {"recurrence": _until(rules, _until_before(event["original_start"]))})
+        missed = _reapply(created["id"], kept, (new_day - old_day).days)
+        trimmed = google(path, "PATCH", {"recurrence": _until(rules, _until_before(event["original_start"]))})
     except Exception:
         try:
-            google(f"/calendars/primary/events/{urllib.parse.quote(created['id'])}", "DELETE")
+            google(_path(created["id"]), "DELETE")
         except Exception as cleanup_error:
             raise ApiError("Series update failed; a duplicate series may remain: " + created["id"]) from cleanup_error
         raise
-    return created
+    change = Change(f"changed “{master.get('summary', '')}” from {_short(old_day)}", created)
+    if missed:
+        change.warning = f"{missed} changed occurrence(s) found no place in the new series"
+    change.inverse("REAPPLY", rid, kept)
+    change.inverse("PATCH", rid, {"recurrence": rules}, trimmed.get("etag"))
+    change.inverse("DELETE", created["id"], None, google(_path(created["id"])).get("etag"))
+    return change
 
 
 def delete_occurrence(event, scope):
     if scope == "this" or not event.get("recurring_id"):
         return delete_event(event["id"])
     rid = event["recurring_id"]
-    path = f"/calendars/primary/events/{urllib.parse.quote(rid)}"
+    path = _path(rid)
     master = google(path)
     if scope == "all" or _is_first(master, event):
-        return google(path, "DELETE")
-    return google(path, "PATCH", {"recurrence": _until(master.get("recurrence", []),
-                                                       _until_before(event["original_start"]))})
+        return delete_event(rid)
+    rules = master.get("recurrence", [])
+    since = _original(event)
+    kept = _exceptions(master, since)       # cut off with the series; noted for an undo
+    trimmed = google(path, "PATCH", {"recurrence": _until(rules, _until_before(event["original_start"]))})
+    day = since.date() if isinstance(since, dt.datetime) else since
+    change = Change(f"deleted “{master.get('summary', '')}” from {_short(day)}")
+    change.inverse("REAPPLY", rid, kept)
+    change.inverse("PATCH", rid, {"recurrence": rules}, trimmed.get("etag"))
+    return change

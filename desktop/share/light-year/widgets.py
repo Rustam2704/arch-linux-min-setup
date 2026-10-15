@@ -97,6 +97,7 @@ class DayEvents(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.chips, self.expanded, self.on_expand = chips, expanded, on_expand
         self.pending = None
+        self.last_height = None
         self.row_height = self.more_height = 1
         self.scroll = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         self.scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -121,6 +122,19 @@ class DayEvents(Gtk.Box):
         self.connect("destroy", self.destroyed)
         self.scroll.connect("scroll-event", self.scrolled)
 
+    def add_chip(self, chip):
+        self.chips.append(chip)
+        self.rows.pack_start(chip, False, False, 0)
+        chip.show_all()
+        chip.set_no_show_all(True)
+        self.layout(self.get_allocated_height() if self.get_allocated_height() > 1 else DayEvents.cell_height or 0)
+
+    def remove_chip(self, chip):
+        if chip in self.chips:
+            self.chips.remove(chip)
+            chip.destroy()
+            self.layout(self.get_allocated_height())
+
     def scrolled(self, widget, event):
         # Stop vertical wheel/touchpad events reaching the month navigator.
         direction = event.direction
@@ -139,8 +153,8 @@ class DayEvents(Gtk.Box):
         self.on_expand(self.expanded)
         self.reflow()
 
-    def allocated(self, *_):
-        if self.pending is None:
+    def allocated(self, widget, allocation):
+        if allocation.height != self.last_height and self.pending is None:
             self.pending = GLib.timeout_add(20, self.reflow)
 
     def destroyed(self, *_):
@@ -151,6 +165,7 @@ class DayEvents(Gtk.Box):
     def reflow(self):
         self.pending = None
         height = self.get_allocated_height()
+        self.last_height = height
         if height > 1:
             DayEvents.cell_height = height
         self.layout(height)
@@ -166,5 +181,7 @@ class DayEvents(Gtk.Box):
         overflow = count < len(self.chips)
         for i, chip in enumerate(self.chips):
             chip.set_visible(self.expanded or i < count)
-        self.more.set_label("Show less" if self.expanded else f"+{len(self.chips) - count} more")
+        label = "Show less" if self.expanded else f"+{len(self.chips) - count} more"
+        if self.more.get_label() != label:
+            self.more.set_label(label)
         self.more.set_visible(overflow)
