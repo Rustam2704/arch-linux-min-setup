@@ -3,8 +3,8 @@
 Этот файл рассчитан на то, что его выполняет ИИ-агент (Claude Code, Codex и т. п.) на свежей
 установке Arch Linux. Цель — тот же рабочий стол, что описан в [README.md](README.md) и
 [ARCHITECTURE.md](ARCHITECTURE.md): инфраструктура Xfce + i3 + свои инструменты из `desktop/`.
-Всё, что стоит в системе, объявлено в дереве `desktop/` и ставится одной командой; ниже —
-только то, что дереву не подвластно (пакеты, группы, ключи), и порядок.
+Большая часть того, что стоит в системе, объявлена в дереве `desktop/` и ставится одной командой;
+ниже — пакеты, группы, ключи и то, что пока вне дерева, и порядок.
 
 ## Что должно быть до начала
 
@@ -33,9 +33,11 @@
    sudo systemctl enable lightdm`. Автовход настроен drop-in-файлом из дерева: сессия
    `xfce-i3`, без выбора сессии. `/boot/loader/loader.conf` — `timeout 0` (systemd-boot).
 6. **Питание**: `sudo systemctl enable --now tlp`; меню батареи переключает профили через
-   `sudo -n tlp …` — пользователю нужен sudo без пароля хотя бы для `/usr/bin/tlp`
-   (например, `/etc/sudoers.d/tlp`: `<user> ALL=(root) NOPASSWD: /usr/bin/tlp`, права 0440).
-7. **Службы**: `systemctl --user enable netqd sky-stars`; `deskd` и `osd`
+   `sudo -n tlp …` — пользователю нужен sudo без пароля хотя бы для `/usr/bin/tlp`. На этой машине это
+   правило группы `wheel`: `/etc/sudoers.d/10-wheel` с `%wheel ALL=(ALL:ALL) NOPASSWD: ALL`; узкое
+   правило вместо него — свой файл, например `/etc/sudoers.d/tlp`: `<user> ALL=(root) NOPASSWD: /usr/bin/tlp`, права 0440.
+   `tlp` стоит в `packages.txt`.
+7. **Службы**: `systemctl --user enable netqd sysqd`; `deskd`, `osd` и `sky-stars`
    запускает i3 (`exec` в конфиге, юниты `desktop/config/systemd/user/`). Touchégg:
    `sudo systemctl enable --now touchegg` (системная часть; клиент стартует из сессии).
 8. **Шрифты**: `fc-cache -f` после установки (в дереве лежит `Diablo.ttf`; Inter, JetBrainsMono

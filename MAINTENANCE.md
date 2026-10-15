@@ -5,10 +5,10 @@
 ```bash
 make status                         # система совпадает с деревом? (норма: 0 files differ)
 lab/lab status                      # что применено, по экспериментам
-systemctl --user status deskd osd netqd sky-stars
+systemctl --user status deskd osd netqd sysqd sky-stars
 journalctl --user -u deskd -n 50    # логи любой службы
 firefox-mem                         # потолок Firefox, цель, сколько в свопе
-deskd-ctl maximize-on|maximize-off  # то же, что жесты 4 пальцами
+deskd-ctl maximize-on|restore      # то же, что жесты 4 пальцами
 i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область, не переключаясь
 ```
 
@@ -20,6 +20,7 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 | `share/deskd/*`, `share/sky-desktop/*` | `systemctl --user restart deskd` (и `osd`, `sky-stars`, если менялась тема) |
 | `bin/osd-daemon`, `share/sky-desktop/netmenu.py` | `systemctl --user restart osd` |
 | `bin/netqd` | `systemctl --user restart netqd` |
+| `bin/sysqd` | `systemctl --user restart sysqd` |
 | `bin/sky-stars` | `systemctl --user restart sky-stars` |
 | `bin/panel-*` | ничего: genmon перечитывает скрипт при следующем запуске команды |
 | `config/gtk-3.0/gtk.css` | GTK читает при старте программы: панель — `xfce4-panel -r` (через i3 при пересоздании) |
@@ -101,4 +102,4 @@ i3-peek --workspace 3 -o /tmp/shot.png     # посмотреть область
 - Приложение в Zoom Marketplace всё ещё называется `mini-calendar`.
 - Правый клик в терминале ничего не делает (глушится в kitty); средняя кнопка — меню пути.
 - Шумоподавление микрофона по голосу отложено пользователем.
-- `~/.codex/AGENTS.md` дублирует правила из README для Codex — при смене правил править в двух местах.
+- `~/.codex/AGENTS.md` — короткая сводка для Codex, которая отсылает к README: правила правятся в README.
