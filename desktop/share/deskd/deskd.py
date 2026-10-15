@@ -701,6 +701,10 @@ class Monitors:
 
 # ================================================================== main daemon
 class Deskd:
+    # ids of mapped windows already found not to be a dock, until they are destroyed (an id can
+    # come back for a new window); immutable, rebound on change, so this default is safe to share
+    not_docks = frozenset()
+
     def __init__(self):
         self.xs = XServer()
         self.i3 = i3ipc.I3()
@@ -1226,13 +1230,22 @@ class Deskd:
         i3 can report the dock's window type as "unknown"; the root's MapNotify
         also catches a panel mapped outside i3.
         """
+        if win.id in self.not_docks:      # i3 maps every frame again on each workspace switch
+            return False
         try:
-            for candidate in [win] + self.children(win):
+            kids = self.children(win)
+            classes = []
+            for candidate in [win] + kids:
                 cls = candidate.get_wm_class()
+                classes.append(cls)
                 if cls and cls[1] == "Xfce4-panel":
                     prop = candidate.get_full_property(self.A["_NET_WM_WINDOW_TYPE"], Xatom.ATOM)
                     if prop and self.xs.atom("_NET_WM_WINDOW_TYPE_DOCK") in prop.value:
                         return True
+            # a verdict of "no" holds only for a window that has named itself, and a frame
+            # only once its client is inside
+            if all(classes) and (kids or classes[0][0] != "i3-frame"):
+                self.not_docks = self.not_docks | {win.id}
         except error.XError:
             pass
         return False
@@ -1826,8 +1839,6 @@ class Deskd:
         """Put someone else's override-redirect window (a menu, a tooltip, a
         notification, the clock's calendar) on top of the stack when it appears."""
         try:
-            if win.id in self.own_windows():
-                return
             kind = win.get_full_property(self.A["_NET_WM_WINDOW_TYPE"], Xatom.ATOM)
             if kind and self.xs.atom("_NET_WM_WINDOW_TYPE_NOTIFICATION") in kind.value:
                 return
@@ -1843,7 +1854,7 @@ class Deskd:
 
     def own_windows(self):
         """The ids of the windows deskd itself puts on the screen."""
-        ids = set(self.handle_by_win) | set(self.click_by_win) | set(self.strip_by_win)
+        ids = {h[0].id for h in self.handles} | set(self.click_by_win) | set(self.strip_by_win)
         if self.ws_mark is not None:
             ids.add(self.ws_mark.win.id)
         if self.switcher.win is not None:
@@ -2060,6 +2071,8 @@ class Deskd:
             self.monitors.changed()
         elif t == X.DestroyNotify:
             wid = e.window.id
+            if wid in self.not_docks:
+                self.not_docks = self.not_docks - {wid}
             self.frames.pop(wid, None)                   # a client that closed ...
             for client in [c for c, (frame, _) in self.frames.items() if frame.id == wid]:
                 del self.frames[client]                  # ... or a frame i3 took down under a live one
@@ -2081,6 +2094,8 @@ class Deskd:
             if self.sharing and not self.share_frame_present():
                 self.set_sharing(False)
         elif t == X.MapNotify:
+            if e.window.id in self.own_windows():
+                return None                  # our own handle, strip or layer: nothing to recognise or lift
             if e.window.id in self.panel_windows:
                 self.panel_reflowed()
             elif self.is_panel_dock(e.window):

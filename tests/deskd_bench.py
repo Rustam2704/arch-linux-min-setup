@@ -21,6 +21,8 @@ parser.add_argument("--idle-seconds", type=int, default=60)
 parser.add_argument("--trace-querytree", action="store_true")
 parser.add_argument("--trace-i3", action="store_true")
 parser.add_argument("--trace-refresh", action="store_true")
+parser.add_argument("--sites", metavar="PHASE", nargs="?", const="switch",
+                    help="break the X requests and i3 calls of PHASE down by deskd call site")
 args = parser.parse_args()
 source = Path(__file__).resolve().parent.parent
 tmp = Path(tempfile.mkdtemp(prefix="deskd-bench-"))
@@ -46,9 +48,23 @@ if _refresh_trace:
             caller = frame.f_back
             os.write(_refresh_fd, f"{time.time_ns()}:{frame.f_code.co_name}:{caller.f_code.co_name}:{caller.f_lineno}\\n".encode())
     sys.setprofile(_profile)
+_sites = os.environ.get("DESKD_TRACE_SITES")
+_sites_fd = os.open(_sites, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600) if _sites else None
+def _site(kind, name):
+    # innermost deskd frames first: "func:line < caller:line < ..."
+    import sys
+    frame = sys._getframe(2)
+    chain = []
+    while frame is not None and len(chain) < 5:
+        if os.path.basename(frame.f_code.co_filename) in ("deskd.py", "panels.py", "switcher.py"):
+            chain.append(f"{frame.f_code.co_name}:{frame.f_lineno}")
+        frame = frame.f_back
+    os.write(_sites_fd, f"{time.time_ns()}\\t{kind}\\t{name}\\t{' < '.join(chain)}\\n".encode())
 _x_send = xdisplay.Display.send_request
 def send_request(self, request, *args, **kwargs):
     os.write(_fd, f"{time.time_ns()}\\tX\\t{type(request).__name__}\\n".encode())
+    if _sites_fd is not None:
+        _site("X", type(request).__name__)
     if _trace_fd is not None and type(request).__name__ == "QueryTree":
         import traceback
         stack = traceback.extract_stack(limit=8)
@@ -58,6 +74,8 @@ xdisplay.Display.send_request = send_request
 _i3_ask = i3ipc.I3._ask
 def ask(self, kind, payload=b""):
     os.write(_fd, f"{time.time_ns()}\\ti3\\t{kind}\\n".encode())
+    if _sites_fd is not None:
+        _site("i3", str(kind))
     if _i3_trace_fd is not None:
         import traceback
         stack = traceback.extract_stack(limit=7)
@@ -77,6 +95,8 @@ if args.trace_i3:
     env["DESKD_TRACE_I3"] = str(tmp / "i3.txt")
 if args.trace_refresh:
     env["DESKD_TRACE_REFRESH"] = str(tmp / "refresh.txt")
+if args.sites:
+    env["DESKD_TRACE_SITES"] = str(tmp / "sites.tsv")
 procs = []
 phases = {}
 
@@ -224,6 +244,16 @@ try:
             stamp = int(line.split(":", 1)[0])
             if start <= stamp < end:
                 print("i3 switch", line.split(":", 1)[1], flush=True)
+    if args.sites:
+        start, end = phases[args.sites]
+        sites = collections.Counter()
+        for line in (tmp / "sites.tsv").read_text().splitlines():
+            stamp, kind, name, chain = line.split("\t")
+            if start <= int(stamp) < end:
+                sites[(kind, name, chain)] += 1
+        for (kind, name, chain), count in sites.most_common():
+            print(json.dumps({"site": args.sites, "n": count, "kind": kind, "req": name, "chain": chain}),
+                  flush=True)
     if args.trace_refresh:
         start, end = phases["switch"]
         for line in (tmp / "refresh.txt").read_text().splitlines():
