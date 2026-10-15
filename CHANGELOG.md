@@ -2066,6 +2066,59 @@ Claude Code хранит расшифровки (и файлы памяти) в 
 headless Chromium в `~/.cache/ms-playwright` (~200 МБ) для проверок design-sync.
 `gh` залогинен токеном пользователя (`~/.config/gh/hosts.yml`), wrangler — OAuth в `~/.config/.wrangler/`.
 
+## 73 — audit-deskd (15.10)
+
+Аудит 15.10 ([AUDIT-2026-10-15.md](AUDIT-2026-10-15.md), [a-deskd](research/audit-2026-10-15/a-deskd.md)),
+исправления — sonnet (Codex был без лимита).
+- **Цикл ~25 перерисовок/с:** при окне «поверх всех» на области `raise_focused` поднимал окно в
+  фокусе над ним, `raise_above` возвращал — каждый запрос давал ConfigureNotify и новый refresh.
+  Окна «поверх всех» теперь поднимает только `raise_above` (кроме полноэкранного фокуса). Это же
+  было причиной «мигающей» проверки keep-above в `deskd_smoke`.
+- Alt+Tab без уведомлений/подсказок/меню; смена области при зажатом Alt отменяет круг.
+- Слои кликов и звука панели снимаются, когда геометрии плагина нет, и прячутся при демонстрации
+  Zoom; `layer_visible` чистится.
+- Запоздалый ConfigureNotify развёрнутого/keep-above окна в 200 мс после смены области не теряется.
+- Кеш рамки клиента проверяется на событиях i3 `floating`/`fullscreen_mode`/`move` и при
+  DestroyNotify рамки; `XErrorLog` пишет неожиданные ошибки X (раз в минуту на опкод и тип).
+- Смена мониторов во время жеста откладывается до его конца; `_held` и `expect` чистятся,
+  `sweep_saved` убирает места окон, закрытых при остановленном deskd; блоки областей забираются
+  у ушедших выходов (было исчерпание после 10 имён); снимок выходов сбрасывается в `finally`.
+- Курсоры ручек растягивания — из темы (libXcursor), запасной — глиф шрифта.
+- `deskd-ctl ws next|prev`: по полосе панели 1…6 (+7…9, если есть), пустые включительно, стоп на
+  краях; свайп тремя пальцами переведён на него (было `workspace next_on_output` i3 — пропускал
+  пустые). `deskd-favorites --i3` удалён (функции давно нет).
+- K6 (очереди «Could not find two participants» в логе i3) — это отладочный вывод самого i3 4.25
+  при отрисовке пустой области, не deskd.
+- Тест: ждёт строки `running`, ждёт устоявшегося стека, считает ConfigureNotify (ловит цикл),
+  дамп при провале; 4 из 4 прогонов по 91 проверке. Bench: смена области 379/3 — и на коде до
+  правок (+100 к раунду 66 появились в 68–69, разобрать отдельно).
+
+## 72 — audit-cleanup (15.10)
+
+Аудит 15.10, находки B20–B26 (установщик), C1/C5/C3/C20/S4/S6/S8/T4/K2/A1/P3–P8 и др.
+- `tools/desktop.py`: `lab/installed.manifest`; `status`/`diff` показывают цели удалённых
+  исходников, `apply` удаляет их через `lab remove` (с откатом) и пустые каталоги; режимы файлов
+  в сравнении и `lab chmod`; xfconf читается у живого xfconfd по D-Bus; файлы только для root
+  (sysctl 0600) читаются через `sudo -n cat`. `lab`: запись в журнал после изменения, sudo только
+  где нужно, новые `mkdir`/`rmdir`/`chmod`/`xfconf`, записи `dir`/`rmdir`/`mode`/`xfconf` (с
+  проверкой конфликтов при откате), чистка временных файлов при ошибке, бэкап root-файлов через
+  sudo. `tests/test_installer.py` — 28 тестов во временном дереве. `LAB_STATE_DIR`,
+  `DESKTOP_HOME`, `DESKTOP_SYSTEM_ROOT` — для тестов.
+- `touchegg.service.d/50-quiet.conf`: `LogFilterPatterns=~Invalid fake finger state` (~467 000
+  строк за загрузку, 95 % журнала; тот же поток Xorg пишет в `Xorg.0.log`, его не отфильтровать).
+- `journald.conf.d/50-sync.conf`: `SystemMaxUse=500M`, `MaxRetentionSec=1month`.
+- `coredump.conf.d/50-size.conf`: дампы больше 256 МБ не сохраняются.
+- `mimeapps.list`: `inode/directory=thunar.desktop` (папки открывались в kitty); i3: `Alt+F4` = kill.
+- Сессия без `dex` (папки `~/.config/autostart` нет). Удалены `acpid` (на каждое нажатие стрелки —
+  root `sh` и `logger`), `zram-generator` с конфигом и маской, `30-touchpad.conf` (перекрыт `40-`),
+  `lightdm.conf.bak`, `arch-lts.conf.bak`, каналы xfconf `parole`, `xfce4-appfinder`,
+  `xfce4-taskmanager`, `xfce4-terminal`; пакеты `dex`, `xkb-switch`, `xfce4-pulseaudio-plugin` и шесть
+  `-debug`; `~/.config/pacman/makepkg.conf` — `!debug`. `cmake`, `qt6-base`, `python-cairo` — явные.
+- `packages.txt`: добавлены используемые `xorg-setxkbmap`, `pipewire-pulse`, `libpulse`,
+  `pavucontrol`, `curl`, `xdg-utils`, `xdg-user-dirs`, `tlp`, `thermald`, `sublime-text`.
+- В дерево: `00-keyboard.conf`, `40-touchpad.conf`, `modprobe.d/{broadcom-wl,hid_apple}.conf`,
+  `sysctl.d/99-lab-memory.conf`, `mbpfan.conf`, два правила udev — байт в байт как на машине.
+
 ## 71 — sleep-mark (15.10)
 
 Разбор сбоя пробуждения 01:56 (sonnet, только чтение журнала и `/sys`):
