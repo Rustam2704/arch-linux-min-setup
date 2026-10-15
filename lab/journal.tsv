@@ -844,3 +844,11 @@
 2026-10-15T11:18:32+03:00	75-followups	backup	/home/fanatic/.local/share/deskd/deskd.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_deskd_deskd.py.I0uwnu.bak
 2026-10-15T11:18:32+03:00	75-followups	backup	/home/fanatic/.local/share/light-year/api.py	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.local_share_light-year_api.py.4lSlNs.bak
 2026-10-15T11:27:33+03:00	75-followups	backup	/home/fanatic/.bashrc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.bashrc.waNNAb.bak
+2026-10-15T11:51:19+03:00	75-followups	backup	/home/fanatic/.bashrc	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.bashrc.HyqVlp.bak
+2026-10-15T11:51:50+03:00	76-soft-priority	backup	/home/fanatic/.config/systemd/user/kitty-.scope.d/50-below-desktop.conf	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_systemd_user_kitty-.scope.d_50-below-desktop.conf.MTxgtE.bak
+2026-10-15T11:52:22+03:00	76-media-keys	pkg	playerctl	
+2026-10-15T11:54:28+03:00	76-media-keys	file	/home/fanatic/.config/systemd/user/playerctld.service	
+2026-10-15T11:54:29+03:00	76-media-keys	cmd	systemctl --user disable --now playerctld.service	
+2026-10-15T19:10:23+03:00	76-media-keys	file	/home/fanatic/.local/bin/media-key	
+2026-10-15T19:10:23+03:00	76-media-keys	backup	/home/fanatic/.config/i3/cheatsheet.txt	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_cheatsheet.txt.JHGz8a.bak
+2026-10-15T19:10:23+03:00	76-media-keys	backup	/home/fanatic/.config/i3/config	/home/fanatic/ai/claude/setup/lab/backups/_home_fanatic_.config_i3_config.USJmJr.bak

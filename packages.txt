@@ -37,6 +37,7 @@ nm-connection-editor
 iw
 iputils                     # ping (netqd)
 btop                        # Ctrl+Shift+Esc
+playerctl                   # media keys (bin/media-key); playerctld.service keeps the players in order of activity
 curl                        # weather (panel-weather)
 xdg-utils                   # xdg-open (open-path, mimeapps)
 xdg-user-dirs

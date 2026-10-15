@@ -1,0 +1,14 @@
+[Unit]
+Description=playerctld: remembers which MPRIS player was active last, so the media keys control it (setup/lab)
+
+[Service]
+# No X needed (pure D-Bus), so default.target starts it like netqd and sysqd. Type=dbus: ready once
+# it owns org.mpris.MediaPlayer2.playerctld, which is the name playerctl looks for.
+Type=dbus
+BusName=org.mpris.MediaPlayer2.playerctld
+ExecStart=/usr/bin/playerctld
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

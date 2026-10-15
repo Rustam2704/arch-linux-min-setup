@@ -37,7 +37,7 @@
    правило группы `wheel`: `/etc/sudoers.d/10-wheel` с `%wheel ALL=(ALL:ALL) NOPASSWD: ALL`; узкое
    правило вместо него — свой файл, например `/etc/sudoers.d/tlp`: `<user> ALL=(root) NOPASSWD: /usr/bin/tlp`, права 0440.
    `tlp` стоит в `packages.txt`.
-7. **Службы**: `systemctl --user enable netqd sysqd`; `deskd`, `osd` и `sky-stars`
+7. **Службы**: `systemctl --user enable netqd sysqd playerctld`; `deskd`, `osd` и `sky-stars`
    запускает i3 (`exec` в конфиге, юниты `desktop/config/systemd/user/`). Touchégg:
    `sudo systemctl enable --now touchegg` (системная часть; клиент стартует из сессии).
 8. **Шрифты**: `fc-cache -f` после установки (в дереве лежит `Diablo.ttf`; Inter, JetBrainsMono

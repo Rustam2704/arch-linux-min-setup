@@ -9,7 +9,7 @@
 LightDM автологинит в эту сессию (`/usr/share/xsessions/xfce-i3.desktop`).
 
 Службы `systemctl --user`: `deskd`, `osd` и `sky-stars` запускает i3 (`exec` в конфиге: им нужен X;
-служба, стартующая до X, падает и systemd сдаётся); `netqd` и `sysqd` — `default.target`, включены.
+служба, стартующая до X, падает и systemd сдаётся); `netqd`, `sysqd` и `playerctld` — `default.target`, включены.
 
 | Служба | Что делает | Память | CPU в простое |
 |---|---|---|---|
@@ -17,6 +17,7 @@ LightDM автологинит в эту сессию (`/usr/share/xsessions/xfc
 | `osd` | OSD громкости/яркости/раскладки, переключатель раскладок | ~30 МиБ | ≈0 |
 | `netqd` | ping роутера и 1.1.1.1 раз в секунду → `$XDG_RUNTIME_DIR/netq*.txt` | ~8 МиБ | ~0.03 % |
 | `sysqd` | CPU, RAM и своп для панели: файлы и SVG раз в 2 с, пишутся только при смене показания | — | — |
+| `playerctld` | помнит, какой MPRIS-плеер был активен последним (Firefox, Telegram, mpv…); `bin/media-key` (Fn+F7/F8/F9) берёт из его списка играющий сейчас плеер, иначе первый | ~6 МиБ RSS (0.65 МиБ PSS) | ≈0 (на шине, сам не опрашивает) |
 | `sky-stars` | фон-звёзды | 23 МБ RSS | 0 при закрытом экране, ≈1.3 % ядра при открытом (замер) |
 | `light-year` | календарь, только пока открыт (Super+C) | ~42 МиБ | — |
 
@@ -219,9 +220,7 @@ Zoom — приложение Server-to-Server OAuth с правами `meeting:
   `Ctrl+клик` по пути открывает его (`open-click.py` + `open-path`, в том числе путь, разбитый
   TUI на две строки), средняя кнопка — меню пути, `Ctrl+Shift+O` — открыть выделенное,
   `Shift+клик` расширяет выделение, правый клик глушится. `sky-edit` — внешний редактор GTK
-  для Codex и Claude Code по `Ctrl+G` (`VISUAL` задаётся в обёртках `codex()` и `claude()` в `~/.bashrc`
-  и в `environment.d/60-sky-editor.conf`): в их поле ввода выделения нет, в sky-edit — `Ctrl+A`,
-  `Shift`+стрелки, мышь ([f-terminal-selection](research/audit-2026-10-15/f-terminal-selection.md)).
+  для Codex (`VISUAL` задаётся в обёртке `codex()` в `~/.bashrc` и в `environment.d/60-sky-editor.conf`).
 - **Thunar**: `Ctrl+V` с картинкой в буфере сохраняет её в открытую папку как
   `ГГГГ-ММ-ДД ЧЧ-ММ-СС.png` (как в Проводнике Windows), на любой раскладке; файлы вставляются
   как раньше. Устройство: родная вставка Thunar по `Ctrl+V` **отвязана** (`config/Thunar/accels.scm`,
@@ -246,6 +245,19 @@ Zoom — приложение Server-to-Server OAuth с правами `meeting:
 - **Клавиши**: `~/.config/i3/config`, шпаргалка `Super+/` (`cheatsheet.txt`): `Alt+Tab`,
   `Super+↑/↓/←/→` как в Windows, `Super+R/E/C`, `Ctrl+Shift+Esc` btop, `Super+Shift+S`/`Print`
   скриншоты (`snip`), `Super+Shift+E` меню выключения (то же, что кнопка ⏻ — `power-menu`).
+  Медиаклавиши — Fn+F7/F8/F9 (`XF86AudioPrev`/`Play`(`Pause`)/`Next`; в i3 `bindsym` на `~/.local/bin/media-key
+  previous|play-pause|next`). `playerctld` держит MPRIS-плееры в порядке свежей активности (`man playerctl`: «When playerctld is
+  running, playerctl commands will act on the media player with the most recent activity»; `playerctl -l` печатает этот
+  порядок): наверх встаёт тот, кто начал играть или только что появился, пауза оставляет плеер наверху. Но «только что
+  появился» значит и простаивающий плеер (VLC без файла) — голый `playerctl play-pause` включил бы его, а не остановил играющий.
+  Поэтому `media-key` идёт по списку `playerctl -l` и действует на первого, чей статус Playing; если не играет никто — на первого
+  в списке (последний использованный); плееров нет — тихо выходит с кодом 0. Проверено на ненастоящих плеерах на отдельной
+  шине. Keysyms XF86 одинаковы во всех группах раскладки (US/RU/UA). Firefox отдаёт MPRIS сам
+  (`media.hardwaremediakeys.enabled`, по умолчанию включено; в профиле и политике не менялось).
+- **Терминалы ниже рабочего стола**: у kitty каждое окно — своя scope (`kitty-<pid>-<n>.scope`),
+  drop-in `~/.config/systemd/user/kitty-.scope.d/50-below-desktop.conf` даёт им `CPUWeight=50`
+  против 100 у `app.slice`. Это приоритет, не потолок: в споре за CPU рабочий стол берёт вдвое
+  больше окна терминала, без спора терминал (агенты) берёт всё свободное.
 - **Firefox**: `firefox-limited` (мягкий потолок 6 ГБ через systemd, `firefox-mem` для настройки
   на лету). Своей выгрузки памяти в своп нет: `firefox-memd` удалён 30.09 — держа Firefox на 2 ГБ,
   он выталкивал в своп то, что страницы тут же тянули обратно. Userscripts и фильтры

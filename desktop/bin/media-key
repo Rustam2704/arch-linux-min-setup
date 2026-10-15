@@ -1,0 +1,11 @@
+#!/bin/bash
+# media-key <play-pause|next|previous> - Fn+F7/F8/F9. playerctld lists the players most recently active first,
+# but a fresh idle player (VLC opened without a file) also lands on top. So: act on the first player that is
+# Playing now, else on the first one in the list (the one used last); with no players do nothing.
+cmd=${1:?usage: media-key play-pause|next|previous}
+players=$(playerctl -l 2>/dev/null) || exit 0
+[ -n "$players" ] || exit 0
+while read -r p; do
+    [ "$(playerctl -p "$p" status 2>/dev/null)" = Playing ] && exec playerctl -p "$p" "$cmd"
+done <<< "$players"
+exec playerctl -p "${players%%$'\n'*}" "$cmd"

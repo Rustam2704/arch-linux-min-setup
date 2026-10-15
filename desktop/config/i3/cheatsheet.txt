@@ -40,6 +40,9 @@ Print                                 screenshot of this screen -> clipboard + f
 Ctrl + Shift + Esc                    system monitor (btop)
 Apple button -> Favorites             favorite apps, launch at login, workspaces
 4 fingers ↑ / ↓                       maximize / restore
+━━ MEDIA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Fn + F7 / F8 / F9                     previous / play-pause / next, for the player that is
+                                      playing now, else the one used last; any layout
 ━━ KEYBOARD LAYOUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Alt + Shift                           English <-> Russian (from Ukrainian: English)
 Ctrl + Shift                          Ukrainian (again: back to the previous one)
